@@ -1,0 +1,966 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><meta name="theme-color" content="#141821">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="../icons/icon-192.png">
+<link rel="apple-touch-icon" href="../icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<script>window.APP_KEY="parchis"</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="../firebase-config.js"></script>
+<script src="../shared/claude-shim.js"></script>
+</head><body>
+<title>Parchís de Chupitos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Figtree:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+/* Layout: app de una pantalla — jugadores arriba, tablero espiral 10×7, dock de turno abajo; cada casilla abre una hoja inferior */
+:root{
+  --bg:#1a0f24; --panel:#271936; --line:#3a2a4c; --ink:#fff5e6; --muted:#b6a5c7; --gold:#f7dc4a;
+  --c-hot:#e8197f; --c-pink:#dc5a9c; --c-yellow:#f3df6b; --c-cyan:#52c3ec; --c-orange:#f1a153;
+  --c-green:#a8d26c; --c-purple:#9a6cc4; --c-grey:#a3a0a8; --c-dark:#5a5660; --on-light:#24172f;
+  --display:"Bagel Fat One","Arial Rounded MT Bold",system-ui,sans-serif;
+  --body:"Figtree",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;overflow:hidden;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.screen{height:100%;overflow-y:auto;padding-inline:16px}
+
+/* ---------- Setup ---------- */
+.setup{max-width:520px;margin:0 auto;padding-block:28px 40px;display:flex;flex-direction:column;gap:22px}
+.logo{font-family:var(--display);font-weight:400;font-size:clamp(44px,13vw,68px);line-height:.92;margin:0;letter-spacing:-.01em;text-wrap:balance}
+.logo span{display:block;color:var(--gold);transform:rotate(-2deg);transform-origin:left}
+.tag{margin:6px 0 0;color:var(--muted);font-size:15px}
+.stripe{display:flex;gap:4px;height:10px}
+.stripe i{flex:1;border-radius:3px}
+h3{margin:0;font-size:12px;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);font-weight:800}
+.plist{display:flex;flex-direction:column;gap:8px}
+.prow{display:flex;align-items:center;gap:10px;background:var(--panel);border-radius:14px;padding:6px 6px 6px 12px}
+.prow .dot{width:22px;height:22px;border-radius:50%;flex:none;box-shadow:inset 0 0 0 3px rgba(0,0,0,.25)}
+.prow input{flex:1;min-width:0;background:transparent;border:0;color:var(--ink);font:600 17px var(--body);padding:10px 0}
+.prow input::placeholder{color:var(--muted)}
+.x{width:40px;height:40px;border-radius:10px;border:0;background:transparent;color:var(--muted);font-size:22px}
+.x:hover{background:var(--line)}
+.add{border:2px dashed var(--line);background:transparent;border-radius:14px;padding:12px;color:var(--muted);font-weight:700}
+.btn{border:0;border-radius:16px;padding:16px 18px;font-weight:800;font-size:17px;background:var(--line)}
+.btn.primary{background:var(--gold);color:var(--on-light)}
+.btn.hot{background:var(--c-hot);color:#fff}
+.btn.drink{background:transparent;box-shadow:inset 0 0 0 2px var(--c-orange);color:var(--c-orange)}
+.btn:disabled{opacity:.45;cursor:default}
+.rules{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;color:var(--muted);line-height:1.45;font-size:15px}
+.rules b{color:var(--ink)}
+
+/* ---------- Game ---------- */
+.game{height:100%;display:flex;flex-direction:column;overflow:hidden}
+.top{display:flex;align-items:center;gap:8px;padding:10px 16px 8px}
+.chips{display:flex;gap:6px;overflow-x:auto;flex:1;min-width:0;scrollbar-width:none;padding:2px}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;display:flex;align-items:center;gap:6px;background:var(--panel);border-radius:999px;padding:5px 10px 5px 5px;font-size:13px;font-weight:700;white-space:nowrap}
+.chip .dot{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:10px;color:var(--on-light);font-weight:800}
+.chip small{color:var(--muted);font-weight:600;font-variant-numeric:tabular-nums}
+.chip.on{box-shadow:inset 0 0 0 2px var(--gold)}
+.chip.jail{opacity:.55}
+.menu{flex:none;width:40px;height:40px;border-radius:12px;border:0;background:var(--panel);font-size:18px}
+.timerchip{margin:0 16px 6px;align-self:flex-start;border:0;background:var(--c-purple);color:#fff;border-radius:999px;padding:6px 12px;font-weight:800;font-variant-numeric:tabular-nums;font-size:13px}
+
+.boardwrap{padding-inline:10px;flex:none}
+.board{position:relative;display:grid;grid-template-columns:repeat(10,1fr);grid-template-rows:repeat(7,1fr);gap:3px;aspect-ratio:10/7;width:100%;max-width:min(680px,calc((100dvh - 290px) * 10 / 7));margin-inline:auto;padding:5px;background:var(--gold);border-radius:12px}
+.tile{position:relative;border:0;padding:0;border-radius:5px;background:var(--tc);display:grid;place-items:center;font-size:clamp(13px,4.2vw,28px);line-height:1;min-width:0;overflow:hidden}
+.tile .n{position:absolute;top:2px;left:3px;font:800 clamp(7px,1.8vw,11px)/1 var(--body);color:var(--on-light);opacity:.55}
+.tile.darkt .n{color:#fff}
+.tile.big{flex-direction:column;gap:2px}
+.tile .lbl{font:400 clamp(9px,2.6vw,17px)/1 var(--display);color:#fff}
+.tile.flash{animation:flash .6s ease 2}
+@keyframes flash{50%{filter:brightness(1.5)}}
+.tokens{position:absolute;inset:5px;pointer-events:none}
+.tk{position:absolute;width:clamp(14px,3.8vw,24px);aspect-ratio:1;border-radius:50%;transform:translate(-50%,-50%);border:2px solid var(--bg);display:grid;place-items:center;font:800 clamp(7px,1.9vw,11px)/1 var(--body);color:var(--on-light);transition:left .15s ease,top .15s ease,transform .2s}
+.tk.on{transform:translate(-50%,-50%) scale(1.3);z-index:2;box-shadow:0 0 0 2px var(--gold)}
+
+.dock{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:10px 16px calc(14px + env(safe-area-inset-bottom,0px))}
+.who{text-align:center}
+.who small{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);font-weight:800}
+.who strong{display:block;font:400 clamp(28px,8vw,40px)/1.05 var(--display);margin-top:2px;text-wrap:balance}
+.roll{display:flex;align-items:center;gap:14px;border:0;background:var(--panel);border-radius:22px;padding:12px 22px 12px 12px;font-weight:800;font-size:18px}
+.roll:disabled{opacity:.6}
+.die{width:64px;height:64px;border-radius:14px;background:var(--ink);display:grid;grid-template:repeat(3,1fr)/repeat(3,1fr);padding:9px;gap:2px;flex:none}
+.die i{border-radius:50%;background:var(--on-light);transform:scale(0);transition:transform .08s}
+.die i.p{transform:scale(.78)}
+.die.spin{animation:spin .5s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.last{color:var(--muted);font-size:14px;text-align:center;min-height:1.4em;max-width:420px}
+
+/* ---------- Sheet ---------- */
+.scrim{position:fixed;inset:0;background:rgba(10,4,16,.6);opacity:0;pointer-events:none;transition:opacity .2s;z-index:10}
+.scrim.open{opacity:1;pointer-events:auto}
+.sheet{position:fixed;left:0;right:0;bottom:0;margin-inline:auto;max-width:560px;max-height:88%;overflow-y:auto;background:var(--panel);border-radius:26px 26px 0 0;padding:14px 20px calc(20px + env(safe-area-inset-bottom,0px));transform:translateY(105%);transition:transform .28s cubic-bezier(.2,.9,.3,1.1);z-index:11;display:flex;flex-direction:column;gap:12px}
+.sheet.open{transform:none}
+.grab{width:44px;height:5px;border-radius:3px;background:var(--line);margin:0 auto 4px}
+.kind{align-self:flex-start;display:flex;align-items:center;gap:6px;border-radius:999px;padding:5px 12px 5px 8px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;background:var(--tc);color:var(--on-light)}
+.kind.darkt{color:#fff}
+.sheet h2{margin:0;font:400 clamp(28px,8vw,38px)/1.02 var(--display);text-wrap:balance}
+.sheet p{margin:0;color:var(--muted);line-height:1.45;font-size:16px}
+.sheet p b{color:var(--ink)}
+.card{background:var(--tc);color:var(--on-light);border-radius:18px;padding:22px 20px;font-weight:800;font-size:clamp(20px,5.6vw,26px);line-height:1.2;text-wrap:balance;position:relative;overflow:hidden}
+.card.darkt{color:#fff}
+.bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--gold);width:100%;transform-origin:left}
+.bar.run i{animation:shrink var(--t) linear forwards}
+@keyframes shrink{to{transform:scaleX(0)}}
+.timeup{color:var(--c-orange);font-weight:800}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.actions .btn:only-child{grid-column:1/-1}
+.actions .btn.wide{grid-column:1/-1}
+.picks{display:flex;flex-wrap:wrap;gap:8px}
+.picks .chip{border:0;font-size:15px;padding:8px 14px 8px 8px}
+.picks .chip.sel{box-shadow:inset 0 0 0 2px var(--gold)}
+.stage{display:grid;place-items:center;height:120px;font-size:72px}
+.stage .coin{animation:flip 1s ease-out}
+@keyframes flip{from{transform:rotateY(0)}to{transform:rotateY(1800deg)}}
+.stage .bottle{transition:transform 2.2s cubic-bezier(.15,.8,.2,1)}
+.legend{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font-size:13px;color:var(--muted)}
+.legend span{background:var(--bg);border-radius:10px;padding:8px;text-align:center}
+.legend span.hit{background:var(--gold);color:var(--on-light);font-weight:800}
+
+/* ---------- End ---------- */
+.end{max-width:520px;margin:0 auto;padding-block:40px;display:flex;flex-direction:column;gap:20px;text-align:center}
+.crown{font-size:72px;line-height:1}
+.end h1{margin:0;font:400 clamp(40px,12vw,60px)/1 var(--display);text-wrap:balance}
+.rank{display:flex;flex-direction:column;gap:6px;text-align:left}
+.rank div{display:flex;align-items:center;gap:10px;background:var(--panel);border-radius:14px;padding:10px 14px;font-weight:700}
+.rank div span:nth-child(2){flex:1}
+.rank small{color:var(--muted);font-variant-numeric:tabular-nums}
+
+.toast{position:fixed;left:50%;top:calc(14px + env(safe-area-inset-top,0px));transform:translate(-50%,-150%);background:var(--gold);color:var(--on-light);font-weight:800;border-radius:999px;padding:10px 18px;transition:transform .25s;z-index:20;white-space:nowrap}
+.toast.show{transform:translate(-50%,0)}
+/* ---------- Online ---------- */
+.box{display:flex;flex-direction:column;gap:10px;background:var(--panel);border-radius:20px;padding:16px}
+.box .prow{background:var(--bg)}
+.joinrow{display:flex;gap:8px}
+.joinrow input{flex:1;min-width:0;background:var(--bg);border:0;border-radius:14px;color:var(--ink);font:800 18px var(--body);padding:0 14px;letter-spacing:.2em;text-transform:uppercase}
+.joinrow input.plain{letter-spacing:0;text-transform:none;font-weight:600;font-size:17px;background:var(--panel)}
+.joinrow input::placeholder{color:var(--muted);letter-spacing:.1em}
+.lobbies{display:flex;flex-direction:column;gap:6px}
+.lobbies button{display:flex;justify-content:space-between;align-items:center;gap:10px;border:0;background:var(--bg);border-radius:12px;padding:12px 14px;text-align:left}
+.lobbies b{font:400 20px var(--display);letter-spacing:.06em;color:var(--gold)}
+.lobbies small{color:var(--muted)}
+.note{margin:0;color:var(--muted);font-size:14px;line-height:1.45}
+.btn.ghost{background:transparent;box-shadow:inset 0 0 0 2px var(--line)}
+.back{align-self:flex-start;border:0;background:transparent;color:var(--muted);font-weight:700;padding:6px 0}
+.eyebrow{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);font-weight:800}
+.code{font:400 clamp(64px,22vw,110px)/1 var(--display);letter-spacing:.08em;color:var(--gold)}
+.pname{flex:1;min-width:0;font-weight:700;font-size:17px;padding:10px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pname small{color:var(--muted);font-weight:600}
+.wait{grid-column:1/-1;text-align:center;color:var(--muted);font-weight:700;padding:6px 0}
+.room{font:400 13px var(--display);letter-spacing:.08em;color:var(--gold);flex:none}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+
+<section class="screen" id="menu">
+  <div class="setup">
+    <div>
+      <h1 class="logo">Parchís de <span>Chupitos</span></h1>
+      <p class="tag">La oca para beber. Cada uno desde su móvil, o todos con uno.</p>
+    </div>
+    <div class="stripe" aria-hidden="true"><i style="background:var(--c-hot)"></i><i style="background:var(--c-cyan)"></i><i style="background:var(--c-yellow)"></i><i style="background:var(--c-green)"></i><i style="background:var(--c-pink)"></i><i style="background:var(--c-purple)"></i><i style="background:var(--c-orange)"></i></div>
+    <button class="btn hot" id="resumeLocal" hidden>Continuar partida en este móvil</button>
+    <div class="box" id="onlineBox">
+      <h3>Partida online</h3>
+      <div class="prow"><span class="dot" style="background:var(--gold)"></span><input id="myName" placeholder="Tu nombre" maxlength="14" autocomplete="off"></div>
+      <button class="btn primary" id="createBtn">Crear sala</button>
+      <div class="joinrow"><input id="codeIn" placeholder="Código" maxlength="4" autocomplete="off" autocapitalize="characters"><button class="btn" id="joinBtn">Unirme</button></div>
+      <div class="lobbies" id="openList"></div>
+      <p class="note" id="onlineNote">Conectando…</p>
+    </div>
+    <button class="btn ghost" id="localBtn">Jugar en un solo móvil</button>
+    <h3>Cómo se juega</h3>
+    <ul class="rules">
+      <li>Tira el dado, avanza y haz lo que diga la casilla.</li>
+      <li><b>Carta, Verdad y Prueba</b> sacan una tarjeta. Si no cumples, bebes.</li>
+      <li><b>Cárcel:</b> 2 rondas sin tirar. <b>Escalera:</b> del 38 subes al 57.</li>
+      <li><b>De chupito a chupito</b> y tiras porque te toca.</li>
+      <li>Hay que llegar justo a la meta (66). Si te pasas, rebotas.</li>
+      <li>Quien llega primero gana y el resto le debe una ronda.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="screen" id="setup" hidden>
+  <div class="setup">
+    <button class="back" id="setupBack">← Volver</button>
+    <div>
+      <h1 class="logo" style="font-size:clamp(34px,10vw,48px)">Un solo móvil</h1>
+      <p class="tag">Pasadlo en cada turno.</p>
+    </div>
+    <h3>Jugadores</h3>
+    <div class="plist" id="plist"></div>
+    <button class="add" id="addP">+ Añadir jugador</button>
+    <button class="btn primary" id="startBtn">Empezar partida</button>
+  </div>
+</section>
+
+<section class="screen" id="lobby" hidden>
+  <div class="setup">
+    <button class="back" id="lobbyBack">← Salir de la sala</button>
+    <div>
+      <span class="eyebrow">Código de sala</span>
+      <div class="code" id="lobbyCode">····</div>
+      <p class="tag">Tus amigos abren este mismo enlace y entran con este código.</p>
+    </div>
+    <h3>Jugadores</h3>
+    <div class="plist" id="lobbyList"></div>
+    <button class="btn" id="joinMe" hidden>Unirme a la sala</button>
+    <div class="joinrow"><input class="plain" id="guestName" placeholder="Alguien sin móvil" maxlength="14" autocomplete="off"><button class="btn" id="addGuest">Añadir</button></div>
+    <button class="btn primary" id="startOnline">Empezar partida</button>
+    <p class="note" id="waitHost">Esperando a que el anfitrión empiece…</p>
+  </div>
+</section>
+
+<section class="game" id="game" hidden>
+  <div class="top">
+    <span class="room" id="roomTag"></span>
+    <div class="chips" id="chips"></div>
+    <button class="menu" id="menuBtn" aria-label="Menú">⋯</button>
+  </div>
+  <button class="timerchip" id="timerChip" hidden></button>
+  <div class="boardwrap"><div class="board" id="board"><div class="tokens" id="tokens"></div></div></div>
+  <div class="dock">
+    <div class="who"><small id="whoLbl">Turno de</small><strong id="whoName">—</strong></div>
+    <button class="roll" id="rollBtn"><span class="die" id="die"></span><span id="rollTxt">Tirar dado</span></button>
+    <div class="last" id="last"></div>
+  </div>
+</section>
+
+<section class="screen" id="end" hidden>
+  <div class="end">
+    <div class="crown">👑</div>
+    <h1 id="endName"></h1>
+    <p class="tag" style="margin:0">Ha llegado primero. El resto le debe una ronda.</p>
+    <h3>Quién ha bebido más</h3>
+    <div class="rank" id="rank"></div>
+    <button class="btn primary" id="again">Revancha</button>
+    <p class="note" id="againWait" hidden>El anfitrión puede pedir la revancha.</p>
+    <button class="btn" id="endExit">Salir</button>
+  </div>
+</section>
+
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="shTitle">
+  <div class="grab"></div>
+  <div class="kind" id="shKind"></div>
+  <h2 id="shTitle"></h2>
+  <p id="shText"></p>
+  <div class="card" id="shCard" hidden></div>
+  <div id="shExtra"></div>
+  <div class="actions" id="shActions"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const COLORS = ['#ff6b9e','#52c3ec','#f7dc4a','#a8d26c','#ff9f43','#c299ff','#ffffff','#3ee6c8'];
+const GOAL = 66;
+
+/* ---------- Tipos de casilla ---------- */
+const KIND = {
+  start:{l:'Salida',c:'--c-hot',e:'🏁',t:'Inicio',dk:1},
+  carta:{l:'Carta',c:'--c-pink',e:'🃏',t:'Carta',dk:1},
+  verdad:{l:'Verdad',c:'--c-yellow',e:'🤥',t:'Verdad'},
+  prueba:{l:'Prueba',c:'--c-cyan',e:'😈',t:'Prueba'},
+  bebe:{l:'A beber',c:'--c-orange',e:'🍻'},
+  libre:{l:'Libre',c:'--c-grey',e:'🕊️',t:'¡Te libras!'},
+  carcel:{l:'Cárcel',c:'--c-dark',e:'💀',t:'Cárcel',dk:1},
+  reto:{l:'Reto',c:'--c-green',e:'🎯'},
+  esp:{l:'Especial',c:'--c-purple',e:'✨',dk:1},
+  goal:{l:'Meta',c:'--c-hot',e:'👑',t:'¡Has ganado!',dk:1}
+};
+const S = (k,fx,t,e,d) => ({k,fx,t,e,d});
+const SQ = [
+  S('start','none'),
+  S('carta','card'),
+  S('reto','reto','Matar, casar o follar','🔫','El grupo dice tres nombres. Tú eliges a quién matas, con quién te casas y con quién follas.'),
+  S('verdad','card'),
+  S('esp','group','¡Foto grupal!','📸','Todos a la foto. Ahora mismo.'),
+  S('prueba','card'),
+  S('libre','libre'),
+  S('bebe','todos','¡Todos beben!','🍻'),
+  S('carta','card'),
+  S('verdad','card'),
+  S('bebe','choice','Chupito o prenda','👕','Tú eliges: te tomas un chupito o te quitas una prenda.'),
+  S('esp','moneda','Juego de la moneda','🪙','Di cara o cruz. Si fallas, bebes.'),
+  S('bebe','beben','Beben las chicas','👩'),
+  S('carta','card'),
+  S('bebe','beben','Beben los chicos','🙋‍♂️'),
+  S('verdad','card'),
+  S('carcel','carcel'),
+  S('prueba','card'),
+  S('bebe','todosmenos','¡Todos beben! (menos tú)','🍻'),
+  S('bebe','beben','Beben los chicos','🙋‍♂️'),
+  S('carta','card'),
+  S('libre','libre'),
+  S('verdad','card'),
+  S('esp','back10','Retrocede 10 casillas','😤','Vuelves a la casilla 13.'),
+  S('bebe','beben','Ropa interior negra','🖤','Bebe quien lleve ropa interior negra. Se puede pedir prueba.'),
+  S('carta','card'),
+  S('reto','mandas','Mandas a beber','🫗','Elige quién bebe.'),
+  S('verdad','card'),
+  S('esp','silencio','5 minutos sin hablar','🙊','Cinco minutos en silencio. Si hablas antes, bebes.'),
+  S('prueba','card'),
+  S('bebe','beben','Beben los de ojos claros','👁️'),
+  S('esp','reto','Cambio de prenda','🔄','Intercambia una prenda con quien tengas a la derecha.'),
+  S('reto','botella','Juego de la botella','🍾','Gira la botella y a ver a quién señala.'),
+  S('bebe','beben','Bebe el más bajito','🍼'),
+  S('reto','avanza4','3 chupitos, avanzas 4','🥃','Si te bebes 3 chupitos, avanzas 4 casillas.'),
+  S('esp','chupito','De chupito a chupito','🥃'),
+  S('bebe','beben','Beben los rubios','👱'),
+  S('prueba','card'),
+  S('bebe','ladder','¡Escalera!','🪜','Subes directo a la casilla 57.'),
+  S('verdad','card'),
+  S('esp','beben','Bebe el más alto','📏'),
+  S('carta','card'),
+  S('bebe','chupito','De chupito a chupito','🥃'),
+  S('reto','reto','Piedra, papel o tijera','✂️','Reta a quien quieras. Quien pierda, chupito.'),
+  S('verdad','card'),
+  S('reto','reto','Pon una prueba','🤭','Inventa una prueba para quien quieras. Si no la hace, bebe.'),
+  S('bebe','todos','¡Todos beben!','🍻'),
+  S('prueba','card'),
+  S('esp','mini','Minijuego','🎲','Tira el dado y cumple lo que salga.'),
+  S('carta','card'),
+  S('reto','reto','Broma telefónica','📞','Llama a alguien y gástale una broma. Si te pillan en menos de un minuto, bebes.'),
+  S('verdad','card'),
+  S('libre','libre'),
+  S('prueba','card'),
+  S('reto','reto','¡Ringo Ringo!','🍹','Jugad al Ringo Ringo. Quien pierda, bebe.'),
+  S('verdad','card'),
+  S('reto','beben','Bebe el más guapo','😻','Votad a la de tres.'),
+  S('esp','none','Final de la escalera','🪜','Aquí llega la escalera del 38.'),
+  S('prueba','card'),
+  S('bebe','group','¡Abrazo grupal!','🤗','Todos juntos. Nadie se escapa.'),
+  S('esp','group','¡Foto grupal!','📸','Todos a la foto. Ahora mismo.'),
+  S('carta','card'),
+  S('bebe','gana3','3 chupitos y ganas','🏆','Si te bebes 3 chupitos, ganas directamente.'),
+  S('verdad','card'),
+  S('reto','reto','Piedra, papel o tijera','✂️','Reta a quien quieras. Quien pierda, chupito.'),
+  S('prueba','card'),
+  S('goal','goal')
+];
+// [columna, fila, ancho] en la cuadrícula 10×7 (recorrido en espiral hacia el centro)
+const POS = [[0,0],[0,1],[0,2],[0,3],[0,4],[0,5],[0,6],[1,6],[2,6],[3,6],[4,6],[5,6],[6,6],[7,6],[8,6],[9,6],[9,5],[9,4],[9,3],[9,2],[9,1],[9,0],[8,0],[7,0],[6,0],[5,0],[4,0],[3,0],[2,0],[1,0],[1,1],[1,2],[1,3],[1,4],[1,5],[2,5],[3,5],[4,5],[5,5],[6,5],[7,5],[8,5],[8,4],[8,3],[8,2],[8,1],[7,1],[6,1],[4,1,2],[3,1],[2,1],[2,2],[2,3],[2,4],[3,4],[4,4],[5,4],[6,4],[7,4],[7,3],[7,2],[6,2],[5,2],[4,2],[3,2],[3,3],[4,3,3]];
+
+/* ---------- Mazos ---------- */
+const DECKS = {
+  carta:{sub:'Tienes 15 segundos. Si te quedas en blanco, bebes.', cards:[
+    'Tres animales con los que tendrías sexo','3 formas de masturbar a alguien sin manos','3 cosas que explotan cuando las agitas','Imagina 3 muertes peores que que te entierren vivo','3 razones para correr desnudo por un bosque','No podría vivir sin…','¿Qué harías si te quedaran 24 h de vida?','VS: en equipos, gana quien más acierte','3 técnicas de engaño para que se lo traguen','3 razones para ponerle un condón a un pepino','3 razones para ir a Siria con tu familia','3 palabras en inglés que sepas por el porno','3 lugares para conocer rumanos','3 cosas que no puedes hacer con un micropene','3 cosas en las que te gusta sentarte','3 formas de salir de la friendzone','3 maneras de arreglar un gatillazo','3 leyes que incumples a menudo','Momentos en los que está bien sentir dolor','3 marcas de condones']},
+  verdad:{sub:'Contesta con la verdad o bebe.', cards:[
+    '¿Qué es lo que no repetirías en el sexo?','Si tuvieras que volver con un ex, ¿con quién sería?','¿Cuál ha sido la peor etapa de tu vida?','¿Beso seco o húmedo?','Cuenta lo más malo que hayas hecho','¿Has hecho un trío o una orgía?','¿Has tenido o tienes alguna fantasía sexual rara?','¿Has tenido sexo en la calle?','¿Alguna vez has engañado a tu pareja?','¿Cuál es tu mayor red flag?','¿Qué parte de tu cuerpo cambiarías?','¿Por qué famoso lo dejarías todo?','¿Cuál ha sido tu sueño más raro?','¿Tu mayor secreto?','¿A cuántas personas has besado en un mismo día?','¿Quién es la persona más atractiva del grupo?','¿Qué pensaste la primera vez que me viste?','¿Te han hecho una cobra alguna vez?','¿La última vez que te tocaste?','¿Te han pillado tocándote?']},
+  prueba:{sub:'Hazlo o bebe.', cards:[
+    '¿Qué prefieres? Tener sobrepeso o no volver a follar','Cuenta un chiste de humor negro','Publica en Insta una foto en la que salgas fatal','Habla a tu crush y súbele una foto rara','¿Qué prefieres? Ser actriz porno o prostituta','¿Qué prefieres? Hacerlo con tu padre o con tu madre','Cómete un diente de ajo a pelo','WhatsAppea a tu ex','Da una vuelta en ropa interior','¿Qué prefieres? Morir en dos días o ser Hitler','Dale un beso a la persona de tu derecha','Entra en Insta y escribe a la persona 30 de las historias','Sirve las copas de todo el mundo toda la noche','¿Qué prefieres? Que tu novio te ponga los cuernos con tu mejor amiga o que no se le empalme nunca más','Lame el cuello a la persona de tu izquierda','Llama a alguien y dile que estás embarazada','¿Qué prefieres? Estar solo el resto de tu vida o entrar en la cárcel','No mires el móvil en 1 hora','Pasa el hielo con la boca al de tu derecha','Acábate el vaso','Llama a tu madre para decirle que la quieres','Quita el polvo a las baldas','Te toca bajar la basura','Te toca barrer al terminar','Representa una escena de una peli','Imita a alguien del grupo','Haz 30 sentadillas','Deja que alguien te lea los mensajes','Un trago por cada persona del grupo con la que tendrías algo','Pico con la persona de tu izquierda','¿Te acostarías con alguien por 10.000 euros?','Cuenta lo más ridículo que te haya pasado por la calle']}
+};
+
+/* ---------- Utilidades ---------- */
+const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const sleep = ms => new Promise(r => setTimeout(r, reduce ? Math.min(ms, 40) : ms));
+const shuffle = a => { a = a.slice(); for (let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]];} return a; };
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const rnd6 = () => 1 + Math.random()*6 | 0;
+const lsGet = k => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch(e){ return null; } };
+const lsSet = (k,v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); } catch(e){} };
+const info = s => ({...KIND[s.k], ...(s.t?{t:s.t}:{}), ...(s.e?{e:s.e}:{})});
+const initial = n => esc((n||'?').trim()[0] || '?').toUpperCase();
+
+/* Identidad del dispositivo (cada móvil controla sus jugadores) */
+let dev = lsGet('pdc-dev');
+if (!dev){ dev = 'd' + Math.random().toString(36).slice(2,10); lsSet('pdc-dev', dev); }
+
+/* ---------- Estado ---------- */
+let db = null, dbState = 'wait', canWrite = null, readOnly = false;
+let mode = null, code = null, st = null;
+let lobbyPlayers = [], openGames = [];
+let unsubGame = null, unsubPlayers = null;
+let names = lsGet('pdc-names') || ['Jugador 1','Jugador 2','Jugador 3'];
+let myName = lsGet('pdc-name') || '';
+let seenAnim = 0, seenEvA = 0, animating = false, shown = [];
+let sheetKey = '', dismissed = '', sheetMode = null, cardTimer = null, silenceHidden = 0;
+let writing = false, dirty = false;
+
+const cur = () => st.players[st.turn];
+const canAct = () => {
+  if (!st || st.status !== 'playing') return false;
+  if (mode === 'local') return true;
+  if (readOnly) return false;
+  return cur().owner === dev || st.host === dev;
+};
+const isMine = p => mode === 'local' || p.owner === dev;
+
+/* ---------- Pantallas ---------- */
+function show(id){
+  for (const s of ['menu','setup','lobby','game','end']) $(s).hidden = s !== id;
+  if (id !== 'game') closeSheet();
+}
+function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(toast.t); toast.t=setTimeout(()=>t.classList.remove('show'),2000); }
+
+/* ---------- Menú ---------- */
+function renderMenu(){
+  const local = lsGet('pdc-local');
+  $('resumeLocal').hidden = !(local && local.status === 'playing');
+  const ok = dbState === 'ok';
+  for (const id of ['createBtn','joinBtn','codeIn','myName']) $(id).disabled = !ok;
+  $('myName').value = myName;
+  let note = '';
+  if (dbState === 'wait') note = 'Conectando…';
+  else if (dbState === 'none') note = 'Sin conexión no hay modo online. Mientras, podéis jugar en un solo móvil.';
+  else if (canWrite === false) note = 'Puedes ver las salas pero no jugar. Pide al anfitrión que te invite como editor.';
+  else if (!openGames.length) note = 'Crea una sala y pasa el código, o únete con el de un amigo.';
+  $('onlineNote').textContent = note; $('onlineNote').hidden = !note;
+  $('openList').innerHTML = ok && openGames.length ? '<h3>Salas abiertas</h3>' + openGames.map(g =>
+    `<button data-code="${esc(g.code)}"><b>${esc(g.code)}</b><small>Creada hace ${Math.max(1, Math.round((Date.now()-g.created)/60000))} min</small></button>`).join('') : '';
+}
+$('myName').addEventListener('input', e => { myName = e.target.value; lsSet('pdc-name', myName); });
+$('codeIn').addEventListener('input', e => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g,''); });
+$('openList').addEventListener('click', e => { const b = e.target.closest('[data-code]'); if (b) joinByCode(b.dataset.code); });
+$('createBtn').onclick = createGame;
+$('joinBtn').onclick = () => joinByCode($('codeIn').value);
+$('codeIn').addEventListener('keydown', e => { if (e.key === 'Enter') joinByCode($('codeIn').value); });
+$('localBtn').onclick = () => { show('setup'); renderSetup(); };
+$('resumeLocal').onclick = () => { mode = 'local'; st = lsGet('pdc-local'); primeSeen(); render(); };
+
+function needName(){
+  myName = $('myName').value.trim();
+  if (!myName){ $('myName').focus(); toast('Pon tu nombre primero'); return false; }
+  lsSet('pdc-name', myName); return true;
+}
+
+/* ---------- Un solo móvil ---------- */
+function renderSetup(){
+  $('plist').innerHTML = names.map((n,i)=>`
+    <div class="prow"><span class="dot" style="background:${COLORS[i]}"></span>
+    <input id="pn${i}" value="${esc(n)}" placeholder="Nombre" maxlength="14" autocomplete="off" data-i="${i}">
+    ${names.length>2?`<button class="x" data-del="${i}" aria-label="Quitar">×</button>`:''}</div>`).join('');
+  $('addP').hidden = names.length >= 8;
+}
+$('plist').addEventListener('input', e => { if (e.target.dataset.i!=null){ names[+e.target.dataset.i] = e.target.value; lsSet('pdc-names', names); } });
+$('plist').addEventListener('click', e => { const d = e.target.dataset.del; if (d!=null){ names.splice(+d,1); lsSet('pdc-names', names); renderSetup(); } });
+$('addP').onclick = () => { names.push('Jugador '+(names.length+1)); renderSetup(); $('pn'+(names.length-1)).select(); };
+$('setupBack').onclick = () => { show('menu'); renderMenu(); };
+$('startBtn').onclick = () => {
+  mode = 'local'; code = null;
+  st = freshGame({code:'LOCAL', host:dev}, names.map((n,i)=>({name:n.trim()||'Jugador '+(i+1), owner:dev})));
+  primeSeen(); commit(); wake();
+};
+
+function freshGame(base, list){
+  return { ...base, status:'playing', v:(base.v||0), aseq:(base.aseq||0),
+    players: list.map((x,i)=>({name:x.name, owner:x.owner, color:COLORS[i%8], pos:0, drinks:0, jail:0})),
+    turn:0, winner:null, ev:null, anim:null, decks:{}, silence:null, last:'Que empiece el lío.' };
+}
+function wake(){ try { navigator.wakeLock?.request('screen').catch(()=>{}); } catch(e){} }
+
+/* ---------- Online: salas ---------- */
+async function createGame(){
+  if (!db || !needName()) return;
+  let c = null;
+  for (let k=0;k<6;k++){
+    const t = Array.from({length:4},()=>LETTERS[Math.random()*LETTERS.length|0]).join('');
+    try { const s = await db.doc('games/'+t).get(); if (!s.exists){ c = t; break; } } catch(e){ return writeFail(e); }
+  }
+  if (!c) return toast('No se pudo crear la sala, prueba otra vez');
+  try { await db.doc('games/'+c).set({code:c, status:'lobby', host:dev, created:Date.now(), v:1, aseq:0}); }
+  catch(e){ return writeFail(e); }
+  enterRoom(c, true);
+}
+async function joinByCode(c){
+  c = (c||'').toUpperCase().trim();
+  if (!db || c.length !== 4) return toast('El código tiene 4 letras');
+  if (!needName()) return;
+  let s; try { s = await db.doc('games/'+c).get(); } catch(e){ return toast('No se pudo conectar'); }
+  if (!s.exists) return toast('No existe la sala ' + c);
+  enterRoom(c, true);
+}
+function enterRoom(c, autoJoin){
+  unsubAll();
+  mode = 'online'; code = c; st = null; readOnly = false; lobbyPlayers = [];
+  lsSet('pdc-online', {code:c});
+  let joinedOnce = false;
+  unsubGame = db.doc('games/'+c).onSnapshot(snap => {
+    if (!snap.exists) return leaveRoom('La sala ya no existe');
+    const d = JSON.parse(JSON.stringify(snap.data()));
+    if (d.status === 'closed') return leaveRoom('El anfitrión ha cerrado la sala');
+    if (st && (d.v||0) < (st.v||0)) return;
+    const first = !st;
+    st = d;
+    if (first) primeSeen();
+    if (autoJoin && !joinedOnce && st.status === 'lobby'){ joinedOnce = true; joinSelf(); }
+    render();
+  }, () => toast('Se ha perdido la conexión con la sala'));
+  unsubPlayers = db.collection(`games/${c}/players`).onSnapshot(snap => {
+    lobbyPlayers = snap.docs.map(d => ({id:d.id, ...d.data()})).sort((a,b)=>(a.at||0)-(b.at||0));
+    if (st?.status === 'lobby') renderLobby();
+  }, () => {});
+  $('lobbyCode').textContent = c;
+  show('lobby'); renderLobby();
+}
+function unsubAll(){ unsubGame?.(); unsubPlayers?.(); unsubGame = unsubPlayers = null; }
+async function joinSelf(){
+  if (!myName) myName = 'Jugador';
+  try { await db.doc(`games/${code}/players/${dev}`).set({name:myName, owner:dev, local:false, at:Date.now()}); }
+  catch(e){ writeFail(e); }
+}
+async function leaveRoom(msg){
+  const c = code, wasLobby = st?.status === 'lobby';
+  unsubAll();
+  if (wasLobby && db && c){
+    for (const x of lobbyPlayers.filter(x=>x.owner===dev)) { try { await db.doc(`games/${c}/players/${x.id}`).delete(); } catch(e){} }
+  }
+  mode = null; code = null; st = null; lobbyPlayers = [];
+  lsSet('pdc-online', null);
+  show('menu'); renderMenu();
+  if (msg) toast(msg);
+}
+
+function renderLobby(){
+  if (!st) return;
+  show('lobby');
+  const host = st.host === dev;
+  $('lobbyList').innerHTML = lobbyPlayers.length ? lobbyPlayers.map((x,i)=>`
+    <div class="prow"><span class="dot" style="background:${COLORS[i%8]}"></span>
+    <span class="pname">${esc(x.name)} ${x.owner===st.host&&!x.local?'👑 ':''}<small>${x.owner===dev?(x.local?'en tu móvil':'tú'):''}</small></span>
+    ${(x.owner===dev||host)?`<button class="x" data-kick="${esc(x.id)}" aria-label="Quitar">×</button>`:''}</div>`).join('')
+    : '<p class="note">Todavía no hay nadie.</p>';
+  $('joinMe').hidden = lobbyPlayers.some(x => x.id === dev) || readOnly;
+  $('startOnline').hidden = !host;
+  $('startOnline').disabled = lobbyPlayers.length < 2;
+  $('startOnline').textContent = lobbyPlayers.length < 2 ? 'Hacen falta 2 jugadores' : `Empezar con ${lobbyPlayers.length}`;
+  $('waitHost').hidden = host;
+}
+$('lobbyList').addEventListener('click', async e => {
+  const id = e.target.dataset.kick; if (!id) return;
+  try { await db.doc(`games/${code}/players/${id}`).delete(); } catch(err){ writeFail(err); }
+});
+$('joinMe').onclick = joinSelf;
+$('addGuest').onclick = async () => {
+  const n = $('guestName').value.trim(); if (!n) return $('guestName').focus();
+  $('guestName').value = '';
+  try { await db.doc(`games/${code}/players/${dev}-${Date.now().toString(36)}`).set({name:n, owner:dev, local:true, at:Date.now()}); }
+  catch(e){ writeFail(e); }
+};
+$('guestName').addEventListener('keydown', e => { if (e.key === 'Enter') $('addGuest').click(); });
+$('lobbyBack').onclick = () => leaveRoom();
+$('startOnline').onclick = () => {
+  if (st.host !== dev || lobbyPlayers.length < 2) return;
+  st = freshGame(st, lobbyPlayers.map(x => ({name:x.name, owner:x.owner})));
+  primeSeen(); commit(); wake();
+};
+
+/* ---------- Guardado ---------- */
+function commit(){
+  st.v = (st.v||0) + 1;
+  if (mode === 'online') flush(); else lsSet('pdc-local', st);
+  render();
+}
+async function flush(){
+  if (writing){ dirty = true; return; }
+  writing = true;
+  const c = code;
+  do {
+    dirty = false;
+    if (!st || code !== c) break;
+    try { await db.doc('games/'+c).set(JSON.parse(JSON.stringify(st))); }
+    catch(e){ writeFail(e); break; }
+  } while (dirty);
+  writing = false;
+}
+function writeFail(e){
+  if (e?.code === 'invalid_argument'){ readOnly = true; toast('No tienes permiso para jugar aquí'); if (st) render(); }
+  else if (e?.code === 'quota_exceeded') toast('La app ha llegado a su límite de salas');
+  else toast('No se ha podido guardar. Revisa la conexión');
+}
+
+/* ---------- Render principal ---------- */
+function primeSeen(){
+  seenAnim = st?.anim?.seq || 0;
+  seenEvA = st?.ev?.aseq || 0;
+  shown = (st?.players || []).map(p => p.pos);
+  sheetKey = ''; dismissed = '';
+}
+function render(){
+  if (!st) return;
+  if (st.status === 'lobby') return renderLobby();
+  const pendingAnim = st.anim && st.anim.seq > seenAnim;
+  if (st.status === 'ended' && !pendingAnim && !animating) return renderEnd();
+  if ($('game').hidden) show('game');
+  $('roomTag').textContent = mode === 'online' ? code : '';
+  $('roomTag').hidden = mode !== 'online';
+  renderChips();
+  if (pendingAnim && !animating){ playAnim(st.anim); return; }
+  if (animating) return;
+  shown = st.players.map(p => p.pos);
+  placeTokens(); renderDock(); renderSheet(); tickSilence();
+}
+
+/* ---------- Tablero ---------- */
+function buildBoard(){
+  const b = $('board');
+  SQ.forEach((s,i) => {
+    const [c,r,w=1] = POS[i], k = info(s);
+    const el = document.createElement('button');
+    el.className = 'tile' + (KIND[s.k].dk?' darkt':'') + (w>1?' big':'');
+    el.style.cssText = `grid-column:${c+1} / span ${w};grid-row:${r+1};--tc:var(${KIND[s.k].c})`;
+    el.id = 't'+i;
+    el.setAttribute('aria-label', `${i}: ${k.t||k.l}`);
+    el.innerHTML = (i && i<GOAL ? `<span class="n">${i}</span>` : '') + `<span>${k.e}</span>` + (w>1 ? `<span class="lbl">${i===GOAL?'META':'MINIJUEGO'}</span>` : '');
+    el.onclick = () => { if (!animating && !st?.ev && !$('sheet').classList.contains('open')) tileInfo(i); };
+    b.insertBefore(el, $('tokens'));
+  });
+}
+const OFF = [[0,0],[-5,-5],[5,5],[5,-5],[-5,5],[0,-7],[0,7],[-7,0]];
+function placeTokens(){
+  const t = $('tokens');
+  if (t.dataset.sig !== st.players.map(p=>p.name).join('|')){
+    t.dataset.sig = st.players.map(p=>p.name).join('|');
+    t.innerHTML = st.players.map((p,i)=>`<span class="tk" id="tk${i}" style="background:${p.color}">${initial(p.name)}</span>`).join('');
+  }
+  const seen = {};
+  st.players.forEach((p,i) => {
+    const pos = shown[i] ?? p.pos;
+    const [c,r,w=1] = POS[pos], n = seen[pos] = (seen[pos]||0)+1, [dx,dy] = OFF[(n-1)%8];
+    const el = $('tk'+i); if (!el) return;
+    el.style.left = `calc(${(c+w/2)*10}% + ${dx}px)`;
+    el.style.top  = `calc(${(r+.5)/7*100}% + ${dy}px)`;
+    el.classList.toggle('on', i===st.turn && st.winner==null);
+  });
+}
+function renderChips(){
+  $('chips').innerHTML = st.players.map((p,i)=>`
+    <div class="chip${i===st.turn?' on':''}${p.jail?' jail':''}"><span class="dot" style="background:${p.color}">${initial(p.name)}</span>${esc(p.name)}${p.jail?' 💀':''}${mode==='online'&&p.owner===dev?' 📱':''} <small>🍺${p.drinks}</small></div>`).join('');
+  $('chips').children[st.turn]?.scrollIntoView({inline:'center',block:'nearest'});
+}
+function renderDock(){
+  const p = cur(), act = canAct(), mine = isMine(p);
+  $('whoName').textContent = p.name;
+  $('whoName').style.color = p.color;
+  $('last').textContent = st.last || '';
+  $('whoLbl').textContent = p.jail > 0 ? 'En la cárcel' : (mode==='online' && p.owner===dev ? 'Te toca' : 'Turno de');
+  let txt;
+  if (p.jail > 0) txt = act ? `Pasar turno (${p.jail})` : `Quedan ${p.jail} rondas`;
+  else txt = act ? (mine ? 'Tirar dado' : `Tirar por ${p.name}`) : `Esperando a ${p.name}`;
+  $('rollTxt').textContent = txt;
+  $('rollBtn').disabled = !act || !!st.ev || animating;
+}
+function setDie(v, el=$('die')){ el.innerHTML = Array.from({length:9},(_,i)=>`<i class="${({1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]})[v].includes(i)?'p':''}"></i>`).join(''); }
+async function rollVisual(el, v){
+  el.classList.add('spin');
+  for (let k=0;k<8;k++){ setDie(rnd6(), el); await sleep(70); }
+  setDie(v, el); el.classList.remove('spin');
+}
+async function playAnim(a){
+  animating = true; closeSheet(); renderDock();
+  try {
+    if (a.die){ await rollVisual($('die'), a.die); await sleep(250); }
+    for (const pos of a.path || []){
+      shown[a.pid] = pos; placeTokens();
+      if (a.bounce === pos) toast('¡Rebote!');
+      await sleep(a.jump ? 350 : 170);
+    }
+    const last = a.path?.[a.path.length-1];
+    if (a.jump && last != null){ const t=$('t'+last); t.classList.remove('flash'); void t.offsetWidth; t.classList.add('flash'); await sleep(300); }
+  } finally {
+    seenAnim = Math.max(seenAnim, a.seq); animating = false; render();
+  }
+}
+
+/* ---------- Motor (solo quien controla el turno) ---------- */
+function draw(k){
+  if (!st.decks[k] || !st.decks[k].length) st.decks[k] = shuffle(DECKS[k].cards.map((_,i)=>i));
+  return st.decks[k].pop();
+}
+function stepPath(from, n){
+  const path = []; let pos = from, dir = 1, bounce = null;
+  for (let k=0;k<n;k++){ if (pos === GOAL){ dir = -1; bounce = GOAL; } pos += dir; path.push(pos); }
+  return {path, final:pos, bounce: bounce!=null ? path[path.indexOf(GOAL)+1] : null};
+}
+function anim(extra){ st.anim = {seq: ++st.aseq, pid: st.turn, ...extra}; }
+function landOn(p){
+  const i = p.pos, s = SQ[i];
+  if (s.fx === 'goal'){ st.winner = st.turn; st.status = 'ended'; st.ev = null; st.last = `${p.name} ha llegado a la meta`; return; }
+  st.ev = {i, pid: st.turn, phase:'open', aseq:0};
+  if (s.fx === 'card'){ st.ev.deck = s.k; st.ev.card = draw(s.k); st.ev.t0 = Date.now(); }
+}
+function endTurn(extra){
+  st.ev = null;
+  if (!extra) st.turn = (st.turn + 1) % st.players.length;
+  commit();
+}
+function doRoll(){
+  if (!canAct() || st.ev || animating) return;
+  const p = cur();
+  if (p.jail > 0){ p.jail--; st.last = `${p.name} sigue en la cárcel`; return endTurn(); }
+  const v = rnd6(), {path, final, bounce} = stepPath(p.pos, v);
+  p.pos = final;
+  anim({die:v, path, bounce});
+  const k = info(SQ[final]);
+  st.last = `${p.name} sacó un ${v} → ${k.t||k.l}`;
+  landOn(p); commit();
+}
+$('rollBtn').onclick = doRoll;
+
+function act(key, arg){
+  if (!canAct() || animating || !st.ev) return;
+  const p = cur(), ev = st.ev, others = st.players.map((_,j)=>j).filter(j=>j!==st.turn);
+  const H = {
+    next: () => endTurn(),
+    drinkNext: () => { p.drinks++; endTurn(); },
+    allDrink: () => { st.players.forEach(x => x.drinks++); endTurn(); },
+    othersDrink: () => { st.players.forEach(x => { if (x !== p) x.drinks++; }); endTurn(); },
+    jail: () => { p.jail = 2; endTurn(); },
+    coin: () => { const res = Math.random() < .5 ? 'Cara' : 'Cruz'; Object.assign(ev, {phase:'res', r:{guess:arg, res, ok: res===arg}, aseq: ++st.aseq}); commit(); },
+    pick: () => { const x = st.players[arg]; if (!x) return; x.drinks++; st.last = `${p.name} manda beber a ${x.name}`; endTurn(); },
+    silence: () => { st.silence = {pid: st.turn, until: Date.now() + 300000}; endTurn(); },
+    back10: () => { const path = []; for (let k=p.pos-1;k>=ev.i-10;k--) path.push(k); p.pos = ev.i-10; anim({path}); st.last = `${p.name} retrocede 10 casillas`; landOn(p); commit(); },
+    bottle: () => { const x = others.length ? others[Math.random()*others.length|0] : st.turn; Object.assign(ev, {phase:'res', r:{x, deg: 1440 + (Math.random()*360|0)}, aseq: ++st.aseq}); commit(); },
+    avanza4: () => { p.drinks += 3; const {path, final, bounce} = stepPath(p.pos, 4); p.pos = final; anim({path, bounce}); st.last = `${p.name} se bebe 3 chupitos y avanza 4`; landOn(p); commit(); },
+    chupito: () => { p.drinks++; if (ev.i === 35){ p.pos = 42; anim({path:[42], jump:1}); } st.last = `${p.name}: de chupito a chupito y vuelve a tirar`; endTurn(true); },
+    ladder: () => { p.pos = 57; anim({path:[57], jump:1}); st.last = `${p.name} sube por la escalera`; endTurn(); },
+    mini: () => { const v = rnd6(); Object.assign(ev, {phase:'res', r:{v}, aseq: ++st.aseq}); if (v === 5){ ev.deck = 'prueba'; ev.card = draw('prueba'); } commit(); },
+    toJail: () => { p.pos = 16; p.jail = 2; anim({path:[16], jump:1}); st.last = `${p.name} va a la cárcel`; endTurn(); },
+    toStart: () => { p.pos = 0; anim({path:[0], jump:1}); st.last = `${p.name} vuelve a la salida`; endTurn(); },
+    gana3: () => { p.drinks += 3; st.winner = st.turn; st.status = 'ended'; st.ev = null; st.last = `${p.name} se bebe 3 chupitos y gana`; commit(); }
+  };
+  H[key]?.();
+}
+
+/* ---------- Hoja de casilla ---------- */
+function spec(ev){
+  const s = SQ[ev.i], p = st.players[ev.pid], nm = esc(p.name), res = ev.phase === 'res';
+  const A = (l,a,c='',arg) => ({l,a,c,arg});
+  const cardOf = () => ({card: DECKS[ev.deck].cards[ev.card], deck: ev.deck});
+  switch (s.fx){
+    case 'none': return {text: s.d || 'Casilla tranquila.', actions:[A('Siguiente','next','primary')]};
+    case 'card': return {...cardOf(), text: DECKS[ev.deck].sub, timer: ev.deck==='carta', actions:[A(ev.deck==='verdad'?'Ha contestado':'¡Hecho!','next','primary'), A('Paso · bebo 🍺','drinkNext','drink')]};
+    case 'todos': return {text:'Todo el mundo bebe un trago.', actions:[A('Salud 🍻','allDrink','primary')]};
+    case 'todosmenos': return {text:`Bebe todo el mundo menos <b>${nm}</b>.`, actions:[A('Salud 🍻','othersDrink','primary')]};
+    case 'beben': return {text: s.d || 'Quien se dé por aludido, bebe.', actions:[A('Hecho','next','primary')]};
+    case 'libre': return {text:'Esta ronda no bebes. Disfrútalo.', actions:[A('Siguiente','next','primary')]};
+    case 'carcel': return {text:'Pasas <b>2 rondas</b> sin tirar.', actions:[A('Vale…','jail','primary')]};
+    case 'reto': return {text: s.d, actions:[A('Hecho','next','primary'), A('No lo hace · bebe 🍺','drinkNext','drink')]};
+    case 'group': return {text: s.d, actions:[A('Hecho','next','primary')]};
+    case 'choice': return {text: s.d, actions:[A('Chupito 🥃','drinkNext','primary'), A('Prenda 👕','next')]};
+    case 'moneda': return res
+      ? {coin:1, text:`${nm} dijo ${ev.r.guess}. Ha salido <b>${ev.r.res}</b>. ${ev.r.ok?'¡Se libra!':'Bebe.'}`, actions:[ev.r.ok ? A('Siguiente','next','primary') : A('Bebe 🍺','drinkNext','primary')]}
+      : {coin:1, text: s.d, actions:[A('Cara','coin','primary','Cara'), A('Cruz','coin','primary','Cruz')]};
+    case 'mandas': return {text: s.d, picks:1, actions:[]};
+    case 'silencio': return {text: s.d, actions:[A('Empezar 5:00','silence','primary'), A('Ya ha hablado · bebe 🍺','drinkNext','drink')]};
+    case 'back10': return {text: s.d, actions:[A('Ay…','back10','primary')]};
+    case 'botella': return res
+      ? {bottle: ev.r.deg, text:`La botella señala a <b style="color:${st.players[ev.r.x].color}">${esc(st.players[ev.r.x].name)}</b>. Beso o trago, vosotros veréis.`, actions:[A('Siguiente','next','primary')]}
+      : {bottle: 0, text: s.d, actions:[A('Girar la botella','bottle','primary')]};
+    case 'avanza4': return {text: s.d, actions:[A('🥃🥃🥃 Me los bebo','avanza4','primary'), A('Paso','next')]};
+    case 'chupito': return {text: ev.i===35 ? 'Te bebes un chupito y saltas al <b>42</b>. De chupito a chupito y tiro porque me toca.' : 'Te bebes un chupito y vuelves a tirar.', actions:[A('Chupito y tiro 🥃','chupito','primary')]};
+    case 'ladder': return {text: s.d, actions:[A('¡Arriba! 🪜','ladder','primary')]};
+    case 'mini': {
+      if (!res) return {mini:0, text: s.d, actions:[A('Tirar el dado 🎲','mini','primary')]};
+      const v = ev.r.v;
+      return {mini:v, ...[
+        {text:`<b>${nm}</b> bebe.`, actions:[A('Bebo 🍺','drinkNext','primary')]},
+        {text:'Cuenta un chiste. Si nadie se ríe, bebes.', actions:[A('Hecho','next','primary'), A('Nadie se ríe · bebe 🍺','drinkNext','drink')]},
+        {text:'Directo a la <b>cárcel</b> (casilla 16): 2 rondas sin tirar.', actions:[A('Vale…','toJail','primary')]},
+        {text:'Beben todos.', actions:[A('Salud 🍻','allDrink','primary')]},
+        {...cardOf(), text: DECKS.prueba.sub, actions:[A('¡Hecho!','next','primary'), A('Paso · bebo 🍺','drinkNext','drink')]},
+        {text:'Vuelves a la <b>salida</b>.', actions:[A('Noooo','toStart','primary')]}
+      ][v-1]};
+    }
+    case 'gana3': return {text: s.d, actions:[A('🥃🥃🥃 Me los bebo y gano','gana3','primary'), A('Paso','next')]};
+  }
+  return {text:'', actions:[A('Siguiente','next','primary')]};
+}
+
+function openBase(sq, title, text){
+  clearInterval(cardTimer);
+  const k = info(sq);
+  $('shKind').innerHTML = `${k.e} ${esc(k.l)}`;
+  $('shKind').style.setProperty('--tc', `var(${KIND[sq.k].c})`);
+  $('shKind').className = 'kind' + (KIND[sq.k].dk?' darkt':'');
+  $('shTitle').textContent = title || k.t || k.l;
+  $('shText').innerHTML = text || ''; $('shText').hidden = !text;
+  $('shCard').hidden = true; $('shExtra').innerHTML = ''; $('shActions').innerHTML = '';
+  $('scrim').classList.add('open'); $('sheet').classList.add('open');
+}
+function closeSheet(){ clearInterval(cardTimer); sheetMode = null; $('scrim').classList.remove('open'); $('sheet').classList.remove('open'); }
+function setButtons(list){
+  const a = $('shActions'); a.innerHTML = '';
+  list.forEach(o => { const b = document.createElement('button'); b.className = 'btn ' + (o.c||''); b.textContent = o.l; b.onclick = o.f; a.appendChild(b); });
+}
+
+function renderSheet(){
+  const ev = st.ev;
+  if (!ev){ if (sheetMode === 'ev') closeSheet(); return; }
+  const can = canAct();
+  const pending = ev.phase === 'res' && ev.aseq > seenEvA;
+  const key = JSON.stringify(ev) + can + pending;
+  if (key === sheetKey && sheetMode === 'ev') return;
+  if (!can && key === dismissed) return;
+  sheetKey = key; sheetMode = 'ev';
+  const sp = spec(ev), sq = SQ[ev.i], p = st.players[ev.pid];
+  openBase(sq, null, pending ? '' : sp.text);
+
+  if (sp.card){
+    const c = $('shCard'), kk = KIND[sp.deck];
+    c.hidden = false; c.textContent = sp.card;
+    c.style.setProperty('--tc', `var(${kk.c})`); c.className = 'card' + (kk.dk?' darkt':'');
+  }
+  const x = $('shExtra');
+  if (sp.coin) x.innerHTML = `<div class="stage"><span class="${pending?'coin':''}">🪙</span></div>`;
+  if (sp.bottle != null) x.innerHTML = `<div class="stage"><span class="bottle" style="transform:rotate(${pending?0:sp.bottle}deg)">🍾</span></div>`;
+  if (sp.mini != null){
+    const L = ['Bebes','Chiste','A la cárcel','Beben todos','Prueba','Al inicio'];
+    x.innerHTML = `<div class="stage"><span class="die" id="miniDie"></span></div><div class="legend">${L.map((l,j)=>`<span class="${!pending&&sp.mini===j+1?'hit':''}">${'⚀⚁⚂⚃⚄⚅'[j]} ${l}</span>`).join('')}</div>`;
+    setDie(sp.mini || 1, $('miniDie'));
+  }
+  if (sp.timer && !pending) startTimer(ev.t0, 15);
+  if (sp.picks){
+    const others = st.players.map((q,j)=>({q,j})).filter(o=>o.j!==ev.pid);
+    x.innerHTML = `<div class="picks">${others.map(({q,j})=>`<button class="chip" data-pick="${j}" ${can?'':'disabled'}><span class="dot" style="background:${q.color}">${initial(q.name)}</span>${esc(q.name)}</button>`).join('')}</div>`;
+    x.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => act('pick', +b.dataset.pick));
+  }
+
+  if (pending){ runEvAnim(ev, sp); return; }
+
+  if (can){
+    setButtons(sp.actions.map(o => ({l:o.l, c:o.c, f:() => act(o.a, o.arg)})));
+    if (mode === 'online' && !isMine(p)) $('shActions').insertAdjacentHTML('beforeend', `<div class="wait">Decides por ${esc(p.name)}</div>`);
+  } else {
+    setButtons([{l:'Ver tablero', f:() => { dismissed = sheetKey; closeSheet(); }}]);
+    $('shActions').insertAdjacentHTML('afterbegin', `<div class="wait">Esperando a que ${esc(p.name)} decida…</div>`);
+  }
+}
+async function runEvAnim(ev, sp){
+  const aseq = ev.aseq;
+  if (sp.mini){ await rollVisual($('miniDie'), sp.mini); await sleep(450); }
+  else if (sp.bottle != null){
+    const b = $('shExtra').querySelector('.bottle');
+    await sleep(30); if (b) b.style.transform = `rotate(${sp.bottle}deg)`;
+    await sleep(2300);
+  } else await sleep(1000);
+  seenEvA = Math.max(seenEvA, aseq);
+  sheetKey = '';
+  if (st?.ev && !animating) renderSheet();
+}
+function startTimer(t0, sec){
+  $('shExtra').insertAdjacentHTML('afterbegin', `<div class="bar"><i id="tBar"></i></div><p id="tLeft" style="margin-top:6px;font-variant-numeric:tabular-nums"></p>`);
+  const tick = () => {
+    const left = Math.max(0, sec - (Date.now() - (t0||Date.now()))/1000);
+    const bar = $('tBar'), el = $('tLeft'); if (!el) return clearInterval(cardTimer);
+    bar.style.transform = `scaleX(${left/sec})`;
+    if (left <= 0){ clearInterval(cardTimer); el.innerHTML = '<span class="timeup">¡Tiempo!</span>'; }
+    else el.textContent = Math.ceil(left) + ' s';
+  };
+  tick(); cardTimer = setInterval(tick, 250);
+}
+function tileInfo(i){
+  const s = SQ[i], k = info(s);
+  let text = s.d || '';
+  if (s.fx==='card') text = DECKS[s.k].sub;
+  if (s.fx==='todos') text = 'Bebe todo el mundo.';
+  if (s.fx==='todosmenos') text = 'Bebe todo el mundo menos quien cae aquí.';
+  if (s.fx==='libre') text = 'Esta ronda no bebes.';
+  if (s.fx==='carcel') text = 'Pasas 2 rondas sin tirar.';
+  if (s.fx==='chupito') text = 'Te bebes un chupito, saltas al siguiente y vuelves a tirar.';
+  if (s.fx==='beben' && !s.d) text = 'Quien se dé por aludido, bebe.';
+  if (s.fx==='goal') text = 'Hay que llegar justo. El primero gana y el resto le debe una ronda.';
+  if (s.fx==='mini') text = '⚀ Bebes · ⚁ Chiste · ⚂ A la cárcel · ⚃ Beben todos · ⚄ Prueba · ⚅ Al inicio';
+  openBase(s, `${i ? i+'. ' : ''}${k.t||k.l}`, text);
+  sheetMode = 'info';
+  setButtons([{l:'Cerrar', f:closeSheet}]);
+}
+$('scrim').onclick = () => {
+  if (sheetMode === 'info' || sheetMode === 'menu') return closeSheet();
+  if (sheetMode === 'ev' && !canAct()){ dismissed = sheetKey; closeSheet(); }
+};
+
+/* ---------- 5 minutos sin hablar ---------- */
+function tickSilence(){
+  const s = st?.silence, chip = $('timerChip');
+  const left = s ? Math.round((s.until - Date.now())/1000) : 0;
+  if (!s || left <= 0 || silenceHidden === s.until || $('game').hidden){ chip.hidden = true; return; }
+  chip.hidden = false;
+  chip.textContent = `🙊 ${st.players[s.pid]?.name} · ${Math.floor(left/60)}:${String(left%60).padStart(2,'0')}`;
+}
+setInterval(tickSilence, 1000);
+$('timerChip').onclick = () => { silenceHidden = st?.silence?.until || 0; tickSilence(); };
+
+/* ---------- Final ---------- */
+function renderEnd(){
+  closeSheet();
+  if (st.winner == null){ show('menu'); renderMenu(); return; }
+  const p = st.players[st.winner];
+  $('endName').textContent = `¡${p.name} gana!`;
+  $('endName').style.color = p.color;
+  $('rank').innerHTML = st.players.slice().sort((a,b)=>b.drinks-a.drinks).map((x,i)=>`<div><span>${i===0&&x.drinks?'🥴':'🍺'}</span><span>${esc(x.name)}</span><small>${x.drinks} tragos</small></div>`).join('');
+  const canAgain = mode === 'local' || st.host === dev;
+  $('again').hidden = !canAgain; $('againWait').hidden = canAgain;
+  show('end');
+}
+$('again').onclick = () => {
+  if (!(mode === 'local' || st.host === dev)) return;
+  st = freshGame(st, st.players.map(p => ({name:p.name, owner:p.owner})));
+  primeSeen(); commit();
+};
+$('endExit').onclick = () => {
+  if (mode === 'online') return leaveRoom();
+  lsSet('pdc-local', null); mode = null; st = null; show('menu'); renderMenu();
+};
+
+/* ---------- Menú de partida ---------- */
+$('menuBtn').onclick = () => {
+  if (animating) return;
+  openBase({k:'esp', e:'⏸', t:'Partida en pausa'}, mode === 'online' ? `Sala ${code}` : 'Partida en pausa',
+    mode === 'online' ? 'Si sales, la partida sigue para los demás y puedes volver con el mismo código.' : 'La partida se guarda en este móvil.');
+  $('shKind').innerHTML = '⏸ Menú';
+  sheetMode = 'menu';
+  const list = [{l:'Seguir jugando', c:'primary', f:() => { closeSheet(); sheetKey=''; render(); }}];
+  if (mode === 'online'){
+    list.push({l:'Salir de la sala', c:'drink', f:() => leaveRoom()});
+    if (st.host === dev) list.push({l:'Cerrar la sala para todos', c:'drink wide', f:() => { st.status = 'closed'; commit(); leaveRoom('Sala cerrada'); }});
+  } else list.push({l:'Terminar partida', c:'drink', f:() => { lsSet('pdc-local', null); st = null; mode = null; show('menu'); renderMenu(); }});
+  setButtons(list);
+};
+
+/* ---------- Arranque ---------- */
+async function initCaps(){
+  const use = n => (window.claude?.use ? window.claude.use(n).catch(()=>null) : Promise.resolve(null));
+  const [d, u] = await Promise.all([use('db'), use('user')]);
+  db = d; dbState = d ? 'ok' : 'none';
+  if (u){
+    try { canWrite = await u.can('data.write'); } catch(e){}
+    if (!myName){ try { const me = await u.me(); if (me.name){ myName = me.name.split(' ')[0]; lsSet('pdc-name', myName); } } catch(e){} }
+  }
+  if (db){
+    db.collection('games').where('status','==','lobby').onSnapshot(snap => {
+      openGames = snap.docs.map(x => x.data()).filter(g => g.code && Date.now() - (g.created||0) < 6*3600e3).sort((a,b)=>b.created-a.created).slice(0,6);
+      if (!$('menu').hidden) renderMenu();
+    }, () => {});
+    const saved = lsGet('pdc-online');
+    if (saved?.code && !mode) enterRoom(saved.code, false);
+  }
+  if (!$('menu').hidden) renderMenu();
+}
+function start(){
+  buildBoard(); setDie(6);
+  show('menu'); renderMenu();
+  initCaps();
+}
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start();
+
+})();
+</script>
+
+
+<a href="../" class="sala-back" aria-label="Volver a la Sala de Juegos"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg></a>
+<style>.sala-back{position:fixed;left:0;top:50%;transform:translateY(-50%);z-index:9999;width:30px;height:44px;display:grid;place-items:center;border-radius:0 10px 10px 0;background:rgba(20,24,33,.55);color:#fff;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);opacity:.75}.sala-back:hover,.sala-back:focus-visible{opacity:1}</style>
+</body></html>
