@@ -1,0 +1,705 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>El Impostor</title>
+<meta name="theme-color" content="#16121C">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="../icons/icon-192.png">
+<link rel="apple-touch-icon" href="../icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=DM+Sans:opsz,wght@9..40,400;9..40,600;9..40,800&display=swap">
+<script>window.APP_KEY="impostor"</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="../firebase-config.js"></script>
+<script src="../shared/claude-shim.js"></script>
+<script src="palabras.js"></script>
+<style>
+/* Layout: una columna tipo "expediente" — cabecera con código, tarjeta secreta grande, panel de la fase y lista de jugadores */
+:root{
+  --bg:#16121C; --bg-2:#1F1A28; --panel:#262033; --panel-2:#302940; --line:#3D3550;
+  --ink:#F6F2FA; --muted:#B3A9C4; --red:#FF3B5C; --red-ink:#2A0710; --yellow:#FFD166; --ok:#4BE3A0;
+  --display:"Archivo Black","Arial Black",system-ui,sans-serif;
+  --body:"DM Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:radial-gradient(110% 60% at 50% -10%,#3A1830,var(--bg) 65%) fixed;background-color:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
+#app{max-width:560px;margin:0 auto;min-height:100%;padding-inline:16px;padding-block:14px 36px;display:flex;flex-direction:column;gap:12px}
+h1,h2,h3{font-family:var(--display);font-weight:400;margin:0;letter-spacing:.01em;text-wrap:balance}
+p{margin:0}
+.muted{color:var(--muted)}
+.small{font-size:13.5px}
+.center{text-align:center}
+
+.btn{appearance:none;border:0;border-radius:14px;min-height:52px;padding:0 18px;background:var(--panel-2);color:var(--ink);font-family:var(--display);font-size:17px;letter-spacing:.03em;text-transform:uppercase;box-shadow:0 4px 0 rgba(0,0,0,.4);transition:transform .08s,box-shadow .08s;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.4)}
+.btn.red{background:var(--red);color:#fff}
+.btn.yel{background:var(--yellow);color:#2B1E00}
+.btn.ghost{background:transparent;box-shadow:inset 0 0 0 2px var(--line)}
+.btn.sm{min-height:40px;font-size:13px;padding:0 14px}
+.btn:disabled{opacity:.45;cursor:default;transform:none}
+.btn.wide{width:100%}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>*{flex:1 1 130px}
+input.text,select.text{width:100%;min-height:52px;border-radius:14px;border:2px solid var(--line);background:var(--bg-2);padding:0 14px;font-size:18px;font-weight:600}
+input.code{text-transform:uppercase;letter-spacing:.3em;font-family:var(--display);font-size:24px;text-align:center}
+label.lbl{display:grid;gap:6px;font-size:12.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+
+.hero{display:grid;gap:10px;justify-items:center;text-align:center;padding-block:16px 4px}
+.logo{font-family:var(--display);font-size:clamp(44px,13vw,70px);line-height:.9;letter-spacing:-.01em}
+.logo small{display:block;font-size:.3em;letter-spacing:.35em;color:var(--red);margin-bottom:6px}
+.mask{width:96px;height:64px}
+.card{background:var(--panel);border-radius:18px;padding:16px;display:grid;gap:12px;box-shadow:0 6px 0 rgba(0,0,0,.28)}
+.card h2{font-size:19px;text-transform:uppercase;letter-spacing:.04em}
+.how{display:grid;gap:8px;font-size:15px}
+.how b{color:var(--yellow)}
+summary{cursor:pointer;font-weight:800}
+.msg{min-height:1.4em;color:var(--yellow);text-align:center;font-weight:700}
+.msg.err{color:var(--red)}
+
+.top{display:flex;align-items:center;gap:8px}
+.chip{font-family:var(--display);font-size:14px;letter-spacing:.14em;background:var(--panel);padding:6px 12px;border-radius:999px}
+.top .sp{flex:1}
+.big-code{font-family:var(--display);font-size:56px;letter-spacing:.18em;line-height:1;text-align:center;color:var(--yellow)}
+.plist{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.plist li{display:flex;align-items:center;gap:8px;background:var(--bg-2);border-radius:12px;padding:8px 10px;font-weight:700;min-width:0}
+.plist li span.n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.plist li.out{opacity:.45;text-decoration:line-through}
+.plist li.turn{box-shadow:inset 0 0 0 2px var(--yellow)}
+.av{flex:0 0 auto;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-size:14px;color:#16121C;background:var(--c,#fff)}
+.tick{color:var(--ok);font-weight:900}
+.cfg{display:grid;gap:10px}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{appearance:none;border:0;border-radius:10px;min-height:42px;min-width:46px;padding:0 12px;background:var(--bg-2);font-weight:800}
+.seg button[aria-pressed="true"]{background:var(--yellow);color:#2B1E00}
+.toggle{display:flex;align-items:center;gap:10px;font-weight:600;min-height:40px}
+.toggle input{width:22px;height:22px;accent-color:var(--red)}
+.cats{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px}
+.cats button{appearance:none;border:0;border-radius:12px;min-height:46px;padding:6px 10px;background:var(--bg-2);font-weight:700;text-align:left;display:flex;gap:8px;align-items:center}
+.cats button[aria-pressed="true"]{background:var(--red);color:#fff}
+
+/* tarjeta secreta */
+.secret{position:relative;border-radius:22px;min-height:190px;display:grid;place-items:center;text-align:center;padding:22px;background:repeating-linear-gradient(135deg,#2D2540 0 14px,#282036 14px 28px);box-shadow:0 8px 0 rgba(0,0,0,.35),inset 0 0 0 2px var(--line);user-select:none;-webkit-user-select:none;cursor:pointer;touch-action:manipulation}
+.secret .lbl2{font-size:12px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+.secret .word{font-family:var(--display);font-size:clamp(30px,9vw,46px);line-height:1.05;margin-top:6px;word-break:break-word}
+.secret.imp{background:var(--red);box-shadow:0 8px 0 #7A1022}
+.secret.imp .lbl2{color:#FFD6DE}
+.secret .cover{display:grid;gap:8px;justify-items:center}
+.secret .cover svg{width:72px;height:48px;opacity:.8}
+
+.phase{display:grid;gap:4px}
+.phase h2{font-size:22px;text-transform:uppercase}
+.timer{font-family:var(--display);font-size:22px;color:var(--yellow);font-variant-numeric:tabular-nums}
+.clues{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.clues li{display:flex;align-items:center;gap:10px;background:var(--bg-2);border-radius:12px;padding:8px 12px}
+.clues li b{font-family:var(--display);font-weight:400;font-size:17px;letter-spacing:.02em;flex:1;overflow-wrap:anywhere}
+.clues li .r{font-size:12px;color:var(--muted)}
+.votes{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.vbtn{appearance:none;border:0;border-radius:14px;min-height:56px;padding:8px 12px;background:var(--panel-2);font-weight:800;display:flex;align-items:center;gap:8px;text-align:left}
+.vbtn[aria-pressed="true"]{background:var(--red);color:#fff}
+.vbtn span{overflow:hidden;text-overflow:ellipsis}
+.tally{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.tally li{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;background:var(--bg-2);border-radius:12px;padding:8px 12px}
+.tally .bar{grid-column:2/4;height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.tally .bar i{display:block;height:100%;background:var(--red)}
+.verdict{text-align:center;display:grid;gap:8px;padding:8px 0}
+.verdict .big{font-family:var(--display);font-size:34px;line-height:1.05}
+.verdict.good .big{color:var(--ok)}
+.verdict.bad .big{color:var(--red)}
+.scores{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.scores li{display:flex;gap:10px;align-items:center;background:var(--bg-2);border-radius:12px;padding:8px 12px;font-weight:700}
+.scores li .p{margin-left:auto;font-family:var(--display);color:var(--yellow)}
+.menu{display:grid;gap:8px}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,16px);opacity:0;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:800;transition:.2s;pointer-events:none;max-width:calc(100% - 32px);z-index:60}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+@keyframes pop{from{transform:scale(.92);opacity:0}to{transform:none;opacity:1}}
+.pop{animation:pop .25s ease-out}
+@media (prefers-reduced-motion:reduce){.pop{animation:none}}
+</style>
+</head>
+<body>
+<div id="app"><div class="hero"><div class="logo"><small>EL</small>IMPOSTOR</div><p class="muted">Cargando…</p></div></div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+"use strict";
+const BANK = window.IMPOSTOR_PALABRAS || {};
+const PCOL = ["#FF6B8A", "#5AB8FF", "#FFD166", "#4BE3A0", "#C59BFF", "#FF9F5A", "#7EE8E0", "#F2A7D8", "#B8E86B", "#FFFFFF", "#E8C07E", "#9AA8FF"];
+const MAX_PLAYERS = 16;
+const MASK_SVG = `<svg class="mask" viewBox="0 0 96 64" aria-hidden="true"><path d="M6 14c14-8 28-6 42 2 14-8 28-10 42-2 2 20-6 40-22 44-10 2-16-6-20-14-4 8-10 16-20 14C12 54 4 34 6 14z" fill="#FF3B5C"/><ellipse cx="30" cy="28" rx="10" ry="7" fill="#16121C"/><ellipse cx="66" cy="28" rx="10" ry="7" fill="#16121C"/></svg>`;
+
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const shuffle = a => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const clone = o => JSON.parse(JSON.stringify(o));
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const norm = s => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9ñ ]/g, "").replace(/\s+/g, " ").trim();
+const sameWord = (a, b) => { const x = norm(a), y = norm(b); if (!x || !y) return false; const s = w => w.replace(/(es|s)$/, ""); return x === y || s(x) === s(y); };
+const ls = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+const $app = document.getElementById("app");
+let toastT;
+function toast(m) { const t = document.getElementById("toast"); t.textContent = m; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), 2800); }
+
+/* ================= estado local ================= */
+const S = {
+  db: null, uid: null, sample: null, ready: false, offline: false,
+  name: (localStorage.getItem("sala.nick") || "").slice(0, 16),
+  code: null, g: null, players: [], acts: {}, sec: null, all: null, unsubs: [], secUnsubs: [], secKey: "",
+  homeMsg: "", homeErr: false, busy: false, show: false, myVote: null, menu: false, lastHtml: ""
+};
+const me = () => S.uid;
+const isHost = () => S.g && S.g.host === S.uid;
+const DEF_CFG = { cat: "mix", imp: 1, rounds: 1, talk: 90, hint: true, similar: false, guess: true, ai: false, theme: "" };
+
+async function boot() {
+  try {
+    const [db, user, sample] = await Promise.all(["db", "user", "sample"].map(n => window.claude ? claude.use(n).catch(() => null) : null));
+    S.db = db; S.sample = sample; if (user) S.uid = await user.id();
+  } catch {}
+  if (!S.db || !S.uid) S.offline = true;
+  S.ready = true;
+  const h = (location.hash || "").replace("#", "").toUpperCase(), last = ls.get("imp.last");
+  if (!S.offline && /^[A-Z]{4}$/.test(h)) S.prefill = h;
+  else if (!S.offline && last && last.code && Date.now() - last.t < 12 * 3600e3) S.rejoin = last.code;
+  render();
+  setInterval(tick, 1000);
+}
+
+/* ================= sala online ================= */
+const base = () => "games/" + S.code;
+function watch(code) {
+  unwatch(); S.code = code; ls.set("imp.last", { code, t: Date.now() });
+  S.unsubs.push(S.db.doc(base()).onSnapshot(snap => {
+    if (!snap.exists) { leave("Esa partida ya no existe."); return; }
+    const d = snap.data();
+    if (S.g && d.seq < S.g.seq && d.gid === S.g.gid) return;
+    const prev = S.g; S.g = d; onGame(prev); render(); drive();
+  }, () => leave("Se ha perdido la conexión con la partida.")));
+  S.unsubs.push(S.db.collection(base() + "/players").orderBy("joinedAt").onSnapshot(q => {
+    S.players = q.docs.map(d => ({ id: d.id, ...d.data() })); render(); drive();
+  }, () => {}));
+  S.unsubs.push(S.db.collection(base() + "/act").onSnapshot(q => {
+    const a = {}; q.docs.forEach(d => { a[d.id] = d.data(); }); S.acts = a; render(); drive();
+  }, () => {}));
+}
+function unwatch() { [...S.unsubs, ...S.secUnsubs].forEach(u => { try { u(); } catch {} }); S.unsubs = []; S.secUnsubs = []; S.secKey = ""; S.g = null; S.players = []; S.acts = {}; S.sec = null; S.all = null; }
+function leave(msg) { unwatch(); S.code = null; S.homeMsg = msg || ""; S.homeErr = !!msg; history.replaceState(null, "", location.pathname); render(); }
+const secPath = (uid, gid) => `${base()}/secret/${uid}_${gid}`;
+const allPath = gid => `${base()}/secret/_all_${gid}`;
+function onGame(prev) {
+  const g = S.g;
+  if (!prev || prev.gid !== g.gid) { S.show = false; S.myVote = null; }
+  if (prev && prev.k !== g.k) { S.myVote = null; S.menu = false; }
+  if (prev && prev.phase !== g.phase) S.show = false;
+  watchSecrets();
+}
+function watchSecrets() {
+  const g = S.g; if (!g || !g.gid || g.status === "lobby") return;
+  const key = me() + "_" + g.gid + (isHost() ? "_h" : ""); if (key === S.secKey) return;
+  S.secUnsubs.forEach(u => u()); S.secUnsubs = []; S.secKey = key; S.sec = null; S.all = null;
+  S.secUnsubs.push(S.db.doc(secPath(me(), g.gid)).onSnapshot(s => { S.sec = s.exists ? s.data() : null; render(); }, () => {}));
+  if (isHost()) S.secUnsubs.push(S.db.doc(allPath(g.gid)).onSnapshot(s => { S.all = s.exists ? s.data() : null; drive(); render(); }, () => {}));
+}
+function saveName() {
+  const el = document.getElementById("nm"); const v = ((el && el.value) || S.name || "").trim().slice(0, 16);
+  if (!v) { S.homeMsg = "Escribe tu nombre para que te reconozcan."; S.homeErr = true; render(); return false; }
+  S.name = v; try { localStorage.setItem("sala.nick", v); } catch {} return true;
+}
+const genCode = () => { const A = "ABCDEFGHJKLMNPQRSTUVWXYZ"; let c = ""; for (let i = 0; i < 4; i++) c += A[Math.floor(Math.random() * A.length)]; return c; };
+async function createGame() {
+  if (!saveName()) return;
+  S.busy = true; render();
+  try {
+    let code;
+    for (let i = 0; i < 6; i++) { code = genCode(); if (!(await S.db.doc("games/" + code).get()).exists) break; }
+    await S.db.doc("games/" + code).set({ v: 1, status: "lobby", host: me(), createdAt: Date.now(), seq: 0, cfg: { ...DEF_CFG, ...(ls.get("imp.cfg") || {}) }, scores: {}, used: [] });
+    S.code = code; await joinSeat(code);
+    location.hash = code; watch(code);
+  } catch { S.homeMsg = "No se pudo crear la partida. Revisa la conexión."; S.homeErr = true; }
+  S.busy = false; render();
+}
+async function joinSeat(code) {
+  const ref = S.db.doc(`games/${code}/players/${me()}`);
+  const cur = await ref.get();
+  if (cur.exists) { await ref.update({ name: S.name }); return true; }
+  const all = await S.db.collection(`games/${code}/players`).get();
+  if (all.docs.length >= MAX_PLAYERS) { toast("La partida está llena: entras como público."); return false; }
+  await ref.set({ name: S.name, joinedAt: Date.now() });
+  return true;
+}
+async function joinGame(code) {
+  if (!saveName()) return;
+  code = String(code || "").toUpperCase().replace(/[^A-Z]/g, "");
+  if (code.length !== 4) { S.homeMsg = "El código tiene 4 letras."; S.homeErr = true; render(); return; }
+  S.busy = true; render();
+  try {
+    const snap = await S.db.doc("games/" + code).get();
+    if (!snap.exists) { S.homeMsg = "No hay ninguna partida con ese código."; S.homeErr = true; }
+    else {
+      const g = snap.data(), mine = (await S.db.doc(`games/${code}/players/${me()}`).get()).exists;
+      if (g.status === "lobby" || mine) await joinSeat(code);
+      else toast("La partida ya ha empezado: entras como público.");
+      location.hash = code; watch(code);
+    }
+  } catch { S.homeMsg = "No se pudo entrar. Revisa la conexión."; S.homeErr = true; }
+  S.busy = false; render();
+}
+
+/* ================= helpers de partida ================= */
+const nameOf = id => (S.players.find(p => p.id === id) || {}).name || "Alguien";
+const colorOf = id => { let i = S.g && S.g.order ? S.g.order.indexOf(id) : -1; if (i < 0) i = S.players.findIndex(p => p.id === id); return PCOL[(i < 0 ? 0 : i) % PCOL.length]; };
+const av = id => `<span class="av" style="--c:${colorOf(id)}">${esc(nameOf(id).charAt(0).toUpperCase() || "?")}</span>`;
+const actOf = (g, u) => { const a = S.acts[u]; return a && a.k === g.k ? a : null; };
+const inGame = g => g && g.order && g.order.includes(me());
+const amAlive = g => g && g.alive && g.alive.includes(me());
+function rotation(g) { const al = g.order.filter(u => g.alive.includes(u)); const off = (g.round - 1) % al.length; return al.slice(off).concat(al.slice(0, off)); }
+const speaker = g => (g.sp || [])[g.turn];
+/* pasa al siguiente que siga vivo; al acabar la vuelta empieza otra o pasa al debate */
+function advanceTurn(g) {
+  do {
+    g.turn++;
+    if (g.turn >= g.sp.length) { g.turn = 0; g.ci++; if (g.ci >= g.cfg.rounds) return toTalk(g); }
+  } while (!g.alive.includes(g.sp[g.turn]));
+  g.k = `${g.gid}|c${g.round}-${g.ci}-${g.turn}`;
+}
+async function act(data) {
+  const g = S.g; if (!g) return;
+  try { await S.db.doc(`${base()}/act/${me()}`).set({ k: g.k, ...data, t: Date.now() }); }
+  catch { toast("No se ha podido enviar. Revisa la conexión."); }
+}
+async function commit(g) {
+  g.seq = (S.g.seq || 0) + 1; g.ts = Date.now();
+  const prev = S.g; S.g = g; onGame(prev); render();
+  try { await S.db.doc(base()).set(g); }
+  catch { toast("No se pudo guardar. Reintentando…"); setTimeout(() => S.db.doc(base()).set(S.g).catch(() => toast("Sin conexión.")), 1500); }
+}
+
+/* ================= palabras ================= */
+function bankPairs(cat) {
+  const keys = cat === "mix" || !BANK[cat] ? Object.keys(BANK) : [cat];
+  return keys.flatMap(k => BANK[k].w.map(p => { const [w, s] = p.split("|"); return { w, s, cat: BANK[k].n }; }));
+}
+async function aiPair(cfg, used) {
+  if (!S.sample || !cfg.ai) return null;
+  const theme = cfg.theme.trim() || (BANK[cfg.cat] ? BANK[cfg.cat].n : "temas variados de la vida cotidiana");
+  const prompt = `Estás preparando el juego de fiesta "El Impostor" en español de España.
+Tema: ${theme}.
+Genera 12 pares. Cada par tiene "w": una palabra o expresión corta (máximo 3 palabras), concreta y conocida por cualquiera, y "s": otra parecida del mismo tema, pero claramente distinta (sirve para despistar).
+No repitas ninguna de estas: ${used.slice(-40).join(", ") || "ninguna"}.
+Responde solo con JSON: {"pares":[{"w":"...","s":"..."}]}`;
+  try {
+    const data = await Promise.race([S.sample.json(prompt), new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 9000))]);
+    const list = (data && data.pares || []).filter(p => p && p.w && p.s && p.w.length <= 40 && !used.some(u => sameWord(u, p.w)));
+    if (!list.length) return null;
+    const p = pick(list); return { w: String(p.w).trim(), s: String(p.s).trim(), cat: cfg.theme.trim() || theme };
+  } catch { return null; }
+}
+async function choosePair(cfg, used) {
+  const ai = await aiPair(cfg, used);
+  if (ai) return ai;
+  const all = bankPairs(cfg.cat), fresh = all.filter(p => !used.includes(p.w));
+  return pick(fresh.length ? fresh : all);
+}
+
+/* ================= anfitrión: empezar y llevar la partida ================= */
+async function hostStart() {
+  const g0 = S.g, ids = S.players.map(p => p.id);
+  if (ids.length < 3) { toast("Hacen falta al menos 3 jugadores."); return; }
+  S.busy = true; render();
+  const cfg = { ...DEF_CFG, ...g0.cfg }, nImp = Math.max(1, Math.min(cfg.imp, Math.floor((ids.length - 1) / 2)));
+  const used = g0.used || [];
+  const pair = await choosePair(cfg, used);
+  const gid = Date.now(), imps = shuffle(ids).slice(0, nImp);
+  try {
+    await Promise.all(ids.map(u => {
+      const imp = imps.includes(u);
+      const sec = imp ? (cfg.similar ? { word: pair.s, cat: pair.cat, imp: false } : { word: null, cat: cfg.hint ? pair.cat : null, imp: true }) : { word: pair.w, cat: pair.cat, imp: false };
+      return S.db.doc(secPath(u, gid)).set(sec);
+    }));
+    await S.db.doc(allPath(gid)).set({ imps, word: pair.w, alt: pair.s, cat: pair.cat });
+  } catch { S.busy = false; toast("No se pudo repartir. Revisa la conexión."); render(); return; }
+  S.all = { imps, word: pair.w, alt: pair.s, cat: pair.cat };
+  const order = shuffle(ids);
+  const g = {
+    ...g0, cfg, status: "play", gid, order, alive: [...order], phase: "reveal", round: 1, ci: 0, turn: 0,
+    clues: [], k: gid + "|rev", until: null, out: null, tally: null, guess: null, win: null, reveal: null,
+    nImp, used: [...used, pair.w].slice(-120)
+  };
+  S.busy = false;
+  await commit(g);
+}
+function toClues(g) { g.phase = "clues"; g.sp = rotation(g); g.ci = 0; g.turn = 0; g.k = `${g.gid}|c${g.round}-0-0`; g.until = null; }
+function toTalk(g) {
+  if (!g.cfg.talk) return toVote(g);
+  g.phase = "talk"; g.k = `${g.gid}|t${g.round}`; g.until = Date.now() + g.cfg.talk * 1000;
+}
+function toVote(g) { g.phase = "vote"; g.k = `${g.gid}|v${g.round}`; g.until = null; }
+function finish(g, win, how) {
+  const all = S.all;
+  g.status = "end"; g.phase = "end"; g.win = win; g.how = how; g.until = null; g.k = g.gid + "|end";
+  g.reveal = { imps: all.imps, word: all.word, alt: all.alt, cat: all.cat, similar: !!g.cfg.similar };
+  const sc = { ...(g.scores || {}) };
+  g.order.forEach(u => { const imp = all.imps.includes(u); if ((win === "imp") === imp) sc[u] = (sc[u] || 0) + (imp ? 2 : 1); });
+  g.scores = sc;
+}
+function checkWin(g) {
+  const imps = S.all.imps, ia = g.alive.filter(u => imps.includes(u)).length, ca = g.alive.length - ia;
+  if (!ia) { finish(g, "civ", "caught"); return true; }
+  if (ia >= ca) { finish(g, "imp", "parity"); return true; }
+  return false;
+}
+function nextRound(g) { g.round++; g.out = null; g.tally = null; g.guess = null; toClues(g); }
+function drive() {
+  if (!isHost() || !S.g || S.g.status !== "play" || !S.all) return;
+  const g0 = S.g, now = Date.now(), A = u => actOf(g0, u), alive = g0.alive;
+  const g = clone(g0);
+  switch (g0.phase) {
+    case "reveal":
+      if (alive.every(A)) { toClues(g); return commit(g); }
+      return;
+    case "clues": {
+      const sp = speaker(g0), a = A(sp); if (!a) return;
+      g.clues = [...g.clues, { u: sp, w: String(a.w || "").trim().slice(0, 40), r: g.round, ci: g.ci }];
+      advanceTurn(g);
+      return commit(g);
+    }
+    case "talk": {
+      const ready = alive.filter(A).length;
+      if (ready >= alive.length || (g0.until && now >= g0.until)) { toVote(g); return commit(g); }
+      return;
+    }
+    case "vote": {
+      if (!alive.every(A)) return;
+      const t = {}; alive.forEach(u => { const v = A(u).v; if (alive.includes(v)) t[v] = (t[v] || 0) + 1; });
+      const max = Math.max(0, ...Object.values(t)), top = Object.keys(t).filter(u => t[u] === max);
+      g.tally = t; g.votes = Object.fromEntries(alive.map(u => [u, A(u).v]));
+      if (top.length !== 1) { g.out = null; g.phase = "result"; g.k = `${g.gid}|r${g.round}`; g.until = now + 9000; return commit(g); }
+      const out = top[0], imp = S.all.imps.includes(out);
+      g.out = { u: out, imp }; g.alive = alive.filter(u => u !== out);
+      if (imp && g.cfg.guess) { g.phase = "guess"; g.k = `${g.gid}|g${g.round}`; g.until = now + 60000; return commit(g); }
+      g.phase = "result"; g.k = `${g.gid}|r${g.round}`; g.until = now + 9000;
+      return commit(g);
+    }
+    case "guess": {
+      const a = A(g0.out.u);
+      if (!a && !(g0.until && now >= g0.until)) return;
+      const w = a ? String(a.w || "").trim().slice(0, 40) : "";
+      const ok = !!w && sameWord(w, S.all.word);
+      g.guess = { w, ok };
+      if (ok) { finish(g, "imp", "guess"); return commit(g); }
+      g.phase = "result"; g.k = `${g.gid}|r${g.round}`; g.until = now + 9000;
+      return commit(g);
+    }
+    case "result":
+      if (g0.until && now >= g0.until) { if (!checkWin(g)) nextRound(g); return commit(g); }
+      return;
+  }
+}
+async function hostSkip() {
+  if (!isHost()) return;
+  const g = clone(S.g);
+  if (g.phase === "talk") toVote(g);
+  else if (g.phase === "result") { if (!checkWin(g)) nextRound(g); }
+  else if (g.phase === "clues") {
+    g.clues = [...g.clues, { u: speaker(g), w: "", r: g.round, ci: g.ci }];
+    advanceTurn(g);
+  } else return;
+  await commit(g);
+}
+async function hostKick(u) {
+  if (!isHost() || !S.all) return;
+  const g = clone(S.g);
+  if (!g.alive.includes(u)) return;
+  const wasSpeaker = g.phase === "clues" && speaker(g) === u;
+  g.alive = g.alive.filter(x => x !== u);
+  if (checkWin(g)) return commit(g);
+  if (wasSpeaker) advanceTurn(g);
+  if (g.phase === "guess" && g.out && g.out.u === u) { g.phase = "result"; g.k = `${g.gid}|r${g.round}`; g.until = Date.now() + 9000; }
+  await commit(g);
+}
+async function hostOverride() {
+  if (!isHost() || !S.g || S.g.status !== "end" || S.g.how !== "caught" || !S.g.guess) return;
+  const g = clone(S.g);
+  // revierte la puntuación de los civiles y da la victoria al impostor que acertó
+  const imps = g.reveal.imps, sc = { ...g.scores };
+  g.order.forEach(u => { if (!imps.includes(u)) sc[u] = Math.max(0, (sc[u] || 0) - 1); else sc[u] = (sc[u] || 0) + 2; });
+  g.scores = sc; g.win = "imp"; g.how = "guess"; g.guess = { ...g.guess, ok: true };
+  await commit(g);
+}
+async function toLobby() {
+  if (!isHost()) return;
+  const g = clone(S.g);
+  Object.assign(g, { status: "lobby", phase: null, k: null, until: null, out: null, tally: null, guess: null, win: null, reveal: null, clues: [], alive: [], order: [] });
+  await commit(g);
+}
+async function takeOver() {
+  if (!S.g || isHost()) return;
+  try { await S.db.doc(base()).update({ host: me() }); toast("Ahora llevas tú la partida."); } catch { toast("No se pudo."); }
+}
+async function setCfg(patch) {
+  if (!isHost()) return;
+  const cfg = { ...DEF_CFG, ...S.g.cfg, ...patch };
+  ls.set("imp.cfg", cfg);
+  try { await S.db.doc(base()).update({ cfg: patch }); } catch { toast("No se pudo guardar."); }
+}
+
+/* ================= vistas ================= */
+function render() {
+  if (!S.ready) return;
+  if (S.offline) return view(`<div class="hero">${MASK_SVG}<div class="logo"><small>EL</small>IMPOSTOR</div><p class="muted">No hay conexión con el servidor de partidas. Revisa internet y recarga.</p></div>`);
+  if (!S.code) return renderHome();
+  if (!S.g) return view(`<div class="hero"><div class="logo"><small>EL</small>IMPOSTOR</div><p class="muted">Entrando en la partida…</p></div>`);
+  if (S.g.status === "lobby") return renderLobby();
+  renderGame();
+}
+function view(html) {
+  if (html === S.lastHtml) return;
+  const keep = {}, ae = document.activeElement, focusId = ae && ae.id;
+  $app.querySelectorAll("input[id],select[id]").forEach(el => { keep[el.id] = el.type === "checkbox" ? null : el.value; });
+  S.lastHtml = html; $app.innerHTML = html;
+  Object.entries(keep).forEach(([id, v]) => { const el = document.getElementById(id); if (el && v !== null && el.dataset.keep !== undefined) el.value = v; });
+  if (focusId) { const el = document.getElementById(focusId); if (el && el.dataset.keep !== undefined) el.focus(); }
+  bind(); tick();
+}
+const H = {};
+function bind() {
+  $app.querySelectorAll("[data-on]").forEach(el => {
+    const [ev, fn, arg] = el.dataset.on.split(":");
+    el.addEventListener(ev, e => { if (H[fn]) H[fn](arg, e, el); });
+  });
+}
+function tick() {
+  const g = S.g;
+  $app.querySelectorAll("[data-until]").forEach(el => {
+    const left = Math.max(0, Math.ceil((+el.dataset.until - Date.now()) / 1000));
+    el.textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
+  });
+  if (g && g.until && isHost() && Date.now() >= g.until) drive();
+}
+function rulesHTML() {
+  return `<details class="card"><summary>Cómo se juega</summary><div class="how">
+    <p>De 3 a ${MAX_PLAYERS} jugadores, cada uno con su móvil. Todos reciben la <b>misma palabra secreta</b> menos el <b>impostor</b>, que no la sabe (como mucho, ve la categoría).</p>
+    <p><b>Pistas:</b> por turnos, cada uno escribe o dice en voz alta una pista sobre la palabra. Ni muy obvia (el impostor la pillaría) ni muy rara (sospecharán de ti). El impostor tiene que disimular.</p>
+    <p><b>Debate y votación:</b> se habla y todos votan a la vez a quien creen que es el impostor. El más votado queda fuera. Si hay empate, no sale nadie.</p>
+    <p><b>Gana el pueblo</b> si echa a todos los impostores. <b>Gana el impostor</b> si llegan a ser tantos impostores como civiles o si, al ser descubierto, adivina la palabra.</p>
+    <p><b>Modo palabra parecida:</b> el impostor recibe una palabra distinta pero parecida y ni siquiera sabe que es el impostor.</p></div></details>`;
+}
+function renderHome() {
+  view(`
+  <div class="hero">${MASK_SVG}<div class="logo"><small>EL</small>IMPOSTOR</div>
+    <p class="muted">Todos sabéis la palabra secreta… menos uno. Descubridlo antes de que se salga con la suya.</p></div>
+  <label class="lbl" for="nm">Tu nombre<input id="nm" data-keep class="text" maxlength="16" autocomplete="nickname" value="${esc(S.name)}" placeholder="Tu nombre"></label>
+  <div class="card"><h2>Nueva partida</h2><button class="btn red wide" data-on="click:create"${S.busy ? " disabled" : ""}>Crear partida</button></div>
+  <div class="card"><h2>Unirse</h2>
+    <div class="row"><input id="jc" data-keep class="text code" maxlength="4" autocomplete="off" placeholder="ABCD" value="${esc(S.prefill || "")}" aria-label="Código de la partida" data-on="keydown:joinKey"><button class="btn" data-on="click:join"${S.busy ? " disabled" : ""}>Entrar</button></div>
+    ${S.rejoin ? `<button class="btn ghost" data-on="click:rejoin">Volver a la partida ${esc(S.rejoin)}</button>` : ""}</div>
+  <p class="msg ${S.homeErr ? "err" : ""}" role="status">${esc(S.homeMsg)}</p>
+  ${rulesHTML()}`);
+}
+H.create = createGame;
+H.join = () => joinGame(document.getElementById("jc").value);
+H.joinKey = (_, e) => { if (e.key === "Enter") joinGame(e.target.value); };
+H.rejoin = () => joinGame(S.rejoin);
+H.out = () => leave("");
+H.share = () => {
+  const url = location.origin + location.pathname + "#" + S.code;
+  if (navigator.share) { navigator.share({ title: "El Impostor", text: "Entra con el código " + S.code, url }).catch(() => {}); return; }
+  navigator.clipboard?.writeText(url).then(() => toast("Enlace copiado"), () => toast(url));
+};
+H.sit = () => joinSeat(S.code).catch(() => toast("No se pudo entrar."));
+H.start = hostStart;
+H.cat = c => setCfg({ cat: c });
+H.imp = n => setCfg({ imp: +n });
+H.rounds = n => setCfg({ rounds: +n });
+H.talk = n => setCfg({ talk: +n });
+H.tog = (k, e) => setCfg({ [k]: e.target.checked });
+H.theme = (_, e) => setCfg({ theme: e.target.value.slice(0, 60) });
+
+function seg(fn, cur, opts) { return `<div class="seg">${opts.map(([v, l]) => `<button type="button" aria-pressed="${String(cur) === String(v)}" data-on="click:${fn}:${v}">${l}</button>`).join("")}</div>`; }
+function scoresHTML(g) {
+  const sc = g.scores || {}, ids = Object.keys(sc).filter(u => sc[u] > 0 && S.players.some(p => p.id === u)).sort((a, b) => sc[b] - sc[a]);
+  if (!ids.length) return "";
+  return `<div class="card"><h2>Marcador</h2><ul class="scores">${ids.map(u => `<li>${av(u)}<span>${esc(nameOf(u))}</span><span class="p">${sc[u]}</span></li>`).join("")}</ul>
+    <p class="muted small">Civiles que ganan: +1. Impostores que ganan: +2.</p></div>`;
+}
+function renderLobby() {
+  const g = S.g, host = isHost(), inList = S.players.some(p => p.id === me()), cfg = { ...DEF_CFG, ...g.cfg }, n = S.players.length;
+  const maxImp = Math.max(1, Math.floor((Math.max(n, 3) - 1) / 2));
+  const list = S.players.map(p => `<li>${av(p.id)}<span class="n">${esc(p.name)}${p.id === g.host ? " 🎩" : ""}${p.id === me() ? " (tú)" : ""}</span></li>`).join("");
+  const catName = cfg.cat === "mix" ? "Todas mezcladas" : (BANK[cfg.cat] || {}).n || "Todas";
+  const cfgHTML = host ? `<div class="card cfg"><h2>Ajustes</h2>
+    <label class="lbl">Categoría</label>
+    <div class="cats"><button type="button" aria-pressed="${cfg.cat === "mix"}" data-on="click:cat:mix">🎲 Todas</button>${Object.entries(BANK).map(([k, c]) => `<button type="button" aria-pressed="${cfg.cat === k}" data-on="click:cat:${k}">${c.e} ${esc(c.n)}</button>`).join("")}</div>
+    ${S.sample ? `<label class="toggle"><input type="checkbox" ${cfg.ai ? "checked" : ""} data-on="change:tog:ai"> Palabras nuevas con IA (Gemini)</label>
+      ${cfg.ai ? `<label class="lbl" for="th">Tema libre (opcional)<input id="th" data-keep class="text" maxlength="60" placeholder="Ej. Harry Potter, los 90, Sevilla…" value="${esc(cfg.theme)}" data-on="change:theme"></label>` : ""}` : ""}
+    <label class="lbl">Impostores</label>${seg("imp", Math.min(cfg.imp, maxImp), [1, 2, 3].filter(x => x <= maxImp).map(x => [x, x]))}
+    <label class="lbl">Pistas por jugador antes de votar</label>${seg("rounds", cfg.rounds, [[1, "1"], [2, "2"], [3, "3"]])}
+    <label class="lbl">Tiempo de debate</label>${seg("talk", cfg.talk, [[0, "Sin debate"], [60, "1 min"], [90, "1:30"], [180, "3 min"]])}
+    <label class="toggle"><input type="checkbox" ${cfg.hint ? "checked" : ""} data-on="change:tog:hint"> El impostor ve la categoría</label>
+    <label class="toggle"><input type="checkbox" ${cfg.similar ? "checked" : ""} data-on="change:tog:similar"> Modo palabra parecida (el impostor no sabe que lo es)</label>
+    <label class="toggle"><input type="checkbox" ${cfg.guess ? "checked" : ""} data-on="change:tog:guess"> Si pillan al impostor, puede adivinar la palabra para ganar</label>
+  </div>`
+  : `<div class="card"><h2>Ajustes</h2><p class="muted">${esc(catName)}${cfg.ai ? " · palabras con IA" : ""} · ${Math.min(cfg.imp, maxImp)} impostor${Math.min(cfg.imp, maxImp) > 1 ? "es" : ""} · ${cfg.rounds} pista${cfg.rounds > 1 ? "s" : ""} por jugador${cfg.similar ? " · palabra parecida" : ""}</p></div>`;
+  view(`
+  <div class="top"><button class="btn ghost sm" data-on="click:out">Salir</button><span class="sp"></span><span class="chip">SALA ${esc(S.code)}</span></div>
+  <div class="card center"><p class="muted small">Código de la partida</p><div class="big-code">${esc(S.code)}</div>
+    <button class="btn ghost" data-on="click:share">Invitar</button></div>
+  <div class="card"><h2>Jugadores (${n})</h2><ul class="plist">${list || "<li>Esperando…</li>"}</ul>
+    ${!inList && n < MAX_PLAYERS ? `<button class="btn" data-on="click:sit">Sentarme</button>` : ""}</div>
+  ${cfgHTML}
+  ${host ? `<button class="btn red wide" data-on="click:start"${n < 3 || S.busy ? " disabled" : ""}>${S.busy ? "Repartiendo…" : n < 3 ? "Faltan jugadores (mínimo 3)" : "Repartir palabras"}</button>`
+    : `<p class="muted center">Esperando a que ${esc(nameOf(g.host))} reparta.</p>`}
+  ${scoresHTML(g)}
+  ${rulesHTML()}`);
+}
+
+/* ---------- partida ---------- */
+function secretHTML() {
+  const s = S.sec;
+  if (!inGame(S.g)) return `<div class="secret"><div class="cover"><span class="lbl2">Estás mirando</span><p class="muted">Entraste con la partida empezada.</p></div></div>`;
+  if (!s) return `<div class="secret"><div class="cover"><span class="lbl2">Repartiendo…</span></div></div>`;
+  if (!S.show) return `<div class="secret" data-on="click:flip" role="button" tabindex="0" aria-label="Ver mi palabra"><div class="cover">${MASK_SVG}<span class="lbl2">Toca para ver tu palabra</span><span class="muted small">Que no te vean la pantalla</span></div></div>`;
+  if (s.imp) return `<div class="secret imp pop" data-on="click:flip" role="button" tabindex="0"><div><span class="lbl2">Eres</span><div class="word">EL IMPOSTOR</div>
+    <p style="margin-top:8px">${s.cat ? `Categoría: <b>${esc(s.cat)}</b>` : "No sabes ni la categoría. ¡Suerte!"}</p><p class="small" style="margin-top:6px;opacity:.8">Toca para ocultar</p></div></div>`;
+  return `<div class="secret pop" data-on="click:flip" role="button" tabindex="0"><div><span class="lbl2">${s.cat ? esc(s.cat) : "Tu palabra"}</span><div class="word">${esc(s.word)}</div><p class="small muted" style="margin-top:8px">Toca para ocultar</p></div></div>`;
+}
+H.flip = () => { S.show = !S.show; render(); };
+function playersHTML(g, opts = {}) {
+  return `<ul class="plist">${g.order.map(u => {
+    const out = !g.alive.includes(u), turn = opts.turn === u, done = opts.done && opts.done(u);
+    return `<li class="${out ? "out" : ""} ${turn ? "turn" : ""}">${av(u)}<span class="n">${esc(nameOf(u))}${u === me() ? " (tú)" : ""}</span>${done ? `<span class="tick" aria-label="listo">✓</span>` : ""}</li>`;
+  }).join("")}</ul>`;
+}
+function cluesHTML(g) {
+  if (!g.clues.length) return "";
+  const multi = g.round > 1 || g.cfg.rounds > 1;
+  return `<ul class="clues">${[...g.clues].reverse().map(c => `<li>${av(c.u)}<b>${c.w ? esc(c.w) : `<span class="muted" style="font-family:var(--body);font-size:14px">(en voz alta)</span>`}</b>${multi ? `<span class="r">R${c.r}</span>` : ""}</li>`).join("")}</ul>`;
+}
+function topBar(g) {
+  return `<div class="top"><button class="btn ghost sm" data-on="click:out">Salir</button><span class="sp"></span>
+    <span class="chip">RONDA ${g.round || 1}</span><button class="btn ghost sm" data-on="click:menu" aria-expanded="${S.menu}">⋯</button></div>
+    ${S.menu ? menuHTML(g) : ""}`;
+}
+function menuHTML(g) {
+  if (isHost()) {
+    const alive = g.alive || [];
+    return `<div class="card menu"><h2>Anfitrión</h2>
+      ${["talk", "result", "clues"].includes(g.phase) ? `<button class="btn sm" data-on="click:skip">${g.phase === "clues" ? "Saltar el turno de pista" : "Pasar a lo siguiente"}</button>` : ""}
+      <p class="muted small">Quitar a alguien que se ha ido (deja de contar en turnos y votos):</p>
+      <div class="seg">${alive.filter(u => u !== me()).map(u => `<button type="button" data-on="click:kick:${u}">✕ ${esc(nameOf(u))}</button>`).join("")}</div>
+      <button class="btn ghost sm" data-on="click:lobby">Terminar y volver a la sala</button></div>`;
+  }
+  return `<div class="card menu"><p class="muted small">La partida la lleva ${esc(nameOf(g.host))}. Si se ha ido y la partida se ha quedado parada, puedes llevarla tú.</p>
+    <button class="btn sm" data-on="click:take">Llevar yo la partida</button></div>`;
+}
+H.menu = () => { S.menu = !S.menu; render(); };
+H.skip = () => { S.menu = false; hostSkip(); };
+H.kick = u => { if (confirm(`¿Quitar a ${nameOf(u)} de la partida?`)) { S.menu = false; hostKick(u); } };
+H.lobby = () => { if (confirm("¿Terminar la partida y volver a la sala?")) { S.menu = false; toLobby(); } };
+H.take = () => { if (confirm("¿Llevar tú la partida?")) { S.menu = false; takeOver(); } };
+H.ready = () => act({ ok: true });
+H.clue = () => {
+  const el = document.getElementById("cl"), w = (el && el.value || "").trim();
+  if (!w) { toast("Escribe tu pista o pulsa «La he dicho en voz alta»."); return; }
+  act({ w });
+};
+H.clueKey = (_, e) => { if (e.key === "Enter") H.clue(); };
+H.aloud = () => act({ w: "" });
+H.vote = u => { S.myVote = u; render(); act({ v: u }); };
+H.guess = () => { const el = document.getElementById("gw"), w = (el && el.value || "").trim(); if (!w) return; act({ w }); };
+H.guessKey = (_, e) => { if (e.key === "Enter") H.guess(); };
+H.again = toLobby;
+H.override = hostOverride;
+
+function renderGame() {
+  const g = S.g;
+  if (g.status === "end") return renderEnd();
+  const mineAct = actOf(g, me()), alive = amAlive(g);
+  let panel = "";
+  if (g.phase === "reveal") {
+    const done = g.alive.filter(u => actOf(g, u)).length;
+    panel = `<div class="card phase"><h2>Mirad vuestra palabra</h2><p class="muted">Cuando la tengas clara, ocúltala y pulsa listo. ${done}/${g.alive.length} listos.</p>
+      ${alive ? `<button class="btn ${mineAct ? "ghost" : "yel"} wide" data-on="click:ready"${mineAct ? " disabled" : ""}>${mineAct ? "Esperando al resto…" : "Listo"}</button>` : ""}</div>
+      ${playersHTML(g, { done: u => actOf(g, u) })}`;
+  } else if (g.phase === "clues") {
+    const sp = speaker(g), mine = sp === me(), sent = mine && mineAct;
+    panel = `<div class="card phase"><h2>${mine ? "Te toca dar pista" : `Pista de ${esc(nameOf(sp))}`}</h2>
+      <p class="muted">${g.cfg.rounds > 1 ? `Vuelta ${g.ci + 1} de ${g.cfg.rounds}. ` : ""}${mine ? "Una palabra o frase corta. Que se note que la sabes, pero sin regalársela al impostor." : "Escucha bien… o lee."}</p>
+      ${mine ? (sent ? `<p class="muted">Enviada.</p>` : `<input id="cl" data-keep class="text" maxlength="40" autocomplete="off" placeholder="Tu pista" data-on="keydown:clueKey">
+        <div class="row"><button class="btn yel" data-on="click:clue">Enviar pista</button><button class="btn ghost" data-on="click:aloud">La he dicho en voz alta</button></div>`) : ""}
+      ${cluesHTML(g)}</div>
+      ${playersHTML(g, { turn: sp })}`;
+  } else if (g.phase === "talk") {
+    const ready = g.alive.filter(u => actOf(g, u)).length;
+    panel = `<div class="card phase"><h2>Debate</h2><p class="muted">¿Quién se ha delatado con su pista? Hablad y acusad. Cuando todos estéis listos se vota.</p>
+      <p class="timer">⏱ <span data-until="${g.until}"></span></p>
+      ${alive ? `<button class="btn ${mineAct ? "ghost" : "red"} wide" data-on="click:ready"${mineAct ? " disabled" : ""}>${mineAct ? `Listo para votar (${ready}/${g.alive.length})` : "Listo para votar"}</button>` : ""}
+      ${cluesHTML(g)}</div>`;
+  } else if (g.phase === "vote") {
+    const done = g.alive.filter(u => actOf(g, u)).length, myV = (mineAct && mineAct.v) || S.myVote;
+    panel = `<div class="card phase"><h2>¿Quién es el impostor?</h2><p class="muted">${alive ? "Vota en secreto. Puedes cambiar el voto hasta que voten todos." : "Los vivos están votando."} ${done}/${g.alive.length} han votado.</p>
+      ${alive ? `<div class="votes">${g.alive.filter(u => u !== me()).map(u => `<button class="vbtn" aria-pressed="${myV === u}" data-on="click:vote:${u}">${av(u)}<span>${esc(nameOf(u))}</span></button>`).join("")}</div>` : ""}
+      ${cluesHTML(g)}</div>`;
+  } else if (g.phase === "guess") {
+    const mine = g.out.u === me();
+    panel = `<div class="card verdict bad pop"><p class="muted">Habéis echado a ${esc(nameOf(g.out.u))}…</p><div class="big">¡Era impostor!</div>
+      <p>${mine ? "Última oportunidad: si adivinas la palabra, ganas igualmente." : `${esc(nameOf(g.out.u))} tiene una oportunidad de adivinar la palabra…`}</p>
+      <p class="timer">⏱ <span data-until="${g.until}"></span></p>
+      ${mine ? (mineAct ? `<p class="muted">Respuesta enviada.</p>` : `<input id="gw" data-keep class="text" maxlength="40" autocomplete="off" placeholder="La palabra era…" data-on="keydown:guessKey"><button class="btn red wide" data-on="click:guess">Adivinar</button>`) : ""}</div>`;
+  } else if (g.phase === "result") {
+    panel = resultHTML(g);
+  }
+  view(`${topBar(g)}${secretHTML()}${panel}`);
+}
+function tallyHTML(g) {
+  if (!g.tally) return "";
+  const max = Math.max(1, ...Object.values(g.tally));
+  const ids = Object.keys(g.tally).sort((a, b) => g.tally[b] - g.tally[a]);
+  const by = u => Object.keys(g.votes || {}).filter(v => g.votes[v] === u).map(nameOf).join(", ");
+  return `<ul class="tally">${ids.map(u => `<li>${av(u)}<span><b>${esc(nameOf(u))}</b> <span class="muted small">${esc(by(u))}</span></span><b>${g.tally[u]}</b><span class="bar"><i style="width:${g.tally[u] / max * 100}%"></i></span></li>`).join("")}</ul>`;
+}
+function resultHTML(g) {
+  let v;
+  if (!g.out) v = `<div class="verdict"><div class="big">Empate</div><p class="muted">Nadie sale esta ronda. Otra vuelta de pistas.</p></div>`;
+  else if (g.out.imp) v = `<div class="verdict bad"><div class="big">¡${esc(nameOf(g.out.u))} era impostor!</div>${g.guess ? `<p>${g.guess.w ? `Ha dicho «${esc(g.guess.w)}» y no era.` : "No ha dicho nada a tiempo."}</p>` : ""}<p class="muted">Pero aún queda alguno suelto…</p></div>`;
+  else v = `<div class="verdict good"><div class="big">${esc(nameOf(g.out.u))} era inocente</div><p class="muted">El impostor sigue entre vosotros.</p></div>`;
+  return `<div class="card pop">${v}${tallyHTML(g)}<p class="muted small center">Seguimos en <span data-until="${g.until}"></span></p></div>`;
+}
+function renderEnd() {
+  const g = S.g, r = g.reveal || {}, impWin = g.win === "imp", mine = (r.imps || []).includes(me());
+  const iWon = inGame(g) && (impWin === mine);
+  const why = g.how === "guess" ? `${esc(nameOf(g.out && g.out.u))} ha adivinado la palabra.` : g.how === "parity" ? "Ya son tantos impostores como civiles." : "Habéis echado a todos los impostores.";
+  view(`
+  <div class="top"><button class="btn ghost sm" data-on="click:out">Salir</button><span class="sp"></span><span class="chip">SALA ${esc(S.code)}</span></div>
+  <div class="card verdict ${impWin ? "bad" : "good"} pop">
+    ${inGame(g) ? `<p class="muted">${iWon ? "¡Has ganado!" : "Has perdido"}</p>` : ""}
+    <div class="big">${impWin ? (r.imps && r.imps.length > 1 ? "Ganan los impostores" : "Gana el impostor") : "Gana el pueblo"}</div>
+    <p>${why}</p></div>
+  <div class="card"><h2>La palabra era</h2><div class="secret" style="min-height:120px;cursor:default"><div><span class="lbl2">${esc(r.cat || "")}</span><div class="word">${esc(r.word || "")}</div>
+    ${r.similar ? `<p class="muted small" style="margin-top:6px">El impostor tenía: <b>${esc(r.alt)}</b></p>` : ""}</div></div>
+    <p><b>${(r.imps || []).length > 1 ? "Impostores" : "Impostor"}:</b> ${(r.imps || []).map(u => esc(nameOf(u))).join(", ")}</p>
+    ${g.guess && g.guess.w && !g.guess.ok ? `<p class="muted small">Intento del impostor: «${esc(g.guess.w)}».</p>` : ""}
+    ${isHost() && g.how === "caught" && g.guess && g.guess.w && !g.guess.ok ? `<button class="btn ghost sm" data-on="click:override">Dar por buena su respuesta</button>` : ""}
+    ${tallyHTML(g)}</div>
+  ${scoresHTML(g)}
+  ${isHost() ? `<button class="btn red wide" data-on="click:again">Otra partida</button>` : `<p class="muted center">${esc(nameOf(g.host))} puede empezar otra.</p>`}`);
+}
+
+window.__imp = { S, drive, speaker, sameWord, bankPairs };
+boot();
+})();
+</script>
+</body>
+</html>

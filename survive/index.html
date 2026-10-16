@@ -1,0 +1,928 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Escapa de la Isla</title>
+<meta name="theme-color" content="#072C47">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="../icons/icon-192.png">
+<link rel="apple-touch-icon" href="../icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Titan+One&family=Nunito:wght@400;700;900&display=swap">
+<script>window.APP_KEY="survive"</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="../firebase-config.js"></script>
+<script src="../shared/claude-shim.js"></script>
+<style>
+/* Layout: mesa de juego a una columna — jugadores arriba, tablero hexagonal en el centro, panel de acciones y registro abajo */
+:root{
+  --deep:#072C47; --sea:#0D5C8C; --sea-2:#0A4A73; --panel:#0F3B5C; --panel-2:#13476E; --line:#24618F;
+  --ink:#FFFFFF; --muted:#A9CBE3; --gold:#FFD84D; --ok:#5BE38F; --bad:#FF6B6B;
+  --beach:#EBD39A; --forest:#2F8F4E; --mount:#868E99; --safe:#8FD36A;
+  --display:"Titan One","Arial Rounded MT Bold","Trebuchet MS",sans-serif;
+  --body:"Nunito",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:radial-gradient(120% 70% at 50% 0%,#0E4A75,var(--deep) 70%) fixed;background-color:var(--deep);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.4;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+#app{max-width:640px;margin:0 auto;min-height:100%;padding-inline:16px;padding-block:14px 32px;display:flex;flex-direction:column;gap:12px}
+h1,h2,h3{font-family:var(--display);font-weight:400;margin:0;letter-spacing:.01em;text-wrap:balance}
+p{margin:0}
+.muted{color:var(--muted)}
+.small{font-size:13.5px}
+
+.btn{appearance:none;border:0;border-radius:14px;min-height:50px;padding:0 18px;background:var(--panel-2);color:var(--ink);font-family:var(--display);font-size:18px;letter-spacing:.02em;box-shadow:0 4px 0 rgba(0,0,0,.35);transition:transform .08s,box-shadow .08s;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.35)}
+.btn.gold{background:var(--gold);color:#2B2000}
+.btn.ghost{background:transparent;box-shadow:inset 0 0 0 2px var(--line)}
+.btn.sm{min-height:40px;font-size:15px;padding:0 14px}
+.btn:disabled{opacity:.45;cursor:default;transform:none}
+.btn.wide{width:100%}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>*{flex:1 1 130px}
+input.text{width:100%;min-height:50px;border-radius:14px;border:2px solid var(--line);background:var(--deep);padding:0 14px;font-size:18px;font-weight:700}
+input.code{text-transform:uppercase;letter-spacing:.3em;font-family:var(--display);font-size:24px;text-align:center}
+label.lbl{display:grid;gap:6px;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+
+.hero{display:grid;gap:10px;justify-items:center;text-align:center;padding-block:14px 4px}
+.logo{font-family:var(--display);font-size:clamp(40px,12vw,64px);line-height:.92;color:var(--gold);text-shadow:0 5px 0 #A0521B,0 10px 24px rgba(0,0,0,.45)}
+.logo small{display:block;font-size:.45em;color:var(--ink);text-shadow:0 3px 0 #0A3A5C}
+.isle{width:120px;height:104px}
+.card{background:var(--panel);border-radius:18px;padding:16px;display:grid;gap:12px;box-shadow:0 6px 0 rgba(0,0,0,.25)}
+.card h2{font-size:21px}
+.how{display:grid;gap:8px;font-size:15px}
+.how b{color:var(--gold)}
+summary{cursor:pointer}
+.msg{min-height:1.4em;color:var(--gold);text-align:center;font-weight:700}
+.msg.err{color:var(--bad)}
+
+.top{display:flex;align-items:center;gap:10px}
+.chip{font-family:var(--display);font-size:15px;letter-spacing:.12em;background:var(--panel);padding:6px 12px;border-radius:999px}
+.top .sp{flex:1}
+.big-code{font-family:var(--display);font-size:54px;letter-spacing:.18em;line-height:1;text-align:center;color:var(--gold)}
+.plist{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+.plist li{display:flex;align-items:center;gap:8px;background:var(--deep);border-radius:12px;padding:8px 10px;font-weight:700;min-width:0}
+.plist li span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.av{flex:0 0 auto;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-size:15px;color:#10202E;background:var(--c,#fff)}
+.wait{text-align:center;color:var(--muted);padding:6px}
+
+/* jugadores */
+.players{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:6px}
+.pl{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;align-items:center;background:var(--panel);border-radius:12px;padding:6px 8px;border:2px solid transparent;min-width:0}
+.pl.on{border-color:var(--gold)}
+.pl .nm{font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pl .st{grid-column:2;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* tablero */
+.bwrap{position:relative;border-radius:16px;overflow:auto;background:var(--sea-2);box-shadow:inset 0 0 0 2px var(--line);-webkit-overflow-scrolling:touch;max-height:72vh}
+#board{display:block;width:100%;height:auto;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.bwrap.zoom #board{width:175%}
+.zbtn{position:sticky;left:calc(100% - 46px);top:6px;float:right;margin:6px;z-index:2;width:38px;height:38px;border-radius:10px;border:0;background:rgba(7,44,71,.8);color:#fff;font-size:18px;font-weight:900}
+.hx{cursor:pointer}
+.tok{pointer-events:none}
+@keyframes pulse{50%{opacity:.35}}
+.hl{animation:pulse 1.2s ease-in-out infinite}
+@keyframes sinkfx{from{opacity:.9}to{opacity:0}}
+.lastfx{animation:sinkfx 2.4s ease-out forwards}
+
+/* panel */
+.panel{background:var(--panel);border-radius:18px;padding:14px;display:grid;gap:10px;box-shadow:0 6px 0 rgba(0,0,0,.25)}
+.phase{font-family:var(--display);font-size:19px}
+.phase .who{color:var(--gold)}
+.vals{display:flex;flex-wrap:wrap;gap:6px}
+.vchip{appearance:none;border:0;min-width:44px;min-height:44px;border-radius:50%;background:var(--c);color:#10202E;font-family:var(--display);font-size:19px;box-shadow:0 3px 0 rgba(0,0,0,.35)}
+.vchip[aria-pressed="true"]{outline:3px solid var(--gold);outline-offset:2px}
+.vchip.dim{opacity:.35}
+.opts{display:grid;gap:6px}
+.opt{appearance:none;border:0;text-align:left;border-radius:12px;min-height:46px;padding:8px 12px;background:var(--panel-2);display:flex;align-items:center;gap:10px;font-weight:700}
+.dot{flex:0 0 auto;width:26px;height:26px;border-radius:50%;background:var(--c);display:grid;place-items:center;color:#10202E;font-family:var(--display);font-size:14px}
+.tiles{display:flex;flex-wrap:wrap;gap:6px}
+.tile{display:flex;gap:8px;align-items:flex-start;background:var(--deep);border-radius:12px;padding:8px 10px;flex:1 1 220px;font-size:14px}
+.tile .e{font-size:22px;line-height:1}
+.tile b{display:block}
+.reveal{display:flex;gap:10px;align-items:center;background:var(--deep);border-radius:12px;padding:10px 12px;font-weight:700}
+.reveal .e{font-size:30px;line-height:1}
+.die{width:64px;height:64px;border-radius:14px;background:#fff;color:#10202E;display:grid;place-items:center;font-size:38px;box-shadow:0 4px 0 rgba(0,0,0,.35);flex:0 0 auto}
+@keyframes roll{0%{transform:rotate(0) scale(.6)}60%{transform:rotate(380deg) scale(1.1)}100%{transform:rotate(360deg) scale(1)}}
+.die.anim{animation:roll .7s ease-out}
+.dierow{display:flex;gap:12px;align-items:center}
+.moves{display:flex;gap:6px}
+.moves i{width:16px;height:16px;border-radius:50%;background:var(--gold)}
+.moves i.u{background:transparent;box-shadow:inset 0 0 0 2px var(--line)}
+.log{list-style:none;margin:0;padding:0;display:grid;gap:4px;font-size:13.5px;color:var(--muted)}
+.log li:first-child{color:var(--ink)}
+.mine{display:grid;gap:6px;font-size:14px}
+.mine .grp{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.mine .grp span.t{min-width:84px;color:var(--muted)}
+.mv{width:26px;height:26px;border-radius:50%;display:inline-grid;place-items:center;background:var(--c);color:#10202E;font-family:var(--display);font-size:14px}
+.mv.x{opacity:.35;text-decoration:line-through}
+
+.res{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.res li{display:grid;grid-template-columns:auto 1fr auto;gap:4px 10px;align-items:center;background:var(--deep);border-radius:14px;padding:10px 12px}
+.res li.win{box-shadow:inset 0 0 0 2px var(--gold)}
+.res .pts{font-family:var(--display);font-size:24px;color:var(--gold)}
+.res .det{grid-column:2/4;display:flex;flex-wrap:wrap;gap:4px}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,16px);opacity:0;background:var(--ink);color:#0A2238;padding:10px 16px;border-radius:12px;font-weight:900;transition:.2s;pointer-events:none;max-width:calc(100% - 32px);z-index:60}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+@media (prefers-reduced-motion:reduce){.hl,.die.anim,.lastfx{animation:none!important}}
+</style>
+</head>
+<body>
+<div id="app"><div class="hero"><div class="logo">¡Escapa<small>de la Isla!</small></div><p class="muted">Remando hacia la partida…</p></div></div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+"use strict";
+/* ================= tablero fijo ================= */
+const COLS = 13, ROWS = 13, SZ = 20, HW = Math.sqrt(3) * SZ;
+const K = (c, r) => c + "," + r;
+const P = k => k.split(",").map(Number);
+const ALL = [], NB = {}, XY = {};
+for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) ALL.push(K(c, r));
+ALL.forEach(k => {
+  const [c, r] = P(k);
+  const d = r & 1 ? [[1, 0], [-1, 0], [1, -1], [0, -1], [1, 1], [0, 1]] : [[1, 0], [-1, 0], [0, -1], [-1, -1], [0, 1], [-1, 1]];
+  NB[k] = d.map(([a, b]) => [c + a, r + b]).filter(([a, b]) => a >= 0 && b >= 0 && a < COLS && b < ROWS).map(([a, b]) => K(a, b));
+  XY[k] = [HW * (c + 0.5 * (r & 1)) + HW / 2 + 4, SZ * 1.5 * r + SZ + 4];
+});
+const VBW = HW * (COLS + 0.5) + 8, VBH = SZ * 1.5 * (ROWS - 1) + SZ * 2 + 8;
+const cube = k => { const [c, r] = P(k); const x = c - (r - (r & 1)) / 2; return [x, -x - r, r]; };
+const dist = (a, b) => { const A = cube(a), B = cube(b); return Math.max(Math.abs(A[0] - B[0]), Math.abs(A[1] - B[1]), Math.abs(A[2] - B[2])); };
+const CENTER = K(6, 6);
+const ISLAND = ALL.filter(k => dist(k, CENTER) <= 3).concat(["2,6", "10,6", "6,10"]);
+const SAFE_GROUPS = [["0,0", "1,0", "0,1"], ["12,0", "11,0", "12,1"], ["0,12", "1,12", "0,11"], ["12,12", "11,12", "12,11"]];
+const SAFE = new Set(SAFE_GROUPS.flat());
+const SERP_START = (() => {
+  const ring = ALL.filter(k => dist(k, CENTER) === 5 && !SAFE.has(k)), [cx, cy] = XY[CENTER];
+  ring.sort((a, b) => Math.atan2(XY[a][1] - cy, XY[a][0] - cx) - Math.atan2(XY[b][1] - cy, XY[b][0] - cx));
+  return [0, 1, 2, 3, 4].map(i => ring[Math.floor((i + .5) * ring.length / 5)]);
+})();
+const HEXPTS = {};
+ALL.forEach(k => { const [x, y] = XY[k]; HEXPTS[k] = [0, 1, 2, 3, 4, 5].map(i => { const a = Math.PI / 180 * (60 * i - 30); return (x + SZ * Math.cos(a)).toFixed(1) + "," + (y + SZ * Math.sin(a)).toFixed(1); }).join(" "); });
+
+/* ================= reglas fijas ================= */
+const VALS = [6, 5, 4, 3, 3, 2, 2, 1, 1, 1];
+const PCOL = ["#FF6B6B", "#5AA9FF", "#FFD84D", "#5BE38F"];
+const PCOLN = ["rojo", "azul", "amarillo", "verde"];
+const TERR = { b: { n: "playa", c: "var(--beach)" }, f: { n: "bosque", c: "var(--forest)" }, m: { n: "montaña", c: "var(--mount)" } };
+const CRE = { shark: { n: "tiburón", e: "🦈", r: 2, max: 6 }, whale: { n: "ballena", e: "🐋", r: 3, max: 5 }, serp: { n: "serpiente marina", e: "🐉", r: 1, max: 5 } };
+const FACES = ["shark", "shark", "whale", "whale", "serp", "serp"];
+const TILES = {
+  shark: { n: "Tiburón", e: "🦈", kind: "now", d: "Aparece un tiburón en esa casilla y se come a los nadadores que haya." },
+  whale: { n: "Ballena", e: "🐋", kind: "now", d: "Aparece una ballena en esa casilla." },
+  boat: { n: "Bote", e: "⛵", kind: "now", d: "Aparece un bote y los nadadores de esa casilla suben gratis (hasta 3)." },
+  whirl: { n: "Remolino", e: "🌀", kind: "now", d: "Se traga todo lo que hay en esa casilla y en el mar de alrededor." },
+  volcano: { n: "Volcán", e: "🌋", kind: "now", d: "¡Erupción! La partida termina al instante." },
+  dolphin: { n: "Delfín", e: "🐬", kind: "turn", d: "Al empezar tu turno: lleva a uno de tus nadadores hasta 3 casillas." },
+  wind: { n: "Viento a favor", e: "💨", kind: "turn", d: "Al empezar tu turno: mueve hasta 3 casillas un bote que controles." },
+  mvshark: { n: "Tiburón al acecho", e: "🦈", kind: "turn", cre: "shark", d: "Al empezar tu turno: lleva un tiburón a cualquier casilla de mar libre." },
+  mvwhale: { n: "Ballena furiosa", e: "🐋", kind: "turn", cre: "whale", d: "Al empezar tu turno: lleva una ballena a cualquier casilla de mar libre." },
+  mvserp: { n: "Serpiente despierta", e: "🐉", kind: "turn", cre: "serp", d: "Al empezar tu turno: lleva una serpiente marina a cualquier casilla de mar libre." },
+  rshark: { n: "Repelente de tiburones", e: "🛡️", kind: "def", cre: "shark", d: "Cuando un tiburón ataque a tus nadadores: lo espantas y desaparece." },
+  rwhale: { n: "Arpón", e: "🔱", kind: "def", cre: "whale", d: "Cuando una ballena ataque un bote con tus exploradores: la ahuyentas y desaparece." }
+};
+const BACKS = {
+  b: { shark: 4, whale: 3, boat: 4, whirl: 2, dolphin: 1, wind: 1, mvserp: 1 },
+  f: { shark: 2, whale: 2, boat: 3, whirl: 2, dolphin: 1, wind: 1, mvshark: 1, mvwhale: 1, rshark: 2, rwhale: 1 },
+  m: { volcano: 1, whirl: 1, boat: 1, dolphin: 1, wind: 1, mvserp: 1, rshark: 1, rwhale: 1 }
+};
+
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const shuffle = a => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const clone = o => JSON.parse(JSON.stringify(o));
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const ls = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+const $app = document.getElementById("app");
+let toastT;
+function toast(m) { const t = document.getElementById("toast"); t.textContent = m; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), 2800); }
+
+/* ================= estado local ================= */
+const S = {
+  db: null, uid: null, ready: false, offline: false,
+  name: (localStorage.getItem("sala.nick") || "").slice(0, 16),
+  code: null, g: null, players: [], unsubs: [], sec: { vals: {} }, secKey: "", secUnsub: null,
+  homeMsg: "", homeErr: false, busy: false,
+  sel: null, pick: null, tp: null, pv: null, zoom: false, info: null, taps: new Map(), dieSeen: 0
+};
+const me = () => S.uid;
+const isHost = () => S.g && S.g.host === S.uid;
+
+async function boot() {
+  try {
+    const [db, user] = await Promise.all(["db", "user"].map(n => window.claude ? claude.use(n).catch(() => null) : null));
+    S.db = db; if (user) S.uid = await user.id();
+  } catch {}
+  if (!S.db || !S.uid) S.offline = true;
+  S.ready = true;
+  const h = (location.hash || "").replace("#", "").toUpperCase(), last = ls.get("sv.last");
+  if (!S.offline && /^[A-Z]{4}$/.test(h)) S.prefill = h;
+  else if (!S.offline && last && last.code && Date.now() - last.t < 12 * 3600e3) S.rejoin = last.code;
+  render();
+}
+
+/* ================= sala online ================= */
+function watch(code) {
+  unwatch(); S.code = code; ls.set("sv.last", { code, t: Date.now() });
+  const base = "games/" + code;
+  S.unsubs.push(S.db.doc(base).onSnapshot(snap => {
+    if (!snap.exists) { leave("Esa partida ya no existe."); return; }
+    const prev = S.g; S.g = snap.data(); onGame(prev); render();
+  }, () => leave("Se ha perdido la conexión con la partida.")));
+  S.unsubs.push(S.db.collection(base + "/players").orderBy("joinedAt").onSnapshot(q => {
+    S.players = q.docs.map(d => ({ id: d.id, ...d.data() })); render();
+  }, () => {}));
+}
+function unwatch() { S.unsubs.forEach(u => { try { u(); } catch {} }); S.unsubs = []; if (S.secUnsub) S.secUnsub(); S.secUnsub = null; S.secKey = ""; S.g = null; S.players = []; }
+function leave(msg) { unwatch(); S.code = null; S.homeMsg = msg || ""; S.homeErr = !!msg; history.replaceState(null, "", location.pathname); render(); }
+const secPath = (uid, gid) => `games/${S.code}/secret/${uid}_${gid || S.g.gid}`;
+function watchSecret() {
+  const g = S.g; if (!g || !g.gid) return;
+  const key = me() + "_" + g.gid; if (key === S.secKey) return;
+  if (S.secUnsub) S.secUnsub();
+  S.secKey = key; S.sec = { vals: {} };
+  S.secUnsub = S.db.doc(secPath(me())).onSnapshot(s => { if (s.exists) { S.sec = s.data() || { vals: {} }; render(); } }, () => {});
+}
+function saveName() {
+  const el = document.getElementById("nm"); const v = ((el && el.value) || S.name || "").trim().slice(0, 16);
+  if (!v) { S.homeMsg = "Escribe tu nombre para que te reconozcan."; S.homeErr = true; render(); return false; }
+  S.name = v; try { localStorage.setItem("sala.nick", v); } catch {} return true;
+}
+const genCode = () => { const A = "ABCDEFGHJKLMNPQRSTUVWXYZ"; let c = ""; for (let i = 0; i < 4; i++) c += A[Math.floor(Math.random() * A.length)]; return c; };
+async function createGame() {
+  if (!saveName()) return;
+  S.busy = true; render();
+  try {
+    let code;
+    for (let i = 0; i < 6; i++) { code = genCode(); if (!(await S.db.doc("games/" + code).get()).exists) break; }
+    await S.db.doc("games/" + code).set({ v: 1, status: "lobby", host: me(), createdAt: Date.now(), seq: 0 });
+    await joinSeat(code);
+    location.hash = code; watch(code);
+  } catch { S.homeMsg = "No se pudo crear la partida. Revisa la conexión."; S.homeErr = true; }
+  S.busy = false; render();
+}
+async function joinSeat(code) {
+  const ref = S.db.doc(`games/${code}/players/${me()}`);
+  const cur = await ref.get();
+  if (cur.exists) { await ref.update({ name: S.name }); return true; }
+  const all = await S.db.collection(`games/${code}/players`).get();
+  if (all.docs.length >= 4) { toast("La partida ya tiene 4 jugadores: entras como público."); return false; }
+  await ref.set({ name: S.name, joinedAt: Date.now() });
+  return true;
+}
+async function joinGame(code) {
+  if (!saveName()) return;
+  code = String(code || "").toUpperCase().replace(/[^A-Z]/g, "");
+  if (code.length !== 4) { S.homeMsg = "El código tiene 4 letras."; S.homeErr = true; render(); return; }
+  S.busy = true; render();
+  try {
+    const snap = await S.db.doc("games/" + code).get();
+    if (!snap.exists) { S.homeMsg = "No hay ninguna partida con ese código."; S.homeErr = true; }
+    else {
+      const g = snap.data(), mine = (await S.db.doc(`games/${code}/players/${me()}`).get()).exists;
+      if (g.status === "lobby" || mine) await joinSeat(code);
+      else toast("La partida ya ha empezado: entras como público.");
+      location.hash = code; watch(code);
+    }
+  } catch { S.homeMsg = "No se pudo entrar. Revisa la conexión."; S.homeErr = true; }
+  S.busy = false; render();
+}
+
+/* ================= consultas sobre el estado ================= */
+const nameOf = id => (S.players.find(p => p.id === id) || {}).name || "Alguien";
+const seatOf = (g, id) => g.order ? g.order.indexOf(id) : -1;
+const colorOf = (g, id) => PCOL[Math.max(0, seatOf(g, id))];
+const cur = g => g.order[g.turn];
+const isSea = (g, k) => !g.tiles[k] && !SAFE.has(k);
+const creAt = (g, k) => Object.keys(g.cre).find(id => g.cre[id].at === k) || null;
+const boatAt = (g, k) => Object.keys(g.boats).find(id => g.boats[id].at === k) || null;
+const posOf = (g, e) => e.st === "boat" ? g.boats[e.b].at : e.at;
+const passengers = (g, bid) => Object.keys(g.exps).filter(id => g.exps[id].st === "boat" && g.exps[id].b === bid);
+const swimmersAt = (g, k) => Object.keys(g.exps).filter(id => g.exps[id].st === "sea" && g.exps[id].at === k);
+const landAt = (g, k) => Object.keys(g.exps).filter(id => g.exps[id].st === "land" && g.exps[id].at === k);
+const roomBoat = (g, k, except) => { const b = boatAt(g, k); return b && b !== except && passengers(g, b).length < 3 ? b : null; };
+const myVal = id => (S.sec.vals || {})[id];
+const handOf = (g, id) => (g.hand && g.hand[id]) || [];
+function controls(g, bid, uid) {
+  const ps = passengers(g, bid); if (!ps.length) return true;
+  const cnt = {}; ps.forEach(id => { const o = g.exps[id].o; cnt[o] = (cnt[o] || 0) + 1; });
+  return (cnt[uid] || 0) > 0 && cnt[uid] >= Math.max(...Object.values(cnt));
+}
+function sinkable(g) {
+  for (const t of ["b", "f", "m"]) {
+    const all = Object.keys(g.tiles).filter(k => g.tiles[k].t === t); if (!all.length) continue;
+    const c = all.filter(k => NB[k].some(n => isSea(g, n)));
+    if (c.length) return c;
+  }
+  return [];
+}
+function expDests(g, id) {
+  const e = g.exps[id], out = [];
+  const seaStep = n => { if (!isSea(g, n) || creAt(g, n)) return; const b = roomBoat(g, n, e.b); out.push(b ? { k: n, how: "board", b } : { k: n, how: "swim" }); };
+  if (e.st === "land") NB[e.at].forEach(n => { if (g.tiles[n]) out.push({ k: n, how: "walk" }); else if (SAFE.has(n)) out.push({ k: n, how: "safe" }); else seaStep(n); });
+  else if ((e.st === "sea" || e.st === "boat") && !g.swam.includes(id)) {
+    const at = posOf(g, e);
+    if (e.st === "sea") { const b = roomBoat(g, at); if (b) out.push({ k: at, how: "board", b }); }
+    NB[at].forEach(n => { if (SAFE.has(n)) out.push({ k: n, how: "safe" }); else seaStep(n); });
+  }
+  return out;
+}
+const boatDests = (g, bid) => NB[g.boats[bid].at].filter(n => isSea(g, n) && !creAt(g, n) && !boatAt(g, n)).map(k => ({ k, how: "boat" }));
+function prey(g, k, kind) { const sw = swimmersAt(g, k).length > 0, b = !!boatAt(g, k); return kind === "shark" ? sw : kind === "whale" ? b : sw || b; }
+function creDests(g, cid) {
+  const c = g.cre[cid], seen = new Set([c.at]), out = []; let front = [c.at];
+  for (let s = 0; s < CRE[c.k].r; s++) {
+    const nx = [];
+    front.forEach(f => NB[f].forEach(n => { if (seen.has(n) || !isSea(g, n) || creAt(g, n)) return; seen.add(n); out.push({ k: n }); if (!prey(g, n, c.k)) nx.push(n); }));
+    front = nx;
+  }
+  return out;
+}
+const anySea = (g, from) => ALL.filter(n => n !== from && isSea(g, n) && !creAt(g, n)).map(k => ({ k }));
+function dolphinDests(g, id) {
+  const e = g.exps[id], seen = new Set([e.at]), out = new Map(); let front = [e.at];
+  const addSafe = f => NB[f].forEach(n => { if (SAFE.has(n) && !out.has(n)) out.set(n, { k: n, how: "safe" }); });
+  addSafe(e.at);
+  for (let s = 0; s < 3; s++) {
+    const nx = [];
+    front.forEach(f => NB[f].forEach(n => { if (seen.has(n) || !isSea(g, n) || creAt(g, n)) return; seen.add(n); const b = roomBoat(g, n); out.set(n, b ? { k: n, how: "board", b } : { k: n, how: "swim" }); addSafe(n); nx.push(n); }));
+    front = nx;
+  }
+  return [...out.values()];
+}
+function windDests(g, bid) {
+  const st = g.boats[bid].at, seen = new Set([st]), out = []; let front = [st];
+  for (let s = 0; s < 3; s++) {
+    const nx = [];
+    front.forEach(f => NB[f].forEach(n => { if (seen.has(n) || !isSea(g, n) || creAt(g, n) || boatAt(g, n)) return; seen.add(n); out.push({ k: n, how: "boat" }); nx.push(n); }));
+    front = nx;
+  }
+  return out;
+}
+function myUnits(g, uid) {
+  const out = [];
+  Object.keys(g.exps).forEach(id => { const e = g.exps[id]; if (e.o === uid && ["land", "sea", "boat"].includes(e.st) && expDests(g, id).length) out.push({ kind: "e", id, k: posOf(g, e) }); });
+  Object.keys(g.boats).forEach(id => { if (controls(g, id, uid) && boatDests(g, id).length) out.push({ kind: "b", id, k: g.boats[id].at }); });
+  return out;
+}
+function playableTiles(g, uid) {
+  const h = handOf(g, uid), out = [];
+  [...new Set(h)].forEach(code => {
+    const T = TILES[code]; if (T.kind !== "turn") return;
+    let ok = false;
+    if (code === "dolphin") ok = Object.keys(g.exps).some(id => g.exps[id].o === uid && g.exps[id].st === "sea" && dolphinDests(g, id).length);
+    else if (code === "wind") ok = Object.keys(g.boats).some(b => controls(g, b, uid) && passengers(g, b).length && windDests(g, b).length);
+    else ok = Object.keys(g.cre).some(c => g.cre[c].k === T.cre);
+    if (ok) out.push(code);
+  });
+  return out;
+}
+
+/* ================= cambios de estado (solo quien tiene el turno) ================= */
+function logp(g, txt) { g.log = [txt, ...(g.log || [])].slice(0, 30); }
+function makeTiles() {
+  const order = ISLAND.map(k => ({ k, d: dist(k, CENTER) + Math.random() * 1.4 })).sort((a, b) => a.d - b.d).map(o => o.k);
+  const bags = {}; Object.keys(BACKS).forEach(t => { bags[t] = shuffle(Object.entries(BACKS[t]).flatMap(([b, n]) => Array(n).fill(b))); });
+  const t = {}; order.forEach((k, i) => { const ty = i < 8 ? "m" : i < 24 ? "f" : "b"; t[k] = { t: ty, b: bags[ty].pop() }; });
+  return t;
+}
+async function hostStart() {
+  const ids = S.players.slice(0, 4).map(p => p.id); if (!ids.length) return;
+  const order = shuffle(ids), exps = {}, cre = {}, hand = {};
+  order.forEach((uid, s) => { hand[uid] = []; for (let i = 0; i < 10; i++) exps[`p${s}e${i}`] = { o: uid, st: "hand", at: null, b: null }; });
+  SERP_START.forEach((k, i) => { cre["c" + i] = { k: "serp", at: k }; });
+  const g = {
+    ...S.g, status: "play", gid: Date.now(), order, turn: 0, actor: order[0], phase: "placeExp",
+    tiles: makeTiles(), exps, boats: {}, cre, hand, nb: 0, nc: 5, moves: 3, swam: [], die: null, dieN: 0,
+    log: [], rev: null, pend: null, score: null, vals: null, boatQ: [], why: null, played: false
+  };
+  logp(g, "La isla empieza a temblar. Colocad a vuestros exploradores.");
+  await commit(g, true);
+}
+function nextTurn(g) {
+  g.turn = (g.turn + 1) % g.order.length; g.moves = 3; g.swam = []; g.played = false; g.pend = null;
+  g.actor = cur(g); S.dieSeen = g.dieN;
+  g.phase = playableTiles(g, g.actor).length ? "start" : "move";
+}
+function toSink(g) { g.sel = null; g.phase = sinkable(g).length ? "sink" : "roll"; g.actor = cur(g); }
+function checkEnd(g) {
+  if (Object.values(g.exps).some(e => ["land", "sea", "boat"].includes(e.st))) return false;
+  endGame(g, "all"); return true;
+}
+function endGame(g, why) { g.status = "end"; g.phase = "end"; g.why = why; g.actor = me(); g.pend = null; }
+function cont(g, then) {
+  if (checkEnd(g)) return;
+  g.pend = null;
+  if (then === "roll") { g.phase = "roll"; g.actor = cur(g); }
+  else if (then === "move") { g.phase = "move"; g.actor = cur(g); }
+  else nextTurn(g);
+}
+const plural = (n, a, b) => n + " " + (n === 1 ? a : b);
+function countBy(g, ids) { const c = {}; ids.forEach(id => { const o = g.exps[id].o; c[o] = (c[o] || 0) + 1; }); return Object.entries(c).map(([o, n]) => `${plural(n, "explorador", "exploradores")} de ${nameOf(o)}`).join(" y "); }
+function attackInfo(g, cid) {
+  const c = g.cre[cid], k = c.at;
+  if (c.k === "shark") { const v = swimmersAt(g, k); return v.length ? { victims: v, def: "rshark" } : null; }
+  const b = boatAt(g, k);
+  if (c.k === "whale") return b ? { boat: b, victims: passengers(g, b), def: "rwhale" } : null;
+  const v = swimmersAt(g, k).concat(b ? passengers(g, b) : []);
+  return v.length || b ? { boat: b, victims: v, def: null } : null;
+}
+function resolveAttack(g, cid, then) {
+  const a = attackInfo(g, cid);
+  if (!a) return cont(g, then);
+  if (a.def && a.victims.length) {
+    const owners = [...new Set(a.victims.map(id => g.exps[id].o))], n = g.order.length;
+    const defs = [];
+    for (let i = 0; i < n; i++) { const u = g.order[(g.turn + i) % n]; if (owners.includes(u) && handOf(g, u).includes(a.def)) defs.push(u); }
+    if (defs.length) { g.phase = "defense"; g.pend = { cid, then, defs }; g.actor = defs[0]; return; }
+  }
+  applyAttack(g, cid); cont(g, then);
+}
+function applyAttack(g, cid) {
+  const c = g.cre[cid], a = attackInfo(g, cid); if (!a) return;
+  const e = CRE[c.k].e;
+  if (c.k === "shark") { logp(g, `${e} El tiburón se come a ${countBy(g, a.victims)}.`); a.victims.forEach(id => { g.exps[id].st = "dead"; }); }
+  else if (c.k === "whale") {
+    const ps = passengers(g, a.boat);
+    logp(g, ps.length ? `${e} La ballena vuelca un bote: ${countBy(g, ps)} caen al agua.` : `${e} La ballena hunde un bote vacío.`);
+    ps.forEach(id => { Object.assign(g.exps[id], { st: "sea", at: c.at, b: null }); }); delete g.boats[a.boat];
+  } else {
+    logp(g, a.victims.length ? `${e} La serpiente marina arrasa con ${countBy(g, a.victims)}${a.boat ? " y su bote" : ""}.` : `${e} La serpiente marina parte un bote vacío.`);
+    a.victims.forEach(id => { Object.assign(g.exps[id], { st: "dead", b: null }); }); if (a.boat) delete g.boats[a.boat];
+  }
+  g.last = [c.at];
+}
+function addCre(g, kind, k) {
+  if (Object.values(g.cre).filter(c => c.k === kind).length >= CRE[kind].max) return null;
+  const id = "c" + (g.nc++); g.cre[id] = { k: kind, at: k }; return id;
+}
+function whirlpool(g, k) {
+  const area = [k, ...NB[k].filter(n => isSea(g, n))], lost = [];
+  area.forEach(n => {
+    const b = boatAt(g, n); if (b) { passengers(g, b).forEach(id => lost.push(id)); delete g.boats[b]; }
+    swimmersAt(g, n).forEach(id => lost.push(id));
+    Object.keys(g.cre).forEach(c => { if (g.cre[c].at === n) delete g.cre[c]; });
+  });
+  lost.forEach(id => { Object.assign(g.exps[id], { st: "dead", b: null }); });
+  logp(g, `🌀 El remolino se lo traga todo${lost.length ? ": " + countBy(g, lost) : ""}.`);
+  g.last = area;
+}
+
+/* ================= acciones del jugador ================= */
+const myAct = () => S.g && S.g.actor === me() && S.g.status === "play";
+async function commit(g, force) {
+  if (!force && !myAct()) return;
+  g.seq = (S.g.seq || 0) + 1; g.ts = Date.now();
+  S.g = g; S.sel = null; S.pick = null; S.info = null; if (g.phase !== "start") S.tp = null;
+  render();
+  try { await S.db.doc("games/" + S.code).set(g); }
+  catch { toast("No se pudo guardar. Reintentando…"); setTimeout(() => S.db.doc("games/" + S.code).set(S.g).catch(() => toast("Sin conexión.")), 1500); }
+}
+function remainingVals() {
+  const used = Object.values(S.sec.vals || {}), left = [...VALS];
+  used.forEach(v => { const i = left.indexOf(v); if (i >= 0) left.splice(i, 1); });
+  return left;
+}
+async function placeExp(k) {
+  if (!myAct() || S.g.phase !== "placeExp") return;
+  const g = clone(S.g), id = Object.keys(g.exps).find(i => g.exps[i].o === me() && g.exps[i].st === "hand");
+  const left = remainingVals(); if (!id || !left.length) return;
+  const v = left.includes(S.pv) ? S.pv : left[0];
+  const sec = { vals: { ...(S.sec.vals || {}), [id]: v } };
+  try { await S.db.doc(secPath(me())).set(sec); S.sec = sec; } catch { toast("No se pudo guardar tu explorador."); return; }
+  Object.assign(g.exps[id], { st: "land", at: k });
+  if (!remainingVals().includes(S.pv)) S.pv = null;
+  const hasLeft = u => Object.values(g.exps).some(e => e.o === u && e.st === "hand");
+  if (!g.order.some(hasLeft)) {
+    const per = g.order.length === 2 ? 2 : 1, rev = [...g.order].reverse(), q = [];
+    for (let i = 0; i < per; i++) q.push(...rev);
+    g.boatQ = q; g.phase = "placeBoat"; g.actor = q[0];
+    logp(g, "Todos los exploradores en la isla. Ahora, los botes.");
+  } else {
+    do { g.turn = (g.turn + 1) % g.order.length; } while (!hasLeft(cur(g)));
+    g.actor = cur(g);
+  }
+  commit(g);
+}
+const boatSpots = g => ALL.filter(k => isSea(g, k) && NB[k].some(n => g.tiles[n]) && !boatAt(g, k) && !creAt(g, k));
+function placeBoat(k) {
+  if (!myAct() || S.g.phase !== "placeBoat") return;
+  const g = clone(S.g); g.boats["b" + (g.nb++)] = { at: k }; g.boatQ.shift();
+  if (g.boatQ.length) g.actor = g.boatQ[0];
+  else { g.turn = g.order.length - 1; nextTurn(g); logp(g, `¡Empieza la huida! Turno de ${nameOf(cur(g))}.`); }
+  commit(g);
+}
+function doMove(u, d) {
+  if (!myAct() || S.g.phase !== "move" || S.g.moves < 1) return;
+  const g = clone(S.g);
+  if (u.kind === "b") { g.boats[u.id].at = d.k; passengers(g, u.id).forEach(id => { g.exps[id].at = d.k; }); }
+  else {
+    const e = g.exps[u.id], from = e.st;
+    if (d.how === "walk") e.at = d.k;
+    else if (d.how === "safe") { Object.assign(e, { st: "safe", at: d.k, b: null }); logp(g, `🏝️ ${nameOf(e.o)} pone a salvo a un explorador.`); }
+    else if (d.how === "board") Object.assign(e, { st: "boat", at: d.k, b: d.b });
+    else Object.assign(e, { st: "sea", at: d.k, b: null });
+    if (from === "sea" || from === "boat" || d.how === "swim") g.swam.push(u.id);
+  }
+  g.moves--; g.last = [d.k];
+  if (checkEnd(g)) return commit(g);
+  if (g.moves < 1) toSink(g);
+  commit(g);
+}
+function endMoves() { if (!myAct() || S.g.phase !== "move") return; const g = clone(S.g); toSink(g); commit(g); }
+function doSink(k) {
+  if (!myAct() || S.g.phase !== "sink") return;
+  const g = clone(S.g), tile = g.tiles[k], T = TILES[tile.b], who = nameOf(me());
+  delete g.tiles[k];
+  landAt(g, k).forEach(id => { g.exps[id].st = "sea"; });
+  g.rev = { k, t: tile.t, b: tile.b, by: me(), now: T.kind === "now", n: (g.rev ? g.rev.n : 0) + 1 };
+  g.last = [k];
+  if (T.kind !== "now") { g.hand[me()] = [...handOf(g, me()), tile.b]; logp(g, `${who} hunde una ${TERR[tile.t].n} y se guarda una loseta.`); cont(g, "roll"); return commit(g); }
+  logp(g, `${who} hunde una ${TERR[tile.t].n}: ${T.e} ${T.n}.`);
+  if (tile.b === "volcano") { logp(g, "🌋 ¡El volcán entra en erupción! Se acabó."); endGame(g, "volcano"); return commit(g); }
+  if (tile.b === "whirl") { whirlpool(g, k); cont(g, "roll"); return commit(g); }
+  if (tile.b === "boat") {
+    if (Object.keys(g.boats).length < 12) {
+      const bid = "b" + (g.nb++); g.boats[bid] = { at: k };
+      swimmersAt(g, k).sort((a, b) => (g.exps[a].o === me() ? -1 : 0) - (g.exps[b].o === me() ? -1 : 0)).slice(0, 3).forEach(id => Object.assign(g.exps[id], { st: "boat", b: bid }));
+    }
+    cont(g, "roll"); return commit(g);
+  }
+  const cid = addCre(g, tile.b, k);
+  if (cid) resolveAttack(g, cid, "roll"); else cont(g, "roll");
+  commit(g);
+}
+function doRoll() {
+  if (!myAct() || S.g.phase !== "roll") return;
+  const g = clone(S.g), f = pick(FACES); g.die = f; g.dieN = (g.dieN || 0) + 1;
+  const movable = Object.keys(g.cre).filter(c => g.cre[c].k === f && creDests(g, c).length);
+  if (!movable.length) { logp(g, `🎲 Sale ${CRE[f].e} ${CRE[f].n}, pero ninguno puede moverse.`); nextTurn(g); }
+  else { g.phase = "creature"; logp(g, `🎲 Sale ${CRE[f].e} ${CRE[f].n}.`); }
+  commit(g);
+}
+function doCreature(cid, k) {
+  if (!myAct() || S.g.phase !== "creature") return;
+  const g = clone(S.g); g.cre[cid].at = k; g.last = [k]; resolveAttack(g, cid, "next"); commit(g);
+}
+function doDefense(use) {
+  if (!myAct() || S.g.phase !== "defense") return;
+  const g = clone(S.g), p = g.pend, c = g.cre[p.cid], tile = c.k === "shark" ? "rshark" : "rwhale";
+  if (use) {
+    const h = g.hand[me()]; h.splice(h.indexOf(tile), 1);
+    logp(g, `${TILES[tile].e} ${nameOf(me())} usa ${TILES[tile].n}: ${c.k === "shark" ? "el tiburón huye" : "la ballena se aleja"}.`);
+    delete g.cre[p.cid]; cont(g, p.then);
+  } else {
+    p.defs.shift();
+    if (p.defs.length) g.actor = p.defs[0];
+    else { applyAttack(g, p.cid); cont(g, p.then); }
+  }
+  commit(g);
+}
+function skipStart() { if (!myAct() || S.g.phase !== "start") return; const g = clone(S.g); g.phase = "move"; S.tp = null; commit(g); }
+function playTile(code, u, d) {
+  if (!myAct() || S.g.phase !== "start") return;
+  const g = clone(S.g), h = g.hand[me()], T = TILES[code];
+  h.splice(h.indexOf(code), 1); g.played = true; g.last = [d.k]; S.tp = null;
+  logp(g, `${T.e} ${nameOf(me())} juega ${T.n}.`);
+  if (code === "dolphin") { const e = g.exps[u.id]; if (d.how === "safe") { Object.assign(e, { st: "safe", at: d.k }); logp(g, `🏝️ ${nameOf(me())} pone a salvo a un explorador.`); } else if (d.how === "board") Object.assign(e, { st: "boat", at: d.k, b: d.b }); else e.at = d.k; if (checkEnd(g)) return commit(g); g.phase = "move"; }
+  else if (code === "wind") { g.boats[u.id].at = d.k; passengers(g, u.id).forEach(id => { g.exps[id].at = d.k; }); g.phase = "move"; }
+  else { g.cre[u.id].at = d.k; resolveAttack(g, u.id, "move"); }
+  commit(g);
+}
+async function finalize() {
+  const g0 = S.g; if (S.finGid === g0.gid) return; S.finGid = g0.gid;
+  const vals = {};
+  try { for (const uid of g0.order) { const s = await S.db.doc(secPath(uid, g0.gid)).get(); Object.assign(vals, (s.exists && s.data().vals) || {}); } }
+  catch { S.finGid = null; return; }
+  const g = clone(S.g), score = {};
+  g.order.forEach(uid => {
+    const mine = Object.keys(g.exps).filter(id => g.exps[id].o === uid);
+    const saved = mine.filter(id => g.exps[id].st === "safe");
+    score[uid] = { pts: saved.reduce((a, id) => a + (vals[id] || 0), 0), saved: saved.map(id => vals[id] || 0).sort((a, b) => b - a), lost: mine.filter(id => g.exps[id].st !== "safe").map(id => vals[id] || 0).sort((a, b) => b - a) };
+  });
+  g.score = score; g.vals = vals;
+  g.seq = (S.g.seq || 0) + 1; S.g = g; render();
+  try { await S.db.doc("games/" + S.code).set(g); } catch { S.finGid = null; }
+}
+async function again() {
+  const g = { v: 1, status: "lobby", host: S.g.host, createdAt: S.g.createdAt, seq: (S.g.seq || 0) + 1 };
+  S.g = g; render(); await S.db.doc("games/" + S.code).set(g).catch(() => {});
+}
+
+function onGame(prev) {
+  const g = S.g;
+  if (g.gid) watchSecret();
+  if (g.status === "end" && !g.score && g.actor === me()) finalize();
+  if (prev && g.status === "play" && g.actor === me() && prev.actor !== me() && navigator.vibrate) try { navigator.vibrate(80); } catch {}
+  if (!prev || prev.phase !== g.phase || prev.actor !== g.actor) { S.sel = null; S.pick = null; if (g.phase !== "start") S.tp = null; }
+}
+
+/* ================= vistas ================= */
+function render() {
+  if (!S.ready) return;
+  if (S.offline) return view(`<div class="hero"><div class="logo">¡Escapa<small>de la Isla!</small></div><p class="muted">No hay conexión con el servidor de partidas. Revisa internet y recarga.</p></div>`, "off");
+  if (!S.code) return renderHome();
+  if (!S.g) return view(`<div class="hero"><div class="logo">¡Escapa<small>de la Isla!</small></div><p class="muted">Remando hacia la partida…</p></div>`, "load");
+  if (S.g.status === "lobby") return renderLobby();
+  renderGame();
+}
+function view(html, key) { if (key && key === S.lastKey) return false; S.lastKey = key; $app.innerHTML = html; return true; }
+function on(sel, ev, fn) { const el = $app.querySelector(sel); if (el) el.addEventListener(ev, fn); }
+const ISLE_SVG = `<svg class="isle" viewBox="0 0 120 104" aria-hidden="true"><path d="M8 82c12-8 24-8 36 0s24 8 36 0 24-8 32 0" fill="none" stroke="#5AA9FF" stroke-width="5" stroke-linecap="round"/><polygon points="60,6 96,28 96,62 60,84 24,62 24,28" fill="#EBD39A"/><polygon points="60,20 84,34 84,58 60,72 36,58 36,34" fill="#2F8F4E"/><polygon points="60,32 72,40 72,52 60,60 48,52 48,40" fill="#868E99"/><path d="M60 30l7 9H53z" fill="#FF6B3D"/></svg>`;
+function renderHome() {
+  const html = `
+  <div class="hero">${ISLE_SVG}<div class="logo">¡Escapa<small>de la Isla!</small></div>
+    <p class="muted">La isla se hunde. Lleva a tus exploradores a tierra firme antes de que se los coman.</p></div>
+  <label class="lbl" for="nm">Tu nombre<input id="nm" class="text" maxlength="16" autocomplete="nickname" value="${esc(S.name)}" placeholder="Tu nombre"></label>
+  <div class="card"><h2>Nueva partida</h2><button class="btn gold wide" id="create"${S.busy ? " disabled" : ""}>Crear partida</button></div>
+  <div class="card"><h2>Unirse</h2>
+    <div class="row"><input id="jc" class="text code" maxlength="4" autocomplete="off" placeholder="ABCD" value="${esc(S.prefill || "")}" aria-label="Código de la partida"><button class="btn" id="join"${S.busy ? " disabled" : ""}>Entrar</button></div>
+    ${S.rejoin ? `<button class="btn ghost" id="rejoin">Volver a la partida ${esc(S.rejoin)}</button>` : ""}</div>
+  <p class="msg ${S.homeErr ? "err" : ""}" role="status">${esc(S.homeMsg)}</p>
+  ${rulesHTML()}`;
+  view(html, "home|" + S.busy + "|" + S.homeMsg);
+  on("#create", "click", createGame);
+  on("#join", "click", () => joinGame(document.getElementById("jc").value));
+  on("#jc", "keydown", e => { if (e.key === "Enter") joinGame(e.target.value); });
+  on("#rejoin", "click", () => joinGame(S.rejoin));
+}
+function rulesHTML() {
+  return `<details class="card"><summary><b>Cómo se juega</b></summary><div class="how">
+    <p>De 2 a 4 jugadores, cada uno con su móvil. Tienes <b>10 exploradores</b> con un valor oculto (6, 5, 4, 3, 3, 2, 2, 1, 1, 1) que solo ves tú. Gana quien sume más puntos con los que lleguen a las <b>islas a salvo</b> de las esquinas.</p>
+    <p><b>Preparación:</b> por turnos, cada uno coloca un explorador en una casilla de tierra libre eligiendo cuál. Luego se colocan los botes junto a la isla.</p>
+    <p><b>Tu turno:</b> 1) Si tienes losetas de inicio de turno, puedes jugar una. 2) Tienes <b>3 movimientos</b> para tus exploradores o para botes que controles (vacíos o donde tengas mayoría). En tierra se anda casilla a casilla; un <b>nadador</b> solo avanza 1 casilla por turno; un bote lleva hasta 3. 3) <b>Hundes</b> una loseta junto al mar: primero playas, luego bosques y al final montañas. Si es roja se aplica ya; si no, te la guardas en secreto. 4) Tiras el <b>dado de criaturas</b> y mueves una: serpiente 1 casilla, tiburón 2, ballena 3.</p>
+    <p>🦈 se come a los nadadores. 🐋 vuelca botes. 🐉 destruye botes y se come a todos. 🌀 arrasa la casilla y el mar de alrededor. 🌋 termina la partida al momento.</p></div></details>`;
+}
+function renderLobby() {
+  const g = S.g, host = isHost(), inList = S.players.some(p => p.id === me());
+  const list = S.players.map((p, i) => `<li><span class="av" style="--c:${PCOL[i % 4]}">${esc(p.name.charAt(0).toUpperCase())}</span><span>${esc(p.name)}${p.id === g.host ? " ⚓" : ""}${p.id === me() ? " (tú)" : ""}</span></li>`).join("");
+  const html = `
+  <div class="top"><button class="btn ghost sm" id="out">Salir</button><span class="sp"></span><span class="chip">SALA ${esc(S.code)}</span></div>
+  <div class="card" style="text-align:center"><p class="muted small">Código de la partida</p><div class="big-code">${esc(S.code)}</div>
+    <button class="btn ghost" id="share">Invitar</button></div>
+  <div class="card"><h2>Exploradores (${S.players.length}/4)</h2><ul class="plist">${list || "<li>Esperando…</li>"}</ul>
+    ${!inList && S.players.length < 4 ? `<button class="btn" id="sit">Sentarme</button>` : ""}</div>
+  ${host ? `<div class="card"><button class="btn gold wide" id="start"${S.players.length < 1 ? " disabled" : ""}>${S.players.length < 2 ? "Empezar (solo para probar)" : "¡A la isla!"}</button>
+    <p class="muted small" style="text-align:center">El orden y los colores se sortean al empezar.</p></div>`
+  : `<div class="wait"><p>Esperando a que ${esc(nameOf(g.host))} empiece la partida.</p></div>`}
+  ${rulesHTML()}`;
+  view(html, "lobby|" + JSON.stringify(S.players.map(p => p.id + p.name)));
+  on("#out", "click", () => leave(""));
+  on("#share", "click", share);
+  on("#sit", "click", () => joinSeat(S.code).catch(() => toast("No se pudo entrar.")));
+  on("#start", "click", hostStart);
+}
+function share() {
+  const url = location.origin + location.pathname + "#" + S.code;
+  if (navigator.share) { navigator.share({ title: "Escapa de la Isla", text: "Entra con el código " + S.code, url }).catch(() => {}); return; }
+  navigator.clipboard?.writeText(url).then(() => toast("Enlace copiado"), () => toast(url));
+}
+
+/* ---------- interacción con el tablero según la fase ---------- */
+function computeTaps() {
+  const g = S.g, taps = new Map(), marks = new Map(); // marks: k -> "dest" | "unit" | "sel"
+  S.taps = taps; S.marks = marks;
+  if (!myAct()) return;
+  const dest = (list, fn) => list.forEach(d => { taps.set(d.k, () => fn(d)); marks.set(d.k, "dest"); });
+  if (g.phase === "placeExp") dest(Object.keys(g.tiles).filter(k => !landAt(g, k).length).map(k => ({ k })), d => placeExp(d.k));
+  else if (g.phase === "placeBoat") dest(boatSpots(g).map(k => ({ k })), d => placeBoat(d.k));
+  else if (g.phase === "sink") dest(sinkable(g).map(k => ({ k })), d => doSink(d.k));
+  else if (g.phase === "creature") {
+    if (S.sel && S.sel.kind === "c") { marks.set(g.cre[S.sel.id].at, "sel"); dest(creDests(g, S.sel.id), d => doCreature(S.sel.id, d.k)); }
+    Object.keys(g.cre).filter(c => g.cre[c].k === g.die && creDests(g, c).length).forEach(c => {
+      const k = g.cre[c].at; if (!marks.has(k)) marks.set(k, "unit"); if (!taps.has(k)) taps.set(k, () => { S.sel = { kind: "c", id: c }; render(); });
+    });
+  } else if (g.phase === "move") {
+    const units = myUnits(g, me());
+    if (S.sel) {
+      const u = S.sel, ds = u.kind === "b" ? boatDests(g, u.id) : expDests(g, u.id);
+      marks.set(u.k, "sel"); dest(ds, d => doMove(u, d));
+    }
+    units.forEach(u => { if (!marks.has(u.k)) marks.set(u.k, "unit"); if (!taps.has(u.k)) taps.set(u.k, () => chooseAt(u.k, units)); });
+  } else if (g.phase === "start" && S.tp) {
+    const T = TILES[S.tp]; let units = [];
+    if (S.tp === "dolphin") units = Object.keys(g.exps).filter(id => g.exps[id].o === me() && g.exps[id].st === "sea" && dolphinDests(g, id).length).map(id => ({ kind: "e", id, k: g.exps[id].at }));
+    else if (S.tp === "wind") units = Object.keys(g.boats).filter(b => controls(g, b, me()) && passengers(g, b).length && windDests(g, b).length).map(id => ({ kind: "b", id, k: g.boats[id].at }));
+    else units = Object.keys(g.cre).filter(c => g.cre[c].k === T.cre).map(id => ({ kind: "c", id, k: g.cre[id].at }));
+    if (S.sel) {
+      const u = S.sel, ds = S.tp === "dolphin" ? dolphinDests(g, u.id) : S.tp === "wind" ? windDests(g, u.id) : anySea(g, g.cre[u.id].at);
+      marks.set(u.k, "sel"); dest(ds, d => playTile(S.tp, u, d));
+    }
+    units.forEach(u => { if (!marks.has(u.k)) marks.set(u.k, "unit"); if (!taps.has(u.k)) taps.set(u.k, () => chooseAt(u.k, units)); });
+  }
+}
+function chooseAt(k, units) {
+  const here = units.filter(u => u.k === k);
+  if (here.length === 1) { S.sel = here[0]; S.pick = null; }
+  else { S.pick = k; S.sel = null; }
+  render();
+}
+function onHex(k) {
+  const t = S.taps.get(k);
+  if (t) t(); else { S.info = S.info === k ? null : k; S.sel = null; S.pick = null; render(); }
+}
+
+/* ---------- dibujo del tablero ---------- */
+function expDot(g, id, x, y, r) {
+  const e = g.exps[id], c = colorOf(g, e.o), v = e.o === me() ? myVal(id) : null, sw = e.st === "sea";
+  return `<circle cx="${x}" cy="${y}" r="${r}" fill="${c}" stroke="${sw ? "#E6F7FF" : "#10202E"}" stroke-width="${sw ? 1.6 : 1}"${sw ? ' stroke-dasharray="2 1.4"' : ""}/>` +
+    (v ? `<text x="${x}" y="${y + r * .42}" text-anchor="middle" font-size="${r * 1.25}" font-weight="900" fill="#10202E" font-family="Nunito,sans-serif">${v}</text>` : "");
+}
+function spots(n, area) {
+  if (n <= 0) return [];
+  const big = n <= 4, r = big ? 5.6 : 4.2, gap = big ? 12 : 9, cols = n === 1 ? 1 : n <= 4 ? 2 : 3;
+  const rows = Math.ceil(n / cols), out = [];
+  for (let i = 0; i < n; i++) { const row = Math.floor(i / cols), col = i % cols, inRow = Math.min(cols, n - row * cols); out.push([(col - (inRow - 1) / 2) * gap, (row - (rows - 1) / 2) * gap * .85 + (area === "top" ? -6 : 0), r]); }
+  return out;
+}
+function boardSVG() {
+  const g = S.g, marks = S.marks, parts = [], toks = [];
+  ALL.forEach(k => {
+    const t = g.tiles[k], safe = SAFE.has(k);
+    const fill = t ? TERR[t.t].c : safe ? "var(--safe)" : ISLAND.includes(k) ? "#0F6BA0" : "var(--sea)";
+    parts.push(`<polygon class="hx" data-k="${k}" points="${HEXPTS[k]}" fill="${fill}" stroke="${t ? "rgba(0,0,0,.25)" : "rgba(255,255,255,.12)"}" stroke-width="1"/>`);
+    const [x, y] = XY[k];
+    if (t && t.t === "m") toks.push(`<path d="M${x - 9} ${y + 6}l9-13 9 13z" fill="rgba(255,255,255,.22)"/>`);
+    if (t && t.t === "f") toks.push(`<circle cx="${x - 7}" cy="${y + 7}" r="4" fill="rgba(0,0,0,.14)"/><circle cx="${x + 7}" cy="${y - 7}" r="4" fill="rgba(0,0,0,.14)"/>`);
+    if (safe && SAFE_GROUPS.some(gr => gr[0] === k)) toks.push(`<text x="${x}" y="${y + 6}" text-anchor="middle" font-size="16">🌴</text>`);
+  });
+  if (g.last) g.last.forEach(k => { if (XY[k]) parts.push(`<polygon class="lastfx" points="${HEXPTS[k]}" fill="rgba(255,255,255,.55)" pointer-events="none"/>`); });
+  // fichas
+  const byHex = {};
+  Object.keys(g.exps).forEach(id => { const e = g.exps[id]; if (["land", "sea", "safe"].includes(e.st) && e.at) (byHex[e.at] = byHex[e.at] || []).push(id); });
+  const hexes = new Set([...Object.keys(byHex), ...Object.values(g.boats).map(b => b.at), ...Object.values(g.cre).map(c => c.at)]);
+  hexes.forEach(k => {
+    const [x, y] = XY[k], ids = (byHex[k] || []).sort((a, b) => seatOf(g, g.exps[a].o) - seatOf(g, g.exps[b].o)), cid = creAt(g, k), bid = boatAt(g, k);
+    if (SAFE.has(k)) {
+      const cnt = {}; ids.forEach(id => { const o = g.exps[id].o; cnt[o] = (cnt[o] || 0) + 1; });
+      Object.keys(cnt).forEach((o, i, arr) => { const dx = (i - (arr.length - 1) / 2) * 11, yy = y - 4; toks.push(`<circle cx="${x + dx}" cy="${yy}" r="5.4" fill="${colorOf(g, o)}" stroke="#10202E"/><text x="${x + dx}" y="${yy + 2.4}" text-anchor="middle" font-size="7" font-weight="900" fill="#10202E">${cnt[o]}</text>`); });
+      return;
+    }
+    const busy = cid || bid;
+    spots(ids.length, busy ? "top" : "").forEach(([dx, dy, r], i) => toks.push(expDot(g, ids[i], x + dx, y + dy - (busy ? 3 : 0), busy ? Math.min(r, 4.4) : r)));
+    if (bid) {
+      const ps = passengers(g, bid), by = y + 7;
+      toks.push(`<path d="M${x - 14} ${by - 3}h28l-5 8h-18z" fill="#8B5A2B" stroke="#3A2210" stroke-width="1"/>`);
+      ps.forEach((id, i) => toks.push(expDot(g, id, x + (i - 1) * 8.5, by - 6, 4)));
+    }
+    if (cid) toks.push(`<text x="${x}" y="${y + (bid ? 2 : 7)}" text-anchor="middle" font-size="${bid ? 14 : 20}">${CRE[g.cre[cid].k].e}</text>`);
+  });
+  // marcas de interacción
+  const hl = [];
+  marks.forEach((m, k) => {
+    if (m === "dest") hl.push(`<polygon class="hl" points="${HEXPTS[k]}" fill="rgba(255,216,77,.38)" stroke="#FFD84D" stroke-width="2.4" pointer-events="none"/>`);
+    else if (m === "sel") hl.push(`<polygon points="${HEXPTS[k]}" fill="none" stroke="#fff" stroke-width="3" pointer-events="none"/>`);
+    else hl.push(`<polygon points="${HEXPTS[k]}" fill="none" stroke="rgba(255,255,255,.85)" stroke-width="1.6" stroke-dasharray="4 3" pointer-events="none"/>`);
+  });
+  if (S.info && XY[S.info]) hl.push(`<polygon points="${HEXPTS[S.info]}" fill="none" stroke="#A9CBE3" stroke-width="2" pointer-events="none"/>`);
+  return parts.join("") + `<g class="tok">${toks.join("")}</g>` + hl.join("");
+}
+
+/* ---------- panel ---------- */
+const who = id => `<span class="who">${esc(id === me() ? "Tú" : nameOf(id))}</span>`;
+const dotV = (g, uid, v, cls = "") => `<span class="mv ${cls}" style="--c:${colorOf(g, uid)}">${v ?? ""}</span>`;
+function unitLabel(g, u) {
+  if (u.kind === "b") { const n = passengers(g, u.id).length; return `<span class="dot" style="--c:#8B5A2B">⛵</span>Bote (${n ? plural(n, "a bordo", "a bordo") : "vacío"})`; }
+  if (u.kind === "c") return `<span class="dot" style="--c:#fff">${CRE[g.cre[u.id].k].e}</span>${esc(CRE[g.cre[u.id].k].n)}`;
+  const e = g.exps[u.id], st = e.st === "land" ? "en tierra" : e.st === "sea" ? "nadando" : "en un bote";
+  return `<span class="dot" style="--c:${colorOf(g, e.o)}">${myVal(u.id) ?? ""}</span>Explorador ${st}`;
+}
+function hexInfo(g, k) {
+  const t = g.tiles[k], bits = [];
+  bits.push(t ? `Loseta de ${TERR[t.t].n}` : SAFE.has(k) ? "Isla a salvo" : "Mar");
+  const c = creAt(g, k); if (c) bits.push(CRE[g.cre[c].k].e + " " + CRE[g.cre[c].k].n);
+  const b = boatAt(g, k); if (b) bits.push(`bote con ${passengers(g, b).length}`);
+  const ex = Object.keys(g.exps).filter(id => posOf(g, g.exps[id]) === k && g.exps[id].st !== "dead" && g.exps[id].st !== "hand");
+  if (ex.length) bits.push(countBy(g, ex));
+  return bits.join(" · ");
+}
+function panelHTML() {
+  const g = S.g, mine = myAct(), A = g.actor, out = [];
+  const movesDots = `<span class="moves" aria-label="${g.moves} movimientos">${[0, 1, 2].map(i => `<i class="${i < g.moves ? "" : "u"}"></i>`).join("")}</span>`;
+  if (g.rev && g.rev.n && ["roll", "creature", "defense"].includes(g.phase)) {
+    const T = TILES[g.rev.b], show = g.rev.now || g.rev.by === me();
+    out.push(`<div class="reveal"><span class="e">${show ? T.e : "🂠"}</span><span>${show ? `${esc(g.rev.by === me() ? "Has" : nameOf(g.rev.by) + " ha")} hundido una ${TERR[g.rev.t].n}: <b>${T.n}</b>${g.rev.now ? "" : ". Te la guardas en secreto."}` : `${esc(nameOf(g.rev.by))} ha hundido una ${TERR[g.rev.t].n} y se guarda una loseta.`}</span></div>`);
+  }
+  switch (g.phase) {
+    case "placeExp": {
+      out.push(`<p class="phase">${mine ? "Coloca un explorador" : `${who(A)} coloca un explorador`}</p>`);
+      if (mine) {
+        const left = remainingVals(); if (!left.includes(S.pv)) S.pv = left[0];
+        out.push(`<p class="small muted">Elige cuál (solo tú ves el número) y toca una casilla de tierra libre.</p><div class="vals">${[...new Set(left)].map(v => `<button class="vchip" data-v="${v}" aria-pressed="${v === S.pv}" style="--c:${colorOf(g, me())}">${v}</button>`).join("")}</div>`);
+      }
+      break;
+    }
+    case "placeBoat": out.push(`<p class="phase">${mine ? "Coloca un bote" : `${who(A)} coloca un bote`}</p>${mine ? `<p class="small muted">Toca una casilla de mar pegada a la isla.</p>` : ""}`); break;
+    case "start": {
+      out.push(`<p class="phase">${mine ? "Empieza tu turno" : `Turno de ${who(A)}`}</p>`);
+      if (mine) {
+        if (S.tp) { const T = TILES[S.tp]; out.push(`<p class="small">${T.e} <b>${T.n}</b>: ${S.sel ? "toca la casilla de destino." : "toca qué quieres mover."}</p><button class="btn ghost sm" id="cancelTp">Cancelar</button>`); }
+        else out.push(`<p class="small muted">Puedes jugar una de tus losetas antes de mover.</p><div class="opts">${playableTiles(g, me()).map(c => `<button class="opt" data-tp="${c}"><span class="dot" style="--c:#fff">${TILES[c].e}</span><span><b>${TILES[c].n}</b><br><span class="small muted">${TILES[c].d}</span></span></button>`).join("")}</div><button class="btn wide" id="skipStart">Seguir sin jugar</button>`);
+      }
+      break;
+    }
+    case "move": {
+      out.push(`<div class="dierow" style="justify-content:space-between"><p class="phase">${mine ? "Mueve" : `${who(A)} está moviendo`}</p>${movesDots}</div>`);
+      if (mine) {
+        if (S.pick) out.push(`<p class="small muted">¿Qué quieres mover de aquí?</p><div class="opts">${myUnits(g, me()).filter(u => u.k === S.pick).map((u, i) => `<button class="opt" data-pk="${i}">${unitLabel(g, u)}</button>`).join("")}</div>`);
+        else if (S.sel) out.push(`<p class="small">Moviendo: ${unitLabel(g, S.sel).replace(/<span class="dot"[^>]*>.*?<\/span>/, "")}. Toca una casilla amarilla.</p>`);
+        else out.push(`<p class="small muted">Toca una de tus piezas (borde punteado). Nadadores: 1 casilla por turno. Botes: los vacíos o donde tengas mayoría.</p>`);
+        out.push(`<button class="btn wide" id="endMoves">${g.moves === 3 ? "No mover y hundir loseta" : "Terminar y hundir loseta"}</button>`);
+      }
+      break;
+    }
+    case "sink": out.push(`<p class="phase">${mine ? "Hunde una loseta" : `${who(A)} va a hundir una loseta`}</p>${mine ? `<p class="small muted">Toca una ${TERR[g.tiles[sinkable(g)[0]].t].n} que toque el mar.</p>` : ""}`); break;
+    case "roll": out.push(`<p class="phase">${mine ? "Tira el dado de criaturas" : `${who(A)} va a tirar el dado`}</p>${mine ? `<button class="btn gold wide" id="roll">🎲 Tirar el dado</button>` : ""}`); break;
+    case "creature": {
+      const C = CRE[g.die], anim = S.dieSeen !== g.dieN; S.dieSeen = g.dieN;
+      out.push(`<div class="dierow"><div class="die${anim ? " anim" : ""}">${C.e}</div><div><p class="phase">${mine ? "Mueve" : `${who(A)} mueve`} ${C.n === "ballena" ? "una ballena" : C.n === "serpiente marina" ? "una serpiente marina" : "un tiburón"}</p><p class="small muted">Hasta ${plural(C.r, "casilla", "casillas")}.${mine ? (S.sel ? " Toca el destino." : " Toca cuál.") : ""}</p></div></div>`);
+      break;
+    }
+    case "defense": {
+      const p = g.pend, c = g.cre[p.cid], tile = c.k === "shark" ? "rshark" : "rwhale";
+      if (mine) out.push(`<p class="phase">${c.k === "shark" ? "¡Un tiburón va a por tus nadadores!" : "¡Una ballena embiste tu bote!"}</p><p class="small">¿Usas <b>${TILES[tile].e} ${TILES[tile].n}</b>?</p><div class="row"><button class="btn gold" id="defYes">Usarla</button><button class="btn ghost" id="defNo">No</button></div>`);
+      else out.push(`<p class="phase">${who(A)} decide si se defiende…</p>`);
+      break;
+    }
+  }
+  if (S.info) out.push(`<p class="small muted">${esc(hexInfo(g, S.info))}</p>`);
+  return out.join("");
+}
+function myHTML() {
+  const g = S.g, id = me(); if (seatOf(g, id) < 0) return `<p class="small muted">Estás viendo la partida como público.</p>`;
+  const ex = Object.keys(g.exps).filter(i => g.exps[i].o === id), grp = st => ex.filter(i => (Array.isArray(st) ? st : [st]).includes(g.exps[i].st)).map(i => myVal(i)).sort((a, b) => b - a);
+  const row = (t, vs, cls) => vs.length ? `<div class="grp"><span class="t">${t}</span>${vs.map(v => dotV(g, id, v, cls)).join("")}</div>` : "";
+  const h = handOf(g, id);
+  return `<div class="mine">${row("A salvo", grp("safe"))}${row("En juego", grp(["land", "sea", "boat"]))}${row("Por colocar", grp("hand"))}${row("Perdidos", grp("dead"), "x")}</div>` +
+    (h.length ? `<div class="tiles">${h.map(c => `<div class="tile"><span class="e">${TILES[c].e}</span><span><b>${TILES[c].n}</b><span class="muted">${TILES[c].d}</span></span></div>`).join("")}</div>` : "");
+}
+function playersHTML() {
+  const g = S.g;
+  return g.order.map(uid => {
+    const ex = Object.values(g.exps).filter(e => e.o === uid), n = st => ex.filter(e => e.st === st).length;
+    return `<div class="pl ${g.status === "play" && g.actor === uid ? "on" : ""}"><span class="av" style="--c:${colorOf(g, uid)}">${esc(nameOf(uid).charAt(0).toUpperCase())}</span><span class="nm">${esc(nameOf(uid))}${uid === me() ? " (tú)" : ""}</span><span class="st">🏝️ ${n("safe")} · 💀 ${n("dead")} · 🂠 ${handOf(g, uid).length}</span></div>`;
+  }).join("");
+}
+function endHTML() {
+  const g = S.g, sc = g.score;
+  if (!sc) return `<div class="panel"><p class="phase">${g.why === "volcano" ? "🌋 ¡Erupción!" : "Fin de la partida"}</p><p class="muted">Contando los exploradores rescatados…</p></div>`;
+  const ids = [...g.order].sort((a, b) => sc[b].pts - sc[a].pts || sc[b].saved.length - sc[a].saved.length), best = ids[0];
+  const rows = ids.map(uid => `<li class="${uid === best ? "win" : ""}"><span class="av" style="--c:${colorOf(g, uid)}">${esc(nameOf(uid).charAt(0).toUpperCase())}</span><b>${esc(nameOf(uid))}${uid === best ? " 🏆" : ""}</b><span class="pts">${sc[uid].pts}</span>
+    <span class="det">${sc[uid].saved.map(v => dotV(g, uid, v)).join("") || '<span class="small muted">Nadie a salvo</span>'}${sc[uid].lost.map(v => dotV(g, uid, v, "x")).join("")}</span></li>`).join("");
+  return `<div class="panel"><p class="phase">${g.why === "volcano" ? "🌋 ¡El volcán ha estallado!" : "¡Ya no queda nadie en la isla!"}</p><p>Gana <b>${esc(nameOf(best))}</b> con ${sc[best].pts} puntos.</p><ul class="res">${rows}</ul>
+    <p class="small muted">Se suman los valores de los exploradores a salvo. Los tachados se quedaron por el camino.</p>
+    <div class="row">${isHost() ? `<button class="btn gold" id="again">Otra partida</button>` : ""}<button class="btn ghost" id="home">Salir</button></div></div>`;
+}
+function renderGame() {
+  const g = S.g;
+  if (view(`<div class="top"><button class="btn ghost sm" id="out">Salir</button><span class="sp"></span><span class="chip">SALA ${esc(S.code)}</span></div>
+    <div class="players" id="players"></div>
+    <div class="bwrap" id="bwrap"><button class="zbtn" id="zoom" aria-label="Ampliar tablero">＋</button><svg id="board" viewBox="0 0 ${VBW.toFixed(0)} ${VBH.toFixed(0)}" role="img" aria-label="Tablero de la isla"></svg></div>
+    <div id="panel"></div><div class="panel" id="minebox"></div><div class="panel"><ul class="log" id="log"></ul></div>`, "game|" + S.code)) {
+    on("#out", "click", () => leave(""));
+    on("#zoom", "click", () => { S.zoom = !S.zoom; document.getElementById("bwrap").classList.toggle("zoom", S.zoom); document.getElementById("zoom").textContent = S.zoom ? "－" : "＋"; });
+    document.getElementById("board").addEventListener("click", e => { const el = e.target.closest("[data-k]"); if (el) onHex(el.dataset.k); });
+    document.getElementById("bwrap").classList.toggle("zoom", S.zoom);
+  }
+  computeTaps();
+  document.getElementById("players").innerHTML = playersHTML();
+  document.getElementById("board").innerHTML = boardSVG();
+  const panel = document.getElementById("panel");
+  if (g.status === "end") panel.outerHTML = `<div id="panel">${endHTML()}</div>`;
+  else { panel.className = "panel"; panel.innerHTML = panelHTML(); }
+  document.getElementById("minebox").innerHTML = myHTML();
+  document.getElementById("log").innerHTML = (g.log || []).slice(0, 8).map(l => `<li>${esc(l)}</li>`).join("");
+  $app.querySelectorAll("[data-v]").forEach(b => b.addEventListener("click", () => { S.pv = +b.dataset.v; render(); }));
+  $app.querySelectorAll("[data-tp]").forEach(b => b.addEventListener("click", () => { S.tp = b.dataset.tp; S.sel = null; S.pick = null; render(); }));
+  $app.querySelectorAll("[data-pk]").forEach(b => b.addEventListener("click", () => { S.sel = myUnits(S.g, me()).filter(u => u.k === S.pick)[+b.dataset.pk]; S.pick = null; render(); }));
+  on("#cancelTp", "click", () => { S.tp = null; S.sel = null; render(); });
+  on("#skipStart", "click", skipStart);
+  on("#endMoves", "click", endMoves);
+  on("#roll", "click", doRoll);
+  on("#defYes", "click", () => doDefense(true));
+  on("#defNo", "click", () => doDefense(false));
+  on("#again", "click", again);
+  on("#home", "click", () => leave(""));
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden && S.g) { S.lastKey = ""; render(); } });
+
+/* acceso para pruebas */
+window.__sv = { S, ALL, NB, SAFE, dist, sinkable, myUnits, expDests, boatDests, creDests, onHex, doRoll, endMoves, doDefense, skipStart };
+boot();
+})();
+</script>
+<a href="../" class="sala-back" aria-label="Volver a la Sala de Juegos"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg></a>
+<style>.sala-back{position:fixed;left:0;top:50%;transform:translateY(-50%);z-index:9999;width:30px;height:44px;display:grid;place-items:center;border-radius:0 10px 10px 0;background:rgba(20,24,33,.55);color:#fff;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);opacity:.75}.sala-back:hover,.sala-back:focus-visible{opacity:1}</style>
+</body>
+</html>

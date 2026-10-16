@@ -1,0 +1,885 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>El Pueblo Duerme</title>
+<meta name="theme-color" content="#0B1024">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="../icons/icon-192.png">
+<link rel="apple-touch-icon" href="../icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Nunito+Sans:opsz,wght@6..12,400;6..12,700;6..12,900&display=swap">
+<script>window.APP_KEY="pueblo"</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="../firebase-config.js"></script>
+<script src="../shared/claude-shim.js"></script>
+<style>
+/* Layout: una columna — cielo arriba (luna o sol, narrador, temporizador), acción del rol en el centro, aldea y tu carta abajo */
+:root{
+  --bg:#0B1024; --bg-2:#121A36; --panel:#18224A; --panel-2:#22306A; --line:#2E3D7A;
+  --ink:#EEF1FF; --muted:#A4AED6; --accent:#F4C95D; --accent-ink:#2A1E00; --blood:#E5484D; --ok:#5EE3A1; --love:#FF7AB6;
+  --display:"Cinzel",Georgia,"Times New Roman",serif;
+  --body:"Nunito Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --sky:radial-gradient(120% 70% at 50% -10%,#24306B,#0B1024 70%);
+  color-scheme:dark;
+}
+body.day{
+  --bg:#F6EBDD; --bg-2:#EFDFCB; --panel:#FFF8EE; --panel-2:#F3E3CC; --line:#DCC5A6;
+  --ink:#2B2118; --muted:#7A6652; --accent:#B5541C; --accent-ink:#FFFFFF; --blood:#C42E33; --ok:#2E8A57; --love:#C93D80;
+  --sky:radial-gradient(120% 70% at 50% -10%,#FFD9A0,#F6EBDD 65%);
+  color-scheme:light;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--sky) fixed;background-color:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;transition:background-color .6s}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+#app{max-width:560px;margin:0 auto;min-height:100%;padding-inline:16px;padding-block:14px 36px;display:flex;flex-direction:column;gap:12px}
+h1,h2,h3{font-family:var(--display);font-weight:900;margin:0;letter-spacing:.02em;text-wrap:balance}
+p{margin:0}
+.muted{color:var(--muted)}
+.small{font-size:13.5px}
+.center{text-align:center}
+
+.btn{appearance:none;border:0;border-radius:14px;min-height:52px;padding:0 18px;background:var(--panel-2);color:var(--ink);font-family:var(--display);font-weight:700;font-size:17px;letter-spacing:.04em;box-shadow:0 4px 0 rgba(0,0,0,.3);transition:transform .08s,box-shadow .08s;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.3)}
+.btn.gold{background:var(--accent);color:var(--accent-ink)}
+.btn.red{background:var(--blood);color:#fff}
+.btn.ghost{background:transparent;box-shadow:inset 0 0 0 2px var(--line)}
+.btn.sm{min-height:40px;font-size:14px;padding:0 14px}
+.btn:disabled{opacity:.45;cursor:default;transform:none}
+.btn.wide{width:100%}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>*{flex:1 1 130px}
+input.text{width:100%;min-height:52px;border-radius:14px;border:2px solid var(--line);background:var(--bg-2);padding:0 14px;font-size:18px;font-weight:700}
+input.code{text-transform:uppercase;letter-spacing:.3em;font-family:var(--display);font-size:24px;text-align:center}
+label.lbl{display:grid;gap:6px;font-size:12.5px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+
+.hero{display:grid;gap:10px;justify-items:center;text-align:center;padding-block:14px 4px}
+.logo{font-family:var(--display);font-weight:900;font-size:clamp(38px,11vw,60px);line-height:.95;letter-spacing:.02em;color:var(--accent);text-shadow:0 4px 18px rgba(0,0,0,.4)}
+.logo small{display:block;font-size:.36em;letter-spacing:.32em;color:var(--ink);margin-bottom:4px}
+.moon{width:120px;height:90px}
+.card{background:var(--panel);border-radius:18px;padding:16px;display:grid;gap:12px;box-shadow:0 6px 0 rgba(0,0,0,.22)}
+.card h2{font-size:19px}
+.how{display:grid;gap:8px;font-size:15px}
+.how b{color:var(--accent)}
+summary{cursor:pointer;font-weight:900}
+.msg{min-height:1.4em;color:var(--accent);text-align:center;font-weight:700}
+.msg.err{color:var(--blood)}
+
+.top{display:flex;align-items:center;gap:8px}
+.chip{font-family:var(--display);font-weight:700;font-size:14px;letter-spacing:.1em;background:var(--panel);padding:6px 12px;border-radius:999px}
+.top .sp{flex:1}
+.big-code{font-family:var(--display);font-weight:900;font-size:54px;letter-spacing:.16em;line-height:1;text-align:center;color:var(--accent)}
+.plist{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.plist li{display:flex;align-items:center;gap:8px;background:var(--bg-2);border-radius:12px;padding:8px 10px;font-weight:700;min-width:0}
+.plist li .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+.plist li .n small{display:block;font-weight:400;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis}
+.plist li.dead{opacity:.55}
+.plist li.dead .n>span{text-decoration:line-through}
+.av{flex:0 0 auto;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-weight:900;font-size:14px;color:#0B1024;background:var(--c,#fff)}
+.tick{color:var(--ok);font-weight:900}
+.cfg{display:grid;gap:10px}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{appearance:none;border:0;border-radius:10px;min-height:42px;min-width:46px;padding:0 12px;background:var(--bg-2);font-weight:900}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.roles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
+.rtog{appearance:none;border:0;border-radius:12px;min-height:52px;padding:6px 10px;background:var(--bg-2);display:flex;gap:8px;align-items:center;text-align:left;font-weight:700}
+.rtog[aria-pressed="true"]{background:var(--panel-2);box-shadow:inset 0 0 0 2px var(--accent)}
+.rtog .e{font-size:22px}
+.toggle{display:flex;align-items:center;gap:10px;font-weight:700;min-height:40px}
+.toggle input{width:22px;height:22px;accent-color:var(--accent)}
+.compo{display:flex;flex-wrap:wrap;gap:6px}
+.compo span{background:var(--bg-2);border-radius:999px;padding:4px 10px;font-weight:700;font-size:14px}
+
+/* cielo */
+.sky{display:grid;gap:6px;justify-items:center;text-align:center;padding:6px 0 2px}
+.sky .orb{width:64px;height:64px}
+.sky h1{font-size:26px}
+.narr{font-size:17px;font-weight:700;max-width:40ch}
+.timer{font-family:var(--display);font-weight:900;font-size:20px;color:var(--accent);font-variant-numeric:tabular-nums}
+
+/* carta de rol */
+.rolecard{position:relative;border-radius:20px;min-height:150px;display:grid;place-items:center;text-align:center;padding:18px;background:repeating-linear-gradient(45deg,var(--panel) 0 12px,var(--bg-2) 12px 24px);box-shadow:0 6px 0 rgba(0,0,0,.25),inset 0 0 0 2px var(--line);user-select:none;-webkit-user-select:none;cursor:pointer}
+.rolecard .e{font-size:54px;line-height:1}
+.rolecard .rn{font-family:var(--display);font-weight:900;font-size:28px;margin-top:4px}
+.rolecard .rd{color:var(--muted);margin-top:6px;max-width:36ch}
+.rolecard .lbl2{font-size:12px;font-weight:900;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+.rolecard.wolf{box-shadow:0 6px 0 rgba(0,0,0,.25),inset 0 0 0 3px var(--blood)}
+.band{border-radius:12px;padding:8px 12px;font-weight:700;font-size:14.5px;background:var(--bg-2)}
+.band.love{box-shadow:inset 3px 0 0 var(--love)}
+.band.wolf{box-shadow:inset 3px 0 0 var(--blood)}
+
+.targets{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.tbtn{appearance:none;border:0;border-radius:14px;min-height:58px;padding:8px 10px;background:var(--panel-2);font-weight:900;display:flex;align-items:center;gap:8px;text-align:left;position:relative}
+.tbtn[aria-pressed="true"]{background:var(--blood);color:#fff}
+.tbtn.love[aria-pressed="true"]{background:var(--love)}
+.tbtn.safe[aria-pressed="true"]{background:var(--ok);color:#06210F}
+.tbtn:disabled{opacity:.35}
+.tbtn .nm{overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+.tbtn .marks{position:absolute;top:-6px;right:-4px;display:flex;gap:2px}
+.tbtn .marks i{font-style:normal;font-size:11px;background:var(--blood);color:#fff;border-radius:999px;padding:1px 6px;font-weight:900;box-shadow:0 0 0 2px var(--panel)}
+.result{display:flex;gap:12px;align-items:center;background:var(--bg-2);border-radius:14px;padding:12px}
+.result .e{font-size:40px;line-height:1}
+.news{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.news li{display:flex;gap:10px;align-items:center;background:var(--bg-2);border-radius:14px;padding:10px 12px}
+.news li .e{font-size:28px}
+.news li b{display:block}
+.tally{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.tally li{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;background:var(--bg-2);border-radius:12px;padding:8px 12px}
+.tally .who{font-size:12.5px;color:var(--muted)}
+.win{text-align:center;display:grid;gap:8px;padding:6px 0}
+.win .big{font-family:var(--display);font-weight:900;font-size:32px;line-height:1.1;color:var(--accent)}
+.win .e{font-size:58px;line-height:1}
+.menu{display:grid;gap:8px}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,16px);opacity:0;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:900;transition:.2s;pointer-events:none;max-width:calc(100% - 32px);z-index:60}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+@keyframes pop{from{transform:scale(.94);opacity:0}to{transform:none;opacity:1}}
+.pop{animation:pop .25s ease-out}
+@media (prefers-reduced-motion:reduce){.pop{animation:none}body{transition:none}}
+</style>
+</head>
+<body>
+<div id="app"><div class="hero"><div class="logo"><small>EL PUEBLO</small>DUERME</div><p class="muted">Cayendo la noche…</p></div></div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+"use strict";
+const ROLES = {
+  wolf: { n: "Hombre lobo", e: "🐺", d: "Cada noche, con tu manada, elegís a quién devorar. De día, disimula y desvía las sospechas." },
+  villager: { n: "Aldeano", e: "🧑‍🌾", d: "No tienes poderes. Tu arma es el olfato, la palabra y el voto." },
+  seer: { n: "Vidente", e: "🔮", d: "Cada noche descubres el personaje de un jugador. Úsalo con cabeza: si te pillan, eres el siguiente." },
+  witch: { n: "Bruja", e: "🧪", d: "Tienes una poción de vida para salvar a la víctima de los lobos y una de muerte para envenenar a alguien. Una vez cada una en toda la partida." },
+  hunter: { n: "Cazador", e: "🏹", d: "Si mueres, de noche o de día, disparas tu última flecha y te llevas a alguien contigo." },
+  cupid: { n: "Cupido", e: "💘", d: "La primera noche enamoras a dos jugadores. Si uno muere, el otro muere de pena." },
+  guard: { n: "Protector", e: "🛡️", d: "Cada noche proteges a alguien de los lobos (también a ti). No puedes repetir con la misma persona dos noches seguidas." }
+};
+const SPECIALS = ["seer", "witch", "hunter", "cupid", "guard"];
+const PCOL = ["#FF8A8A", "#7CC4FF", "#F4C95D", "#5EE3A1", "#C9A6FF", "#FFAB6B", "#7EE8E0", "#F7A8D8", "#B8E86B", "#FFFFFF", "#E8C07E", "#9AA8FF", "#FF9FB0", "#A0F0C0", "#D0B0FF", "#FFE08A"];
+const MAX_PLAYERS = 18, MIN_PLAYERS = 4;
+const MOON_SVG = `<svg class="moon" viewBox="0 0 120 90" aria-hidden="true"><circle cx="78" cy="30" r="22" fill="#F4C95D"/><circle cx="88" cy="24" r="20" fill="#0B1024"/><path d="M0 90V62l10-8 8 6 10-14 10 10 8-6 12 12 10-10 12 14 10-8 10 10 10-6 10 10v18z" fill="#18224A"/><rect x="22" y="58" width="12" height="14" fill="#F4C95D" opacity=".9"/><rect x="70" y="64" width="10" height="10" fill="#F4C95D" opacity=".7"/></svg>`;
+const ORB = { night: `<svg class="orb" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="22" fill="#F4C95D"/><circle cx="42" cy="26" r="19" fill="#0B1024"/></svg>`,
+  day: `<svg class="orb" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="14" fill="#F2A33A"/><g stroke="#F2A33A" stroke-width="4" stroke-linecap="round">${[0, 1, 2, 3, 4, 5, 6, 7].map(i => { const a = i * Math.PI / 4; return `<line x1="${32 + 20 * Math.cos(a)}" y1="${32 + 20 * Math.sin(a)}" x2="${32 + 27 * Math.cos(a)}" y2="${32 + 27 * Math.sin(a)}"/>`; }).join("")}</g></svg>` };
+
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const shuffle = a => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const clone = o => JSON.parse(JSON.stringify(o));
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const ls = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+const $app = document.getElementById("app");
+let toastT;
+function toast(m) { const t = document.getElementById("toast"); t.textContent = m; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), 2800); }
+
+/* ================= estado local ================= */
+const S = {
+  db: null, uid: null, ready: false, offline: false,
+  name: (localStorage.getItem("sala.nick") || "").slice(0, 16),
+  code: null, g: null, players: [], acts: {}, sec: null, all: null, unsubs: [], secUnsubs: [], secKey: "",
+  homeMsg: "", homeErr: false, busy: false, show: false, menu: false, lastHtml: "",
+  sel: [], fake: null, voice: !!ls.get("pd.voice"), spoken: ""
+};
+const me = () => S.uid;
+const isHost = () => S.g && S.g.host === S.uid;
+const DEF_CFG = { wolves: 0, seer: true, witch: true, hunter: true, cupid: false, guard: false, reveal: true, talk: 180, night: 60 };
+
+async function boot() {
+  try {
+    const [db, user] = await Promise.all(["db", "user"].map(n => window.claude ? claude.use(n).catch(() => null) : null));
+    S.db = db; if (user) S.uid = await user.id();
+  } catch {}
+  if (!S.db || !S.uid) S.offline = true;
+  S.ready = true;
+  const h = (location.hash || "").replace("#", "").toUpperCase(), last = ls.get("pd.last");
+  if (!S.offline && /^[A-Z]{4}$/.test(h)) S.prefill = h;
+  else if (!S.offline && last && last.code && Date.now() - last.t < 12 * 3600e3) S.rejoin = last.code;
+  render();
+  setInterval(tick, 1000);
+}
+
+/* ================= sala online ================= */
+const base = () => "games/" + S.code;
+function watch(code) {
+  unwatch(); S.code = code; ls.set("pd.last", { code, t: Date.now() });
+  S.unsubs.push(S.db.doc(base()).onSnapshot(snap => {
+    if (!snap.exists) { leave("Esa partida ya no existe."); return; }
+    const d = snap.data();
+    if (S.g && d.seq < S.g.seq && d.gid === S.g.gid) return;
+    const prev = S.g; S.g = d; onGame(prev); render(); drive();
+  }, () => leave("Se ha perdido la conexión con la partida.")));
+  S.unsubs.push(S.db.collection(base() + "/players").orderBy("joinedAt").onSnapshot(q => {
+    S.players = q.docs.map(d => ({ id: d.id, ...d.data() })); render(); drive();
+  }, () => {}));
+  S.unsubs.push(S.db.collection(base() + "/act").onSnapshot(q => {
+    const a = {}; q.docs.forEach(d => { a[d.id] = d.data(); }); S.acts = a; render(); drive();
+  }, () => {}));
+}
+function unwatch() { [...S.unsubs, ...S.secUnsubs].forEach(u => { try { u(); } catch {} }); S.unsubs = []; S.secUnsubs = []; S.secKey = ""; S.g = null; S.players = []; S.acts = {}; S.sec = null; S.all = null; }
+function leave(msg) { unwatch(); S.code = null; S.homeMsg = msg || ""; S.homeErr = !!msg; history.replaceState(null, "", location.pathname); render(); }
+const secPath = (uid, gid) => `${base()}/secret/${uid}_${gid}`;
+const allPath = gid => `${base()}/secret/_all_${gid}`;
+function onGame(prev) {
+  const g = S.g;
+  if (!prev || prev.gid !== g.gid || prev.phase !== g.phase) S.show = false;
+  if (!prev || prev.k !== g.k) { S.sel = []; S.menu = false; S.fake = null; S.heal = false; }
+  document.body.classList.toggle("day", isDay(g));
+  watchSecrets(); narrate();
+}
+function watchSecrets() {
+  const g = S.g; if (!g || !g.gid || g.status === "lobby") return;
+  const seeAll = isHost() || (g.order && g.order.includes(me()) && !g.alive.includes(me()));
+  const key = me() + "_" + g.gid + (seeAll ? "_a" : ""); if (key === S.secKey) return;
+  S.secUnsubs.forEach(u => u()); S.secUnsubs = []; S.secKey = key; S.sec = null; S.all = null;
+  S.secUnsubs.push(S.db.doc(secPath(me(), g.gid)).onSnapshot(s => { S.sec = s.exists ? s.data() : null; render(); }, () => {}));
+  if (seeAll) S.secUnsubs.push(S.db.doc(allPath(g.gid)).onSnapshot(s => { if (s.exists) { S.all = s.data(); drive(); render(); } }, () => {}));
+}
+function saveName() {
+  const el = document.getElementById("nm"); const v = ((el && el.value) || S.name || "").trim().slice(0, 16);
+  if (!v) { S.homeMsg = "Escribe tu nombre para que te reconozcan."; S.homeErr = true; render(); return false; }
+  S.name = v; try { localStorage.setItem("sala.nick", v); } catch {} return true;
+}
+const genCode = () => { const A = "ABCDEFGHJKLMNPQRSTUVWXYZ"; let c = ""; for (let i = 0; i < 4; i++) c += A[Math.floor(Math.random() * A.length)]; return c; };
+async function createGame() {
+  if (!saveName()) return;
+  S.busy = true; render();
+  try {
+    let code;
+    for (let i = 0; i < 6; i++) { code = genCode(); if (!(await S.db.doc("games/" + code).get()).exists) break; }
+    await S.db.doc("games/" + code).set({ v: 1, status: "lobby", host: me(), createdAt: Date.now(), seq: 0, cfg: { ...DEF_CFG, ...(ls.get("pd.cfg") || {}) } });
+    S.code = code; await joinSeat(code);
+    location.hash = code; watch(code);
+  } catch { S.homeMsg = "No se pudo crear la partida. Revisa la conexión."; S.homeErr = true; }
+  S.busy = false; render();
+}
+async function joinSeat(code) {
+  const ref = S.db.doc(`games/${code}/players/${me()}`);
+  const cur = await ref.get();
+  if (cur.exists) { await ref.update({ name: S.name }); return true; }
+  const all = await S.db.collection(`games/${code}/players`).get();
+  if (all.docs.length >= MAX_PLAYERS) { toast("El pueblo está lleno: entras como público."); return false; }
+  await ref.set({ name: S.name, joinedAt: Date.now() });
+  return true;
+}
+async function joinGame(code) {
+  if (!saveName()) return;
+  code = String(code || "").toUpperCase().replace(/[^A-Z]/g, "");
+  if (code.length !== 4) { S.homeMsg = "El código tiene 4 letras."; S.homeErr = true; render(); return; }
+  S.busy = true; render();
+  try {
+    const snap = await S.db.doc("games/" + code).get();
+    if (!snap.exists) { S.homeMsg = "No hay ninguna partida con ese código."; S.homeErr = true; }
+    else {
+      const g = snap.data(), mine = (await S.db.doc(`games/${code}/players/${me()}`).get()).exists;
+      if (g.status === "lobby" || mine) await joinSeat(code);
+      else toast("La partida ya ha empezado: entras como público.");
+      location.hash = code; watch(code);
+    }
+  } catch { S.homeMsg = "No se pudo entrar. Revisa la conexión."; S.homeErr = true; }
+  S.busy = false; render();
+}
+
+/* ================= helpers ================= */
+const nameOf = id => (S.players.find(p => p.id === id) || {}).name || "Alguien";
+const colorOf = id => { let i = S.g && S.g.order ? S.g.order.indexOf(id) : -1; if (i < 0) i = S.players.findIndex(p => p.id === id); return PCOL[(i < 0 ? 0 : i) % PCOL.length]; };
+const av = id => `<span class="av" style="--c:${colorOf(id)}">${esc(nameOf(id).charAt(0).toUpperCase() || "?")}</span>`;
+const actOf = (g, u) => { const a = S.acts[u]; return a && a.k === g.k ? a : null; };
+const inGame = g => g && g.order && g.order.includes(me());
+const amAlive = g => g && g.alive && g.alive.includes(me());
+const isDay = g => !!g && g.status === "play" && ["day", "vote", "news"].includes(g.phase) && !(g.phase === "news" && g.news && g.news.night);
+const myRole = () => S.sec && S.sec.role;
+function autoWolves(n) { return n <= 5 ? 1 : n <= 8 ? 2 : n <= 11 ? 3 : 4; }
+function composition(cfg, n) {
+  const w = Math.max(1, Math.min(cfg.wolves || autoWolves(n), Math.floor((n - 1) / 2) || 1));
+  let sp = SPECIALS.filter(r => cfg[r]);
+  while (w + sp.length > n - 1 && sp.length) sp = sp.slice(0, -1);
+  const list = [...Array(w).fill("wolf"), ...sp];
+  while (list.length < n) list.push("villager");
+  return list;
+}
+function compoHTML(list) {
+  const c = {}; list.forEach(r => { c[r] = (c[r] || 0) + 1; });
+  return `<div class="compo">${Object.keys(ROLES).filter(r => c[r]).map(r => `<span>${ROLES[r].e} ${c[r] > 1 ? c[r] + " " : ""}${esc(r === "wolf" && c[r] > 1 ? "lobos" : r === "villager" && c[r] > 1 ? "aldeanos" : ROLES[r].n.toLowerCase())}</span>`).join("")}</div>`;
+}
+async function act(data) {
+  const g = S.g; if (!g) return;
+  try { await S.db.doc(`${base()}/act/${me()}`).set({ k: g.k, ...data, t: Date.now() }); }
+  catch { toast("No se ha podido enviar. Revisa la conexión."); }
+}
+async function commit(g) {
+  g.seq = (S.g.seq || 0) + 1; g.ts = Date.now();
+  const prev = S.g; S.g = g; onGame(prev); render();
+  try { await S.db.doc(base()).set(g); }
+  catch { toast("No se pudo guardar. Reintentando…"); setTimeout(() => S.db.doc(base()).set(S.g).catch(() => toast("Sin conexión.")), 1500); }
+}
+const saveAll = () => S.db.doc(allPath(S.g.gid)).set(S.all).catch(() => toast("No se pudo guardar."));
+const patchSec = (u, data) => S.db.doc(secPath(u, S.g.gid)).update(data).catch(() => {});
+
+/* ================= narrador ================= */
+function narrate() {
+  const g = S.g; if (!g || !g.narr || g.status === "lobby") return;
+  const key = g.k + "|" + g.narr; if (key === S.spoken) return;
+  S.spoken = key;
+  if (!S.voice || !("speechSynthesis" in window)) return;
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(g.narr.replace(/[\u{1F300}-\u{1FAFF}☀-➿]/gu, ""));
+    u.lang = "es-ES"; u.rate = .95; u.pitch = .9;
+    const v = speechSynthesis.getVoices().find(v => /^es(-|_)ES/i.test(v.lang)) || speechSynthesis.getVoices().find(v => /^es/i.test(v.lang));
+    if (v) u.voice = v;
+    speechSynthesis.speak(u);
+  } catch {}
+}
+
+/* ================= anfitrión: reparto ================= */
+async function hostStart() {
+  const g0 = S.g, ids = S.players.map(p => p.id);
+  if (ids.length < MIN_PLAYERS) { toast(`Hacen falta al menos ${MIN_PLAYERS} jugadores.`); return; }
+  S.busy = true; render();
+  const cfg = { ...DEF_CFG, ...g0.cfg }, compo = composition(cfg, ids.length), deal = shuffle(compo);
+  const roles = {}; ids.forEach((u, i) => { roles[u] = deal[i]; });
+  const wolves = ids.filter(u => roles[u] === "wolf");
+  const gid = Date.now();
+  try {
+    await Promise.all(ids.map(u => S.db.doc(secPath(u, gid)).set({ role: roles[u], ...(roles[u] === "wolf" ? { pack: wolves } : {}), seen: {}, lover: null, lastGuard: null })));
+    S.all = { roles, lovers: null, heal: true, poison: true, lastGuard: null, victim: null, seenN: 0 };
+    await S.db.doc(allPath(gid)).set(S.all);
+  } catch { S.busy = false; toast("No se pudo repartir. Revisa la conexión."); render(); return; }
+  const g = {
+    ...g0, cfg, status: "play", gid, order: shuffle(ids), alive: [...ids], compo, phase: "reveal", night: 0,
+    k: gid + "|rev", until: null, dead: {}, news: null, hunterQ: [], vote: null, win: null, reveal: null, log: [],
+    narr: "Cada uno mira su carta en secreto. Que nadie vea tu pantalla."
+  };
+  S.busy = false;
+  await commit(g);
+}
+
+/* ================= máquina de estados (solo el anfitrión) ================= */
+const R = u => S.all.roles[u];
+const aliveWith = (g, role) => g.alive.filter(u => R(u) === role);
+const NIGHT_TEXT = {
+  cupid: "Cupido despierta y elige a dos enamorados…",
+  main: g => {
+    const c = g.compo, parts = ["Los lobos despiertan y eligen a su víctima."];
+    if (c.includes("seer")) parts.push("La vidente escudriña un alma.");
+    if (c.includes("guard")) parts.push("El protector vela por alguien.");
+    return parts.join(" ");
+  },
+  witch: "La bruja despierta. Sabe a quién han atacado: puede salvarlo… o envenenar a otro."
+};
+function startNight(g) {
+  g.night++; g.phase = "night"; g.vote = null; g.news = null;
+  g.steps = [...(g.night === 1 && g.compo.includes("cupid") ? ["cupid"] : []), "main", ...(g.compo.includes("witch") ? ["witch"] : [])];
+  g.si = 0; S.all.victim = null; beginStep(g);
+}
+function beginStep(g) {
+  const step = g.steps[g.si], now = Date.now();
+  g.step = step; g.k = `${g.gid}|n${g.night}-${step}`;
+  const t = NIGHT_TEXT[step]; g.narr = (g.si === 0 ? `Noche ${g.night}. El pueblo duerme. ` : "") + (typeof t === "function" ? t(g) : t);
+  const actor = step === "cupid" ? "cupid" : step === "witch" ? "witch" : "wolf";
+  const alive = aliveWith(g, actor).length > 0;
+  // si el personaje ya no está, se espera un poco igualmente para no delatarlo
+  g.until = now + (alive ? g.cfg.night * 1000 : 5000 + Math.floor(Math.random() * 4000));
+  g.fakeWait = !alive;
+  if (step === "witch" && alive) aliveWith(g, "witch").forEach(u => patchSec(u, { witch: { n: g.night, victim: S.all.victim, heal: S.all.heal, poison: S.all.poison } }));
+}
+function nextStep(g) {
+  g.si++;
+  if (g.si < g.steps.length) return beginStep(g);
+  dawn(g);
+}
+function kill(g, u, how, items, fx = true) {
+  if (!g.alive.includes(u)) return;
+  g.alive = g.alive.filter(x => x !== u);
+  const role = R(u);
+  g.dead = { ...(g.dead || {}), [u]: g.cfg.reveal ? role : "?" };
+  items.push({ u, how, role: g.cfg.reveal ? role : null });
+  if (!fx) return;
+  if (role === "hunter") g.hunterQ = [...(g.hunterQ || []), u];
+  const L = S.all.lovers;
+  if (L && L.includes(u)) { const o = L[0] === u ? L[1] : L[0]; kill(g, o, "pena", items); }
+}
+function dawn(g) {
+  const items = [], A = S.all;
+  if (A.victim && !A.healed) kill(g, A.victim, "lobos", items);
+  if (A.poisoned) kill(g, A.poisoned, "veneno", items);
+  A.healed = false; A.poisoned = null; A.victim = null; saveAll();
+  news(g, { night: false, title: `Amanece el día ${g.night}`, items, next: "day" });
+  g.narr = items.length ? `Amanece en el pueblo… y ${items.length === 1 ? "falta una persona" : "faltan " + items.length + " personas"}.` : "Amanece en el pueblo… ¡y esta noche no ha muerto nadie!";
+}
+function news(g, n) { g.fakeWait = false; g.phase = "news"; g.news = n; g.k = `${g.gid}|news${g.seq}`; g.until = Date.now() + (n.items.length ? 12000 : 8000); }
+function checkWin(g) {
+  const alive = g.alive, wolves = alive.filter(u => R(u) === "wolf").length, L = S.all.lovers;
+  if (L && alive.length === 2 && L.every(u => alive.includes(u)) && (R(L[0]) === "wolf") !== (R(L[1]) === "wolf")) return "lovers";
+  if (!alive.length) return "none";
+  if (!wolves) return "village";
+  if (wolves >= alive.length - wolves) return "wolves";
+  return null;
+}
+function endGame(g, win) {
+  g.status = "end"; g.phase = "end"; g.win = win; g.until = null; g.k = g.gid + "|end";
+  g.reveal = { roles: S.all.roles, lovers: S.all.lovers };
+  g.narr = win === "village" ? "¡El pueblo ha acabado con los lobos!" : win === "wolves" ? "Los lobos se han hecho con el pueblo." : win === "lovers" ? "El amor lo puede todo: ganan los enamorados." : "No queda nadie en el pueblo.";
+}
+function afterNews(g) {
+  if ((g.hunterQ || []).length) {
+    const h = g.hunterQ[0]; g.hunterQ = g.hunterQ.slice(1);
+    g.phase = "hunter"; g.hunter = h; g.k = `${g.gid}|hunt${g.seq}`; g.until = Date.now() + 45000;
+    g.narr = `${nameOf(h)} era el cazador. Antes de caer, apunta con su última flecha…`;
+    return;
+  }
+  const w = checkWin(g); if (w) return endGame(g, w);
+  if (g.news.next === "day") toDay(g); else startNight(g);
+}
+function toDay(g) {
+  g.phase = "day"; g.k = `${g.gid}|d${g.night}`; g.until = g.cfg.talk ? Date.now() + g.cfg.talk * 1000 : null; g.news = null;
+  g.narr = "Debatid: ¿quién de vosotros es un lobo?";
+  if (!g.cfg.talk) toVote(g, null);
+}
+function toVote(g, cands) {
+  g.phase = "vote"; g.vote = { cands: cands || [...g.alive], round: cands ? 2 : 1 };
+  g.k = `${g.gid}|v${g.night}-${g.vote.round}`; g.until = null;
+  g.narr = cands ? `Empate. Se vuelve a votar solo entre ${cands.map(nameOf).join(" y ")}.` : "Hora de votar. ¿A quién ejecuta el pueblo?";
+}
+function tallyVotes(g, A) {
+  const t = {}, votes = {};
+  g.alive.forEach(u => { const a = A(u); if (a && g.vote.cands.includes(a.v)) { t[a.v] = (t[a.v] || 0) + 1; votes[u] = a.v; } });
+  const max = Math.max(0, ...Object.values(t)), top = Object.keys(t).filter(u => t[u] === max);
+  return { t, votes, top };
+}
+function drive() {
+  if (!isHost() || !S.g || S.g.status !== "play" || !S.all || !S.all.roles) return;
+  const g0 = S.g, now = Date.now(), A = u => actOf(g0, u), late = g0.until && now >= g0.until;
+  const g = clone(g0);
+  switch (g0.phase) {
+    case "reveal":
+      if (g0.alive.every(A)) { startNight(g); return commit(g); }
+      return;
+    case "night": {
+      const step = g0.step;
+      if (g0.fakeWait) { if (late) { nextStep(g); return commit(g); } return; }
+      if (step === "cupid") {
+        const c = aliveWith(g0, "cupid")[0], a = c && A(c);
+        if (a && a.a && a.b && a.a !== a.b && g0.alive.includes(a.a) && g0.alive.includes(a.b)) {
+          S.all.lovers = [a.a, a.b]; saveAll();
+          patchSec(a.a, { lover: a.b }); patchSec(a.b, { lover: a.a });
+          nextStep(g); return commit(g);
+        }
+        if (late) { nextStep(g); return commit(g); }
+        return;
+      }
+      if (step === "main") {
+        // la vidente recibe su visión en cuanto elige
+        const seer = aliveWith(g0, "seer")[0], sa = seer && A(seer);
+        if (sa && sa.v && S.all.seenN !== g0.night && g0.alive.includes(sa.v)) {
+          S.all.seenN = g0.night; saveAll();
+          patchSec(seer, { seen: { [g0.night]: { u: sa.v, role: R(sa.v) } } });
+        }
+        const wolves = aliveWith(g0, "wolf"), wv = wolves.map(u => A(u) && A(u).v).filter(Boolean);
+        const agreed = wv.length === wolves.length && wv.every(v => v === wv[0]);
+        const guard = aliveWith(g0, "guard")[0], ga = guard && A(guard);
+        const seerDone = !seer || (sa && sa.ack), guardDone = !guard || (ga && ga.v);
+        if (!(agreed && seerDone && guardDone) && !late) return;
+        let victim = null;
+        if (wv.length) {
+          const t = {}; wv.forEach(v => { t[v] = (t[v] || 0) + 1; });
+          const max = Math.max(...Object.values(t)); victim = pick(Object.keys(t).filter(v => t[v] === max));
+        }
+        if (victim && (!g0.alive.includes(victim) || R(victim) === "wolf")) victim = null;
+        const guarded = ga && ga.v && ga.v !== S.all.lastGuard && g0.alive.includes(ga.v) ? ga.v : null;
+        if (guard) { S.all.lastGuard = guarded; patchSec(guard, { lastGuard: guarded }); }
+        S.all.victim = victim && victim !== guarded ? victim : null;
+        saveAll();
+        nextStep(g); return commit(g);
+      }
+      if (step === "witch") {
+        const w = aliveWith(g0, "witch")[0], a = w && A(w);
+        if (!a && !late) return;
+        if (a) {
+          if (a.heal && S.all.heal && S.all.victim) { S.all.heal = false; S.all.healed = true; }
+          if (a.poison && S.all.poison && g0.alive.includes(a.poison) && a.poison !== w) { S.all.poison = false; S.all.poisoned = a.poison; }
+          patchSec(w, { pot: { heal: S.all.heal, poison: S.all.poison } });
+        }
+        nextStep(g); return commit(g);
+      }
+      return;
+    }
+    case "news":
+      if (late) { afterNews(g); return commit(g); }
+      return;
+    case "hunter": {
+      const a = A(g0.hunter);
+      if (!a && !late) return;
+      const items = [];
+      if (a && a.v && g0.alive.includes(a.v)) kill(g, a.v, "flecha", items);
+      const next = g0.news ? g0.news.next : "night";
+      news(g, { night: false, title: "La flecha del cazador", items, next, shooter: g0.hunter });
+      g.narr = items.length ? `La flecha alcanza a ${nameOf(items[0].u)}.` : "El cazador falla el tiro.";
+      return commit(g);
+    }
+    case "day": {
+      const ready = g0.alive.filter(A).length;
+      if (ready > g0.alive.length / 2 || late) { toVote(g, null); return commit(g); }
+      return;
+    }
+    case "vote": {
+      if (!g0.alive.every(A)) return;
+      const { t, votes, top } = tallyVotes(g0, A);
+      if (top.length > 1 && g0.vote.round === 1) { toVote(g, top); g.prevTally = { t, votes }; return commit(g); }
+      const items = [];
+      if (top.length === 1) kill(g, top[0], "pueblo", items);
+      news(g, { night: false, title: "El veredicto", items, next: "night", tally: t, votes, tie: top.length !== 1 });
+      g.narr = items.length ? `El pueblo ha decidido: ${nameOf(top[0])} es ejecutado.` : "El pueblo no se pone de acuerdo. Hoy no muere nadie.";
+      return commit(g);
+    }
+  }
+}
+async function hostSkip() {
+  if (!isHost()) return;
+  const g = clone(S.g);
+  if (g.phase === "day") toVote(g, null);
+  else if (g.phase === "news") afterNews(g);
+  else if (["night", "hunter"].includes(g.phase)) { g.until = Date.now() - 1; S.g = g; drive(); return; }
+  else return;
+  await commit(g);
+}
+async function hostKick(u) {
+  if (!isHost() || !S.all) return;
+  const g = clone(S.g);
+  if (!g.alive.includes(u)) return;
+  kill(g, u, "huye", [], false);
+  const w = checkWin(g); if (w) endGame(g, w);
+  await commit(g);
+}
+async function toLobby() {
+  if (!isHost()) return;
+  const g = clone(S.g);
+  Object.assign(g, { status: "lobby", phase: null, k: null, until: null, news: null, vote: null, win: null, reveal: null, alive: [], order: [], dead: {}, narr: null });
+  await commit(g);
+}
+async function takeOver() {
+  if (!S.g || isHost()) return;
+  try { await S.db.doc(base()).update({ host: me() }); toast("Ahora llevas tú la partida."); } catch { toast("No se pudo."); }
+}
+async function setCfg(patch) {
+  if (!isHost()) return;
+  ls.set("pd.cfg", { ...DEF_CFG, ...S.g.cfg, ...patch });
+  try { await S.db.doc(base()).update({ cfg: patch }); } catch { toast("No se pudo guardar."); }
+}
+
+/* ================= vistas ================= */
+function render() {
+  if (!S.ready) return;
+  if (S.offline) return view(`<div class="hero">${MOON_SVG}<div class="logo"><small>EL PUEBLO</small>DUERME</div><p class="muted">No hay conexión con el servidor de partidas. Revisa internet y recarga.</p></div>`);
+  if (!S.code) return renderHome();
+  if (!S.g) return view(`<div class="hero"><div class="logo"><small>EL PUEBLO</small>DUERME</div><p class="muted">Llegando al pueblo…</p></div>`);
+  if (S.g.status === "lobby") return renderLobby();
+  renderGame();
+}
+function view(html) {
+  if (html === S.lastHtml) return;
+  const keep = {}, ae = document.activeElement, focusId = ae && ae.id;
+  $app.querySelectorAll("input[data-keep]").forEach(el => { keep[el.id] = el.value; });
+  S.lastHtml = html; $app.innerHTML = html;
+  Object.entries(keep).forEach(([id, v]) => { const el = document.getElementById(id); if (el) el.value = v; });
+  if (focusId) { const el = document.getElementById(focusId); if (el && el.dataset.keep !== undefined) el.focus(); }
+  bind(); tick();
+}
+const H = {};
+function bind() {
+  $app.querySelectorAll("[data-on]").forEach(el => {
+    const [ev, fn, arg] = el.dataset.on.split(":");
+    el.addEventListener(ev, e => { if (H[fn]) H[fn](arg, e, el); });
+  });
+}
+function tick() {
+  const g = S.g;
+  $app.querySelectorAll("[data-until]").forEach(el => {
+    const left = Math.max(0, Math.ceil((+el.dataset.until - Date.now()) / 1000));
+    el.textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
+  });
+  if (g && g.until && isHost() && Date.now() >= g.until) drive();
+}
+function rulesHTML() {
+  return `<details class="card"><summary>Cómo se juega</summary><div class="how">
+    <p>De ${MIN_PLAYERS} a ${MAX_PLAYERS} jugadores (mejor 7 o más), cada uno con su móvil y todos en la misma mesa. El móvil hace de <b>narrador</b>: reparte los personajes en secreto y guía la noche y el día.</p>
+    <p><b>De noche</b> todos miran su móvil, y quien tenga algo que hacer lo hace sin que se note: los <b>lobos</b> eligen víctima, la <b>vidente</b> espía un personaje, el <b>protector</b> protege, la <b>bruja</b> usa sus pociones y, la primera noche, <b>Cupido</b> enamora a dos.</p>
+    <p><b>De día</b> se anuncian las muertes, se debate y se vota a quién ejecutar. Si hay empate, se repite la votación entre los empatados; si vuelve a haberlo, no muere nadie.</p>
+    <p><b>Gana el pueblo</b> si acaba con todos los lobos. <b>Ganan los lobos</b> cuando son tantos como el resto. Si los enamorados son de bandos distintos, ganan ellos si quedan solos.</p>
+    <p>Los muertos ven todos los personajes… pero no pueden hablar.</p></div></details>`;
+}
+function renderHome() {
+  view(`
+  <div class="hero">${MOON_SVG}<div class="logo"><small>EL PUEBLO</small>DUERME</div>
+    <p class="muted">Cae la noche y alguien entre vosotros no es lo que parece. Descubrid a los lobos antes de que acaben con el pueblo.</p></div>
+  <label class="lbl" for="nm">Tu nombre<input id="nm" data-keep class="text" maxlength="16" autocomplete="nickname" value="${esc(S.name)}" placeholder="Tu nombre"></label>
+  <div class="card"><h2>Nueva partida</h2><button class="btn gold wide" data-on="click:create"${S.busy ? " disabled" : ""}>Crear partida</button></div>
+  <div class="card"><h2>Unirse</h2>
+    <div class="row"><input id="jc" data-keep class="text code" maxlength="4" autocomplete="off" placeholder="ABCD" value="${esc(S.prefill || "")}" aria-label="Código de la partida" data-on="keydown:joinKey"><button class="btn" data-on="click:join"${S.busy ? " disabled" : ""}>Entrar</button></div>
+    ${S.rejoin ? `<button class="btn ghost" data-on="click:rejoin">Volver a la partida ${esc(S.rejoin)}</button>` : ""}</div>
+  <p class="msg ${S.homeErr ? "err" : ""}" role="status">${esc(S.homeMsg)}</p>
+  ${rulesHTML()}`);
+}
+H.create = createGame;
+H.join = () => joinGame(document.getElementById("jc").value);
+H.joinKey = (_, e) => { if (e.key === "Enter") joinGame(e.target.value); };
+H.rejoin = () => joinGame(S.rejoin);
+H.out = () => { try { speechSynthesis.cancel(); } catch {} document.body.classList.remove("day"); leave(""); };
+H.share = () => {
+  const url = location.origin + location.pathname + "#" + S.code;
+  if (navigator.share) { navigator.share({ title: "El Pueblo Duerme", text: "Entra con el código " + S.code, url }).catch(() => {}); return; }
+  navigator.clipboard?.writeText(url).then(() => toast("Enlace copiado"), () => toast(url));
+};
+H.sit = () => joinSeat(S.code).catch(() => toast("No se pudo entrar."));
+H.start = hostStart;
+H.wolves = n => setCfg({ wolves: +n });
+H.role = r => setCfg({ [r]: !(S.g.cfg || {})[r] });
+H.talk = n => setCfg({ talk: +n });
+H.night = n => setCfg({ night: +n });
+H.tog = (k, e) => setCfg({ [k]: e.target.checked });
+H.voice = () => {
+  S.voice = !S.voice; ls.set("pd.voice", S.voice);
+  if (S.voice && "speechSynthesis" in window) { try { const u = new SpeechSynthesisUtterance("Narrador activado"); u.lang = "es-ES"; speechSynthesis.speak(u); } catch {} S.spoken = ""; }
+  else try { speechSynthesis.cancel(); } catch {}
+  toast(S.voice ? "Narrador en voz alta activado en este móvil" : "Narrador en voz alta desactivado"); render();
+};
+
+function seg(fn, cur, opts) { return `<div class="seg">${opts.map(([v, l]) => `<button type="button" aria-pressed="${String(cur) === String(v)}" data-on="click:${fn}:${v}">${l}</button>`).join("")}</div>`; }
+function renderLobby() {
+  const g = S.g, host = isHost(), inList = S.players.some(p => p.id === me()), cfg = { ...DEF_CFG, ...g.cfg }, n = S.players.length;
+  const list = S.players.map(p => `<li>${av(p.id)}<span class="n">${esc(p.name)}${p.id === g.host ? " 🕯️" : ""}${p.id === me() ? " (tú)" : ""}</span></li>`).join("");
+  const compo = composition(cfg, Math.max(n, MIN_PLAYERS));
+  const cfgHTML = host ? `<div class="card cfg"><h2>Personajes</h2>
+    <label class="lbl">Lobos</label>${seg("wolves", cfg.wolves, [[0, `Auto (${autoWolves(Math.max(n, MIN_PLAYERS))})`], [1, "1"], [2, "2"], [3, "3"], [4, "4"]])}
+    <div class="roles">${SPECIALS.map(r => `<button type="button" class="rtog" aria-pressed="${!!cfg[r]}" data-on="click:role:${r}"><span class="e">${ROLES[r].e}</span><span>${ROLES[r].n}</span></button>`).join("")}</div>
+    <label class="lbl">Tiempo de debate de día</label>${seg("talk", cfg.talk, [[0, "Sin límite"], [120, "2 min"], [180, "3 min"], [300, "5 min"]])}
+    <label class="lbl">Tiempo para actuar de noche</label>${seg("night", cfg.night, [[30, "30 s"], [60, "1 min"], [90, "1:30"]])}
+    <label class="toggle"><input type="checkbox" ${cfg.reveal ? "checked" : ""} data-on="change:tog:reveal"> Revelar el personaje de quien muere</label>
+  </div>` : "";
+  view(`
+  <div class="top"><button class="btn ghost sm" data-on="click:out">Salir</button><span class="sp"></span><span class="chip">SALA ${esc(S.code)}</span></div>
+  <div class="card center"><p class="muted small">Código de la partida</p><div class="big-code">${esc(S.code)}</div>
+    <button class="btn ghost" data-on="click:share">Invitar</button></div>
+  <div class="card"><h2>Habitantes (${n})</h2><ul class="plist">${list || "<li>Esperando…</li>"}</ul>
+    ${!inList && n < MAX_PLAYERS ? `<button class="btn" data-on="click:sit">Entrar al pueblo</button>` : ""}</div>
+  ${cfgHTML}
+  <div class="card"><h2>En el pueblo habrá</h2>${compoHTML(compo)}${n < 6 ? `<p class="muted small">Con menos de 6 se puede jugar, pero es más divertido con 7 o más.</p>` : ""}</div>
+  ${host ? `<button class="btn gold wide" data-on="click:start"${n < MIN_PLAYERS || S.busy ? " disabled" : ""}>${S.busy ? "Repartiendo…" : n < MIN_PLAYERS ? `Faltan jugadores (mínimo ${MIN_PLAYERS})` : "Repartir personajes"}</button>`
+    : `<p class="muted center">Esperando a que ${esc(nameOf(g.host))} reparta los personajes.</p>`}
+  ${rulesHTML()}`);
+}
+
+/* ---------- partida ---------- */
+function roleCardHTML() {
+  const s = S.sec, g = S.g;
+  if (!inGame(g)) return "";
+  if (!s) return `<div class="rolecard"><span class="lbl2">Repartiendo…</span></div>`;
+  if (!S.show) return `<div class="rolecard" data-on="click:flip" role="button" tabindex="0" aria-label="Ver mi personaje"><div><div class="e">🂠</div><p class="lbl2" style="margin-top:6px">Toca para ver tu personaje</p>${g.compo && g.compo.includes("cupid") && g.night === 1 && g.phase === "night" && g.step !== "cupid" ? `<p class="small" style="margin-top:6px">💘 Míralo: Cupido puede haberte flechado</p>` : ""}</div></div>`;
+  const r = ROLES[s.role];
+  const bands = bandsHTML();
+  return `<div class="rolecard ${s.role === "wolf" ? "wolf" : ""} pop" data-on="click:flip" role="button" tabindex="0"><div><div class="e">${r.e}</div><div class="rn">${esc(r.n)}</div><p class="rd">${esc(r.d)}</p>${bands ? `<div style="display:grid;gap:6px;margin-top:10px;text-align:left">${bands}</div>` : ""}<p class="small muted" style="margin-top:8px">Toca para ocultar</p></div></div>`;
+}
+function bandsHTML() {
+  const s = S.sec, g = S.g; if (!s || !inGame(g)) return "";
+  let h = "";
+  if (s.role === "wolf" && s.pack && s.pack.length > 1) h += `<div class="band wolf">🐺 Tu manada: ${s.pack.filter(u => u !== me()).map(u => `${esc(nameOf(u))}${g.alive.includes(u) ? "" : " (muerto)"}`).join(", ")}</div>`;
+  if (s.lover) h += `<div class="band love">💘 Estás enamorado de <b>${esc(nameOf(s.lover))}</b>. Si muere, mueres de pena. Si sois de bandos distintos, ganáis si quedáis solos los dos.</div>`;
+  if (s.role === "witch") { const p = s.pot || { heal: true, poison: true }; h += `<div class="band">🧪 Poción de vida: ${p.heal ? "te queda" : "gastada"} · Poción de muerte: ${p.poison ? "te queda" : "gastada"}</div>`; }
+  return h;
+}
+H.flip = () => { S.show = !S.show; render(); };
+function villageHTML(g) {
+  return `<ul class="plist">${g.order.map(u => {
+    const dead = !g.alive.includes(u), role = dead ? (g.dead || {})[u] : null;
+    const peek = S.all && !amAlive(g) && inGame(g) ? S.all.roles[u] : null;
+    const sub = dead ? (role && role !== "?" ? `${ROLES[role].e} ${ROLES[role].n}` : "Muerto") : peek ? `${ROLES[peek].e} ${ROLES[peek].n}` : "";
+    const ready = g.phase === "day" && !dead && actOf(g, u);
+    return `<li class="${dead ? "dead" : ""}">${av(u)}<span class="n"><span>${esc(nameOf(u))}${u === me() ? " (tú)" : ""}</span>${sub ? `<small>${esc(sub)}</small>` : ""}</span>${ready ? `<span class="tick" aria-label="listo">✓</span>` : ""}</li>`;
+  }).join("")}</ul>`;
+}
+function topBar(g) {
+  const label = g.status === "end" ? "FIN" : g.phase === "reveal" ? "REPARTO" : isDay(g) ? `DÍA ${g.night}` : `NOCHE ${Math.max(1, g.night)}`;
+  return `<div class="top"><button class="btn ghost sm" data-on="click:out">Salir</button><span class="sp"></span>
+    <span class="chip">${label}</span>
+    <button class="btn ghost sm" data-on="click:voice" aria-pressed="${S.voice}" aria-label="Narrador en voz alta">${S.voice ? "🔊" : "🔈"}</button>
+    <button class="btn ghost sm" data-on="click:menu" aria-expanded="${S.menu}" aria-label="Más opciones">⋯</button></div>
+    ${S.menu ? menuHTML(g) : ""}`;
+}
+function menuHTML(g) {
+  if (isHost()) {
+    return `<div class="card menu"><h2>Anfitrión</h2>
+      ${["day", "news", "night", "hunter"].includes(g.phase) ? `<button class="btn sm" data-on="click:skip">${g.phase === "day" ? "Pasar a votar" : g.phase === "news" ? "Seguir" : "Acabar el tiempo ya"}</button>` : ""}
+      <p class="muted small">Quitar a alguien que se ha ido (sale del juego sin efectos):</p>
+      <div class="seg">${g.alive.filter(u => u !== me()).map(u => `<button type="button" data-on="click:kick:${u}">✕ ${esc(nameOf(u))}</button>`).join("")}</div>
+      <button class="btn ghost sm" data-on="click:lobby">Terminar y volver a la sala</button>
+      <p class="muted small">Narrador en voz alta: actívalo con 🔈 solo en un móvil, el que quede en el centro de la mesa.</p></div>`;
+  }
+  return `<div class="card menu"><p class="muted small">La partida la lleva ${esc(nameOf(g.host))}. Si se ha ido y la partida se ha quedado parada, puedes llevarla tú.</p>
+    <button class="btn sm" data-on="click:take">Llevar yo la partida</button>
+    <p class="muted small">Narrador en voz alta: actívalo con 🔈 solo en un móvil.</p></div>`;
+}
+H.menu = () => { S.menu = !S.menu; render(); };
+H.skip = () => { S.menu = false; hostSkip(); };
+H.kick = u => { if (confirm(`¿Quitar a ${nameOf(u)} de la partida?`)) { S.menu = false; hostKick(u); } };
+H.lobby = () => { if (confirm("¿Terminar la partida y volver a la sala?")) { S.menu = false; toLobby(); } };
+H.take = () => { if (confirm("¿Llevar tú la partida?")) { S.menu = false; takeOver(); } };
+H.ready = () => act({ ok: true });
+H.target = u => {
+  const g = S.g, role = myRole();
+  if (g.phase === "night" && g.step === "cupid") {
+    S.sel = S.sel.includes(u) ? S.sel.filter(x => x !== u) : [...S.sel, u].slice(-2); render(); return;
+  }
+  if (g.phase === "night" && g.step === "witch") { S.sel = S.sel[0] === u ? [] : [u]; render(); return; }
+  S.sel = [u]; render();
+  act({ v: u });
+};
+H.cupid = () => { if (S.sel.length === 2) act({ a: S.sel[0], b: S.sel[1] }); };
+H.seerOk = () => { const a = actOf(S.g, me()); if (a) act({ v: a.v, ack: true }); };
+H.heal = (_, e) => { S.heal = e.target.checked; render(); };
+H.witchDone = () => act({ heal: !!S.heal, poison: S.sel[0] || null });
+H.fake = u => { S.fake = S.fake === u ? null : u; render(); };
+H.shoot = u => { S.sel = [u]; render(); };
+H.fire = () => { if (S.sel[0]) act({ v: S.sel[0] }); };
+H.vote = u => { S.sel = [u]; render(); act({ v: u }); };
+H.again = toLobby;
+
+function targetsHTML(list, opts = {}) {
+  return `<div class="targets">${list.map(u => {
+    const marks = opts.marks ? opts.marks(u) : "";
+    return `<button type="button" class="tbtn ${opts.cls || ""}" aria-pressed="${(opts.sel || S.sel).includes(u)}" data-on="click:${opts.fn || "target"}:${u}"${opts.disabled && opts.disabled(u) ? " disabled" : ""}>${av(u)}<span class="nm">${esc(nameOf(u))}${u === me() ? " (tú)" : ""}</span>${marks ? `<span class="marks">${marks}</span>` : ""}</button>`;
+  }).join("")}</div>`;
+}
+function skyHTML(g) {
+  const day = isDay(g);
+  return `<div class="sky">${ORB[day ? "day" : "night"]}<p class="narr">${esc(g.narr || "")}</p>${g.until && !(g.phase === "night" && g.fakeWait) ? `<p class="timer">⏱ <span data-until="${g.until}"></span></p>` : g.until ? `<p class="timer">⏱ …</p>` : ""}</div>`;
+}
+function sleepHTML(g, text) {
+  const others = g.alive.filter(u => u !== me());
+  return `<div class="card"><h2>😴 ${esc(text)}</h2><p class="muted small">Para que nadie note quién actúa, toca a quien sospeches. No cuenta para nada.</p>
+    ${targetsHTML(others, { fn: "fake", sel: S.fake ? [S.fake] : [], cls: "safe" })}</div>`;
+}
+function nightPanel(g) {
+  const role = myRole(), mineA = actOf(g, me()), others = g.alive.filter(u => u !== me());
+  if (!amAlive(g)) return deadPanel(g);
+  if (!S.sec) return `<div class="card"><p class="muted">Cargando tu personaje…</p></div>`;
+  if (g.step === "cupid") {
+    if (role !== "cupid") return sleepHTML(g, "Cupido está eligiendo…");
+    if (mineA) return `<div class="card"><h2>💘 Flechas lanzadas</h2><p>Has enamorado a <b>${esc(nameOf(mineA.a))}</b> y <b>${esc(nameOf(mineA.b))}</b>.</p></div>`;
+    return `<div class="card"><h2>💘 Elige a dos enamorados</h2><p class="muted small">Puedes elegirte a ti. Si uno muere, el otro muere de pena.</p>
+      ${targetsHTML(g.alive, { cls: "love" })}<button class="btn gold wide" data-on="click:cupid"${S.sel.length === 2 ? "" : " disabled"}>Lanzar flechas</button></div>`;
+  }
+  if (g.step === "main") {
+    if (role === "wolf") {
+      const pack = (S.sec.pack || []).filter(u => g.alive.includes(u));
+      const votes = {}; pack.forEach(u => { const a = actOf(g, u); if (a && a.v) (votes[a.v] = votes[a.v] || []).push(u); });
+      const prey = g.alive.filter(u => !(S.sec.pack || []).includes(u));
+      const myV = mineA && mineA.v, agreed = pack.every(u => actOf(g, u) && actOf(g, u).v === myV);
+      return `<div class="card"><h2>🐺 ¿A quién devoráis?</h2>
+        <p class="muted small">${pack.length > 1 ? (myV && agreed ? "La manada está de acuerdo." : "Tenéis que coincidir todos los lobos. Veis lo que marca cada uno.") : "Elige a tu víctima."}</p>
+        ${targetsHTML(prey, { sel: myV ? [myV] : [], marks: u => (votes[u] || []).filter(x => x !== me()).map(x => `<i>${esc(nameOf(x).charAt(0))}</i>`).join("") })}</div>`;
+    }
+    if (role === "seer") {
+      const seen = S.sec.seen && S.sec.seen[g.night];
+      if (mineA && mineA.ack) return `<div class="card"><h2>🔮 Visión guardada</h2><p class="muted">Vuelve a dormir y que no se te note.</p></div>`;
+      if (mineA && seen) { const r = ROLES[seen.role]; return `<div class="card pop"><h2>🔮 Tu visión</h2><div class="result"><span class="e">${r.e}</span><div><b>${esc(nameOf(seen.u))}</b><p>es <b>${esc(r.n)}</b>.</p></div></div><button class="btn gold wide" data-on="click:seerOk">Entendido</button></div>`; }
+      if (mineA) return `<div class="card"><h2>🔮 Mirando…</h2><p class="muted">La niebla se aparta…</p></div>`;
+      return `<div class="card"><h2>🔮 ¿Qué alma quieres ver?</h2>${targetsHTML(others)}</div>`;
+    }
+    if (role === "guard") {
+      const last = S.sec.lastGuard;
+      if (mineA) return `<div class="card"><h2>🛡️ Proteges a ${esc(nameOf(mineA.v))}</h2><p class="muted">Puedes cambiar de idea mientras dure la noche.</p>${targetsHTML(g.alive, { cls: "safe", sel: [mineA.v], disabled: u => u === last })}</div>`;
+      return `<div class="card"><h2>🛡️ ¿A quién proteges esta noche?</h2>${last ? `<p class="muted small">No puedes repetir con ${esc(nameOf(last))}.</p>` : ""}${targetsHTML(g.alive, { cls: "safe", disabled: u => u === last })}</div>`;
+    }
+    return sleepHTML(g, "Duermes… o eso parece");
+  }
+  if (g.step === "witch") {
+    if (role !== "witch") return sleepHTML(g, "La bruja remueve su caldero…");
+    const w = S.sec.witch && S.sec.witch.n === g.night ? S.sec.witch : null;
+    if (mineA) return `<div class="card"><h2>🧪 Hecho</h2><p class="muted">${mineA.heal ? "Has usado la poción de vida. " : ""}${mineA.poison ? `Has envenenado a ${esc(nameOf(mineA.poison))}.` : ""}${!mineA.heal && !mineA.poison ? "No has usado ninguna poción." : ""}</p></div>`;
+    if (!w) return `<div class="card"><p class="muted">Consultando el caldero…</p></div>`;
+    return `<div class="card"><h2>🧪 La bruja despierta</h2>
+      <div class="result"><span class="e">${w.victim ? "🩸" : "🌙"}</span><p>${w.victim ? `Los lobos han atacado a <b>${esc(nameOf(w.victim))}</b>${w.victim === me() ? " (¡a ti!)" : ""}.` : "Esta noche los lobos no han matado a nadie."}</p></div>
+      ${w.victim && w.heal ? `<label class="toggle"><input type="checkbox" ${S.heal ? "checked" : ""} data-on="change:heal"> Usar la poción de vida para salvarle</label>` : w.victim ? `<p class="muted small">Ya gastaste la poción de vida.</p>` : ""}
+      ${w.poison ? `<p class="muted small">Poción de muerte: toca a alguien para envenenarle (opcional).</p>${targetsHTML(others)}` : `<p class="muted small">Ya gastaste la poción de muerte.</p>`}
+      <button class="btn gold wide" data-on="click:witchDone">${[S.heal ? "Salvar" : "", S.sel[0] ? `envenenar a ${esc(nameOf(S.sel[0]))}` : ""].filter(Boolean).join(" y ").replace(/^e/, "E") || "No usar pociones"}</button></div>`;
+  }
+  return "";
+}
+function deadPanel(g) {
+  return `<div class="card"><h2>👻 Estás muerto</h2><p class="muted small">Puedes ver todos los personajes en la lista del pueblo. No digas nada: los muertos no hablan.</p></div>`;
+}
+const HOW = { lobos: "devorado por los lobos", veneno: "envenenado", pena: "muerto de pena por amor", pueblo: "ejecutado por el pueblo", flecha: "alcanzado por la flecha del cazador", huye: "se ha ido del pueblo" };
+const HOW_E = { lobos: "🐺", veneno: "🧪", pena: "💔", pueblo: "⚖️", flecha: "🏹", huye: "🚪" };
+function newsHTML(g) {
+  const n = g.news;
+  const items = n.items.length ? `<ul class="news">${n.items.map(it => `<li><span class="e">${HOW_E[it.how] || "💀"}</span><div><b>${esc(nameOf(it.u))}</b><span class="muted">${esc(HOW[it.how] || "ha muerto")}${it.role ? ` · era ${ROLES[it.role].e} ${esc(ROLES[it.role].n)}` : ""}</span></div></li>`).join("")}</ul>`
+    : `<p class="center">${n.tie ? "Empate otra vez: hoy no muere nadie." : n.shooter ? "La flecha se pierde en el bosque." : "Nadie ha muerto."}</p>`;
+  return `<div class="card pop"><h2>${esc(n.title)}</h2>${items}${n.tally ? tallyHTML(n.tally, n.votes) : ""}</div>`;
+}
+function tallyHTML(t, votes) {
+  const ids = Object.keys(t).sort((a, b) => t[b] - t[a]);
+  const by = u => Object.keys(votes || {}).filter(v => votes[v] === u).map(nameOf).join(", ");
+  return `<ul class="tally">${ids.map(u => `<li>${av(u)}<span><b>${esc(nameOf(u))}</b><br><span class="who">${esc(by(u))}</span></span><b>${t[u]}</b></li>`).join("")}</ul>`;
+}
+function dayPanel(g) {
+  const mineA = actOf(g, me()), ready = g.alive.filter(u => actOf(g, u)).length;
+  return `<div class="card"><h2>☀️ Debate</h2><p class="muted small">Cuando más de la mitad pulse «Listo para votar», se vota.</p>
+    ${amAlive(g) ? `<button class="btn ${mineA ? "ghost" : "gold"} wide" data-on="click:ready"${mineA ? " disabled" : ""}>${mineA ? `Listo (${ready}/${g.alive.length})` : "Listo para votar"}</button>` : ""}</div>`;
+}
+function votePanel(g) {
+  const mineA = actOf(g, me()), done = g.alive.filter(u => actOf(g, u)).length, v = g.vote;
+  if (!amAlive(g)) return `<div class="card"><h2>⚖️ Votación</h2><p class="muted">${done}/${g.alive.length} han votado.</p></div>`;
+  const cands = v.cands.filter(u => u !== me());
+  return `<div class="card"><h2>⚖️ ${v.round === 2 ? "Desempate" : "¿A quién ejecutamos?"}</h2><p class="muted small">Voto secreto hasta que votéis todos. Puedes cambiarlo mientras tanto. ${done}/${g.alive.length} han votado.</p>
+    ${cands.length ? targetsHTML(cands, { fn: "vote", sel: mineA ? [mineA.v] : [] }) : `<p class="muted">No puedes votarte a ti. Espera al resto.</p>`}
+    ${g.prevTally && v.round === 2 ? `<details><summary class="small">Primera votación</summary>${tallyHTML(g.prevTally.t, g.prevTally.votes)}</details>` : ""}</div>`;
+}
+function hunterPanel(g) {
+  const mine = g.hunter === me(), mineA = actOf(g, me());
+  if (!mine) return `<div class="card"><h2>🏹 El cazador apunta…</h2><p class="muted">${esc(nameOf(g.hunter))} elige a quién se lleva por delante.</p></div>`;
+  if (mineA) return `<div class="card"><h2>🏹 Disparo hecho</h2></div>`;
+  return `<div class="card"><h2>🏹 Tu última flecha</h2><p class="muted small">Elige a quién te llevas contigo.</p>
+    ${targetsHTML(g.alive, { fn: "shoot" })}<button class="btn red wide" data-on="click:fire"${S.sel[0] ? "" : " disabled"}>Disparar</button></div>`;
+}
+function renderGame() {
+  const g = S.g;
+  if (g.status === "end") return renderEnd();
+  let panel = "";
+  if (g.phase === "reveal") {
+    const mineA = actOf(g, me()), done = g.alive.filter(u => actOf(g, u)).length;
+    panel = `<div class="card"><h2>Mira tu personaje</h2>${compoHTML(g.compo)}<p class="muted small">Cuando lo tengas claro, ocúltalo y pulsa listo. ${done}/${g.alive.length} listos.</p>
+      ${inGame(g) ? `<button class="btn ${mineA ? "ghost" : "gold"} wide" data-on="click:ready"${mineA ? " disabled" : ""}>${mineA ? "Esperando al resto…" : "Listo, que caiga la noche"}</button>` : ""}</div>`;
+  } else if (g.phase === "night") panel = nightPanel(g);
+  else if (g.phase === "news") panel = newsHTML(g);
+  else if (g.phase === "hunter") panel = hunterPanel(g);
+  else if (g.phase === "day") panel = dayPanel(g);
+  else if (g.phase === "vote") panel = votePanel(g);
+  const roleFirst = g.phase === "reveal";
+  view(`${topBar(g)}${skyHTML(g)}${roleFirst ? roleCardHTML() : ""}${panel}
+    <div class="card"><h2>El pueblo</h2>${villageHTML(g)}</div>${roleFirst ? "" : roleCardHTML()}`);
+}
+function renderEnd() {
+  const g = S.g, r = g.reveal || { roles: {} }, my = r.roles[me()];
+  const lovers = r.lovers || [];
+  const won = my && (g.win === "village" ? my !== "wolf" && !(lovers.includes(me()) && g.win === "lovers") : g.win === "wolves" ? my === "wolf" : g.win === "lovers" ? lovers.includes(me()) : false);
+  const E = { village: "🏡", wolves: "🐺", lovers: "💘", none: "🪦" }, T = { village: "Gana el pueblo", wolves: "Ganan los lobos", lovers: "Ganan los enamorados", none: "No gana nadie" };
+  view(`
+  <div class="top"><button class="btn ghost sm" data-on="click:out">Salir</button><span class="sp"></span><span class="chip">SALA ${esc(S.code)}</span></div>
+  <div class="card win pop"><div class="e">${E[g.win] || "🌙"}</div><div class="big">${T[g.win] || "Fin"}</div><p>${esc(g.narr || "")}</p>${my ? `<p class="muted">${won ? "¡Has ganado!" : "Has perdido"}</p>` : ""}</div>
+  <div class="card"><h2>Todos los personajes</h2><ul class="plist">${g.order.map(u => { const ro = r.roles[u]; return `<li class="${g.alive.includes(u) ? "" : "dead"}">${av(u)}<span class="n"><span>${esc(nameOf(u))}${lovers.includes(u) ? " 💘" : ""}</span><small>${ro ? `${ROLES[ro].e} ${esc(ROLES[ro].n)}` : ""}</small></span></li>`; }).join("")}</ul></div>
+  ${isHost() ? `<button class="btn gold wide" data-on="click:again">Otra partida</button>` : `<p class="muted center">${esc(nameOf(g.host))} puede empezar otra.</p>`}`);
+}
+
+window.__pd = { S, drive, ROLES, composition, checkWin, hostSkip };
+boot();
+})();
+</script>
+</body>
+</html>
