@@ -121,7 +121,22 @@ summary{cursor:pointer}
 .moves i{width:16px;height:16px;border-radius:50%;background:var(--gold)}
 .moves i.u{background:transparent;box-shadow:inset 0 0 0 2px var(--line)}
 .log{list-style:none;margin:0;padding:0;display:grid;gap:4px;font-size:13.5px;color:var(--muted)}
-.log li:first-child{color:var(--ink)}
+.log li{color:var(--muted)}
+.log li:nth-child(2){color:var(--ink);font-weight:700}
+.log .lh{font-family:var(--display);font-size:16px;color:var(--ink)}
+.log .sep{color:var(--gold);font-weight:900;margin-top:4px}
+.thead{display:flex;align-items:center;gap:8px;font-size:17px}
+.thead.yo b{color:var(--gold)}
+.tdot{width:16px;height:16px;border-radius:50%;background:var(--c);box-shadow:0 0 0 2px rgba(255,255,255,.6)}
+.steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;font-size:12.5px;font-weight:900;text-align:center}
+.steps li{padding:5px 2px;border-radius:8px;background:var(--deep);color:var(--muted)}
+.steps li.done{opacity:.55}
+.steps li.now{background:var(--gold);color:#2B2000}
+.legend{background:var(--panel);border-radius:18px;padding:12px 14px;font-size:14px}
+.legend summary{font-weight:900}
+.legend ul{margin:8px 0 0;padding:0;list-style:none;display:grid;gap:8px}
+.legend li{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.lg{display:inline-block;width:18px;height:18px;border-radius:50%;vertical-align:middle}
 .mine{display:grid;gap:6px;font-size:14px}
 .mine .grp{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
 .mine .grp span.t{min-width:84px;color:var(--muted)}
@@ -414,6 +429,8 @@ function nextTurn(g) {
   g.turn = (g.turn + 1) % g.order.length; g.moves = 3; g.swam = []; g.played = false; g.pend = null;
   g.actor = cur(g); S.dieSeen = g.dieN;
   g.phase = playableTiles(g, g.actor).length ? "start" : "move";
+  g.tn = (g.tn || 0) + 1; g.arrow = null; g.last = null;
+  logp(g, `▶ Turno de ${nameOf(g.actor)}`);
 }
 function toSink(g) { g.sel = null; g.phase = sinkable(g).length ? "sink" : "roll"; g.actor = cur(g); }
 function checkEnd(g) {
@@ -525,17 +542,18 @@ function placeBoat(k) {
 }
 function doMove(u, d) {
   if (!myAct() || S.g.phase !== "move" || S.g.moves < 1) return;
-  const g = clone(S.g);
-  if (u.kind === "b") { g.boats[u.id].at = d.k; passengers(g, u.id).forEach(id => { g.exps[id].at = d.k; }); }
+  const g = clone(S.g), nm = nameOf(me());
+  let fromK;
+  if (u.kind === "b") { fromK = g.boats[u.id].at; const n = passengers(g, u.id).length; g.boats[u.id].at = d.k; passengers(g, u.id).forEach(id => { g.exps[id].at = d.k; }); logp(g, `⛵ ${nm} mueve un bote ${n ? `con ${n} a bordo` : "vacío"}.`); }
   else {
-    const e = g.exps[u.id], from = e.st;
-    if (d.how === "walk") e.at = d.k;
-    else if (d.how === "safe") { Object.assign(e, { st: "safe", at: d.k, b: null }); logp(g, `🏝️ ${nameOf(e.o)} pone a salvo a un explorador.`); }
-    else if (d.how === "board") Object.assign(e, { st: "boat", at: d.k, b: d.b });
-    else Object.assign(e, { st: "sea", at: d.k, b: null });
+    const e = g.exps[u.id], from = e.st; fromK = posOf(g, e);
+    if (d.how === "walk") { e.at = d.k; logp(g, `🚶 ${nm} avanza un explorador por la isla.`); }
+    else if (d.how === "safe") { Object.assign(e, { st: "safe", at: d.k, b: null }); logp(g, `🏝️ ${nm} pone a salvo a un explorador.`); }
+    else if (d.how === "board") { Object.assign(e, { st: "boat", at: d.k, b: d.b }); logp(g, `⛵ ${nm} sube un explorador a un bote.`); }
+    else { Object.assign(e, { st: "sea", at: d.k, b: null }); logp(g, from === "land" ? `🌊 ${nm} lanza un explorador al agua: ahora es nadador.` : from === "boat" ? `🌊 ${nm} baja un explorador del bote al agua.` : `🏊 ${nm} nada una casilla.`); }
     if (from === "sea" || from === "boat" || d.how === "swim") g.swam.push(u.id);
   }
-  g.moves--; g.last = [d.k];
+  g.moves--; g.last = [d.k]; g.arrow = fromK !== d.k ? [fromK, d.k] : null;
   if (checkEnd(g)) return commit(g);
   if (g.moves < 1) toSink(g);
   commit(g);
@@ -545,11 +563,12 @@ function doSink(k) {
   if (!myAct() || S.g.phase !== "sink") return;
   const g = clone(S.g), tile = g.tiles[k], T = TILES[tile.b], who = nameOf(me());
   delete g.tiles[k];
-  landAt(g, k).forEach(id => { g.exps[id].st = "sea"; });
-  g.rev = { k, t: tile.t, b: tile.b, by: me(), now: T.kind === "now", n: (g.rev ? g.rev.n : 0) + 1 };
+  const fellIds = landAt(g, k); fellIds.forEach(id => { g.exps[id].st = "sea"; });
+  g.rev = { k, t: tile.t, b: tile.b, by: me(), now: T.kind === "now", n: (g.rev ? g.rev.n : 0) + 1 }; g.arrow = null;
+  const fellTxt = fellIds.length ? ` ${countBy(g, fellIds)} ${fellIds.length === 1 ? "cae" : "caen"} al agua.` : "";
   g.last = [k];
-  if (T.kind !== "now") { g.hand[me()] = [...handOf(g, me()), tile.b]; logp(g, `${who} hunde una ${TERR[tile.t].n} y se guarda una loseta.`); cont(g, "roll"); return commit(g); }
-  logp(g, `${who} hunde una ${TERR[tile.t].n}: ${T.e} ${T.n}.`);
+  if (T.kind !== "now") { g.hand[me()] = [...handOf(g, me()), tile.b]; logp(g, `🌊 ${who} hunde una ${TERR[tile.t].n} y se guarda una loseta en secreto.${fellTxt}`); cont(g, "roll"); return commit(g); }
+  logp(g, `🌊 ${who} hunde una ${TERR[tile.t].n}. Debajo había: ${T.e} ${T.n}.${fellTxt}`);
   if (tile.b === "volcano") { logp(g, "🌋 ¡El volcán entra en erupción! Se acabó."); endGame(g, "volcano"); return commit(g); }
   if (tile.b === "whirl") { whirlpool(g, k); cont(g, "roll"); return commit(g); }
   if (tile.b === "boat") {
@@ -573,7 +592,9 @@ function doRoll() {
 }
 function doCreature(cid, k) {
   if (!myAct() || S.g.phase !== "creature") return;
-  const g = clone(S.g); g.cre[cid].at = k; g.last = [k]; resolveAttack(g, cid, "next"); commit(g);
+  const g = clone(S.g), C = CRE[g.cre[cid].k]; g.arrow = [g.cre[cid].at, k]; g.cre[cid].at = k; g.last = [k];
+  logp(g, `${C.e} ${nameOf(me())} mueve ${C.n === "ballena" ? "la ballena" : C.n === "serpiente marina" ? "la serpiente marina" : "el tiburón"}${prey(g, k, g.cre[cid].k) ? " y ataca" : ""}.`);
+  resolveAttack(g, cid, "next"); commit(g);
 }
 function doDefense(use) {
   if (!myAct() || S.g.phase !== "defense") return;
@@ -594,6 +615,7 @@ function playTile(code, u, d) {
   if (!myAct() || S.g.phase !== "start") return;
   const g = clone(S.g), h = g.hand[me()], T = TILES[code];
   h.splice(h.indexOf(code), 1); g.played = true; g.last = [d.k]; S.tp = null;
+  g.arrow = [u.kind === "b" ? g.boats[u.id].at : u.kind === "c" ? g.cre[u.id].at : g.exps[u.id].at, d.k];
   logp(g, `${T.e} ${nameOf(me())} juega ${T.n}.`);
   if (code === "dolphin") { const e = g.exps[u.id]; if (d.how === "safe") { Object.assign(e, { st: "safe", at: d.k }); logp(g, `🏝️ ${nameOf(me())} pone a salvo a un explorador.`); } else if (d.how === "board") Object.assign(e, { st: "boat", at: d.k, b: d.b }); else e.at = d.k; if (checkEnd(g)) return commit(g); g.phase = "move"; }
   else if (code === "wind") { g.boats[u.id].at = d.k; passengers(g, u.id).forEach(id => { g.exps[id].at = d.k; }); g.phase = "move"; }
@@ -624,7 +646,13 @@ function onGame(prev) {
   const g = S.g;
   if (g.gid) watchSecret();
   if (g.status === "end" && !g.score && g.actor === me()) finalize();
-  if (prev && g.status === "play" && g.actor === me() && prev.actor !== me() && navigator.vibrate) try { navigator.vibrate(80); } catch {}
+  if (prev && g.status === "play" && g.actor === me() && prev.actor !== me()) {
+    if (navigator.vibrate) try { navigator.vibrate(80); } catch {}
+    toast(g.phase === "defense" ? "¡Te atacan! Decide si te defiendes." : cur(g) === me() ? "¡Te toca!" : "Te toca decidir");
+  } else if (prev && prev.log && g.log && g.log[0] !== prev.log[0] && prev.actor !== me()) {
+    const fresh = g.log.slice(0, g.log.indexOf(prev.log[0]) < 0 ? 1 : g.log.indexOf(prev.log[0])).filter(l => !l.startsWith("▶"));
+    if (fresh.length) toast(fresh[fresh.length - 1]);
+  }
   if (!prev || prev.phase !== g.phase || prev.actor !== g.actor) { S.sel = null; S.pick = null; if (g.phase !== "start") S.tp = null; }
 }
 
@@ -758,6 +786,12 @@ function boardSVG() {
     if (safe && SAFE_GROUPS.some(gr => gr[0] === k)) toks.push(`<text x="${x}" y="${y + 6}" text-anchor="middle" font-size="16">🌴</text>`);
   });
   if (g.last) g.last.forEach(k => { if (XY[k]) parts.push(`<polygon class="lastfx" points="${HEXPTS[k]}" fill="rgba(255,255,255,.55)" pointer-events="none"/>`); });
+  const after = [];
+  if (g.last) g.last.forEach(k => { if (XY[k]) after.push(`<polygon points="${HEXPTS[k]}" fill="none" stroke="#FF9F43" stroke-width="2.6" pointer-events="none"/>`); });
+  if (g.arrow && XY[g.arrow[0]] && XY[g.arrow[1]]) {
+    const [x1, y1] = XY[g.arrow[0]], [x2, y2] = XY[g.arrow[1]], L = Math.hypot(x2 - x1, y2 - y1) || 1, ux = (x2 - x1) / L, uy = (y2 - y1) / L;
+    after.push(`<line x1="${(x1 + ux * 8).toFixed(1)}" y1="${(y1 + uy * 8).toFixed(1)}" x2="${(x2 - ux * 10).toFixed(1)}" y2="${(y2 - uy * 10).toFixed(1)}" stroke="#FF9F43" stroke-width="3" stroke-linecap="round" marker-end="url(#ah)" pointer-events="none"/>`);
+  }
   // fichas
   const byHex = {};
   Object.keys(g.exps).forEach(id => { const e = g.exps[id]; if (["land", "sea", "safe"].includes(e.st) && e.at) (byHex[e.at] = byHex[e.at] || []).push(id); });
@@ -786,7 +820,7 @@ function boardSVG() {
     else hl.push(`<polygon points="${HEXPTS[k]}" fill="none" stroke="rgba(255,255,255,.85)" stroke-width="1.6" stroke-dasharray="4 3" pointer-events="none"/>`);
   });
   if (S.info && XY[S.info]) hl.push(`<polygon points="${HEXPTS[S.info]}" fill="none" stroke="#A9CBE3" stroke-width="2" pointer-events="none"/>`);
-  return parts.join("") + `<g class="tok">${toks.join("")}</g>` + hl.join("");
+  return `<defs><marker id="ah" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#FF9F43"/></marker></defs>` + parts.join("") + `<g class="tok">${toks.join("")}</g>` + after.join("") + hl.join("");
 }
 
 /* ---------- panel ---------- */
@@ -807,9 +841,26 @@ function hexInfo(g, k) {
   if (ex.length) bits.push(countBy(g, ex));
   return bits.join(" · ");
 }
+const STEPS = [["start", "Loseta"], ["move", "Mover"], ["sink", "Hundir"], ["roll", "Dado"]];
+function turnHead(g) {
+  if (!["start", "move", "sink", "roll", "creature", "defense"].includes(g.phase)) return `<div class="thead"><span class="tdot" style="--c:${colorOf(g, g.actor)}"></span><b>Preparación</b><span class="muted small">· ${g.phase === "placeExp" ? "colocando exploradores" : "colocando botes"}</span></div>`;
+  const owner = cur(g), idx = { start: 0, move: 1, sink: 2, roll: 3, creature: 3, defense: 3 }[g.phase];
+  return `<div class="thead ${owner === me() ? "yo" : ""}"><span class="tdot" style="--c:${colorOf(g, owner)}"></span><b>${owner === me() ? "¡Tu turno!" : "Turno de " + esc(nameOf(owner))}</b></div>
+    <ol class="steps">${STEPS.map(([, t], i) => `<li class="${i < idx ? "done" : i === idx ? "now" : ""}">${i + 1}. ${t}</li>`).join("")}</ol>`;
+}
+function legendHTML() {
+  return `<details class="legend"><summary>¿Qué es cada cosa del tablero?</summary><ul>
+    <li><span class="lg" style="background:var(--beach)"></span>Playa · <span class="lg" style="background:var(--forest)"></span>Bosque · <span class="lg" style="background:var(--mount)"></span>Montaña · <span class="lg" style="background:var(--safe)"></span>Isla a salvo (las esquinas, con 🌴)</li>
+    <li><span class="mv" style="--c:${PCOL[0]}">5</span> Explorador en tierra. El número solo lo ves en los tuyos.</li>
+    <li><svg width="26" height="26" viewBox="0 0 26 26"><circle cx="13" cy="13" r="10" fill="${PCOL[1]}" stroke="#E6F7FF" stroke-width="2.4" stroke-dasharray="3 2"/></svg> Nadador (borde a rayas): solo avanza 1 casilla por turno.</li>
+    <li>⛵ Bote: lleva hasta 3 · 🦈 come nadadores · 🐋 vuelca botes · 🐉 acaba con botes y nadadores</li>
+    <li><span class="lg" style="box-shadow:inset 0 0 0 2px #fff;border-radius:4px"></span>Borde punteado: piezas que puedes mover · <span class="lg" style="background:rgba(255,216,77,.6)"></span>Amarillo: dónde puedes ir</li>
+    <li><span class="lg" style="box-shadow:inset 0 0 0 2px #FF9F43"></span>Naranja y flecha: lo último que ha pasado. Toca cualquier casilla para ver qué hay.</li></ul></details>`;
+}
 function panelHTML() {
   const g = S.g, mine = myAct(), A = g.actor, out = [];
   const movesDots = `<span class="moves" aria-label="${g.moves} movimientos">${[0, 1, 2].map(i => `<i class="${i < g.moves ? "" : "u"}"></i>`).join("")}</span>`;
+  out.push(turnHead(g));
   if (g.rev && g.rev.n && ["roll", "creature", "defense"].includes(g.phase)) {
     const T = TILES[g.rev.b], show = g.rev.now || g.rev.by === me();
     out.push(`<div class="reveal"><span class="e">${show ? T.e : "🂠"}</span><span>${show ? `${esc(g.rev.by === me() ? "Has" : nameOf(g.rev.by) + " ha")} hundido una ${TERR[g.rev.t].n}: <b>${T.n}</b>${g.rev.now ? "" : ". Te la guardas en secreto."}` : `${esc(nameOf(g.rev.by))} ha hundido una ${TERR[g.rev.t].n} y se guarda una loseta.`}</span></div>`);
@@ -823,7 +874,7 @@ function panelHTML() {
       }
       break;
     }
-    case "placeBoat": out.push(`<p class="phase">${mine ? "Coloca un bote" : `${who(A)} coloca un bote`}</p>${mine ? `<p class="small muted">Toca una casilla de mar pegada a la isla.</p>` : ""}`); break;
+    case "placeBoat": out.push(`<p class="phase">${mine ? "Coloca un bote" : `${who(A)} coloca un bote`}</p><p class="small muted">${mine ? "Toca una casilla de mar pegada a la isla (marcadas en amarillo)." : "Los botes empiezan vacíos junto a la isla. Cualquiera puede usar un bote vacío."}</p>`); break;
     case "start": {
       out.push(`<p class="phase">${mine ? "Empieza tu turno" : `Turno de ${who(A)}`}</p>`);
       if (mine) {
@@ -837,22 +888,25 @@ function panelHTML() {
       if (mine) {
         if (S.pick) out.push(`<p class="small muted">¿Qué quieres mover de aquí?</p><div class="opts">${myUnits(g, me()).filter(u => u.k === S.pick).map((u, i) => `<button class="opt" data-pk="${i}">${unitLabel(g, u)}</button>`).join("")}</div>`);
         else if (S.sel) out.push(`<p class="small">Moviendo: ${unitLabel(g, S.sel).replace(/<span class="dot"[^>]*>.*?<\/span>/, "")}. Toca una casilla amarilla.</p>`);
-        else out.push(`<p class="small muted">Toca una de tus piezas (borde punteado). Nadadores: 1 casilla por turno. Botes: los vacíos o donde tengas mayoría.</p>`);
+        else out.push(`<p class="small muted">${g.moves === 1 ? "Te queda 1 movimiento" : `Te quedan ${g.moves} movimientos`}. Toca una pieza tuya (borde punteado) y luego una casilla amarilla. Un nadador solo avanza 1 casilla por turno.</p>`);
+      }
+      else out.push(`<p class="small muted">Puede gastar 3 movimientos entre sus exploradores y los botes que controle. La flecha naranja marca el último movimiento.</p>`);
+      if (mine) {
         out.push(`<button class="btn wide" id="endMoves">${g.moves === 3 ? "No mover y hundir loseta" : "Terminar y hundir loseta"}</button>`);
       }
       break;
     }
-    case "sink": out.push(`<p class="phase">${mine ? "Hunde una loseta" : `${who(A)} va a hundir una loseta`}</p>${mine ? `<p class="small muted">Toca una ${TERR[g.tiles[sinkable(g)[0]].t].n} que toque el mar.</p>` : ""}`); break;
-    case "roll": out.push(`<p class="phase">${mine ? "Tira el dado de criaturas" : `${who(A)} va a tirar el dado`}</p>${mine ? `<button class="btn gold wide" id="roll">🎲 Tirar el dado</button>` : ""}`); break;
+    case "sink": { const tn = TERR[g.tiles[sinkable(g)[0]].t].n; out.push(`<p class="phase">${mine ? "Hunde una loseta" : `${who(A)} va a hundir una loseta`}</p><p class="small muted">${mine ? `Toca una ${tn} de las marcadas (tienen que tocar el mar).` : `Elegirá una ${tn} junto al mar.`} Se hunden primero las playas, luego los bosques y al final las montañas. Quien esté encima cae al agua y debajo puede salir una criatura, un bote, un remolino… o el volcán.</p>`); break; }
+    case "roll": out.push(`<p class="phase">${mine ? "Tira el dado de criaturas" : `${who(A)} va a tirar el dado`}</p><p class="small muted">El dado dice qué criatura se mueve: 🐉 serpiente (1 casilla), 🦈 tiburón (2) o 🐋 ballena (3).</p>${mine ? `<button class="btn gold wide" id="roll">🎲 Tirar el dado</button>` : ""}`); break;
     case "creature": {
       const C = CRE[g.die], anim = S.dieSeen !== g.dieN; S.dieSeen = g.dieN;
-      out.push(`<div class="dierow"><div class="die${anim ? " anim" : ""}">${C.e}</div><div><p class="phase">${mine ? "Mueve" : `${who(A)} mueve`} ${C.n === "ballena" ? "una ballena" : C.n === "serpiente marina" ? "una serpiente marina" : "un tiburón"}</p><p class="small muted">Hasta ${plural(C.r, "casilla", "casillas")}.${mine ? (S.sel ? " Toca el destino." : " Toca cuál.") : ""}</p></div></div>`);
+      out.push(`<div class="dierow"><div class="die${anim ? " anim" : ""}">${C.e}</div><div><p class="phase">${mine ? "Mueve" : `${who(A)} mueve`} ${C.n === "ballena" ? "una ballena" : C.n === "serpiente marina" ? "una serpiente marina" : "un tiburón"}</p><p class="small muted">Hasta ${plural(C.r, "casilla", "casillas")}.${mine ? (S.sel ? " Toca el destino en amarillo." : " Toca cuál (borde punteado).") : ""} ${{ shark: "Si llega a nadadores, se los come.", whale: "Si llega a un bote, lo vuelca y sus ocupantes caen al agua.", serp: "Si llega a un bote o a nadadores, acaba con todos." }[g.die]}</p></div></div>`);
       break;
     }
     case "defense": {
       const p = g.pend, c = g.cre[p.cid], tile = c.k === "shark" ? "rshark" : "rwhale";
       if (mine) out.push(`<p class="phase">${c.k === "shark" ? "¡Un tiburón va a por tus nadadores!" : "¡Una ballena embiste tu bote!"}</p><p class="small">¿Usas <b>${TILES[tile].e} ${TILES[tile].n}</b>?</p><div class="row"><button class="btn gold" id="defYes">Usarla</button><button class="btn ghost" id="defNo">No</button></div>`);
-      else out.push(`<p class="phase">${who(A)} decide si se defiende…</p>`);
+      else out.push(`<p class="phase">${c.k === "shark" ? "🦈 Un tiburón ataca" : "🐋 Una ballena ataca"}: ${who(A)} decide si usa una loseta para defenderse…</p>`);
       break;
     }
   }
@@ -889,7 +943,7 @@ function renderGame() {
   if (view(`<div class="top"><button class="btn ghost sm" id="out">Salir</button><span class="sp"></span><span class="chip">SALA ${esc(S.code)}</span></div>
     <div class="players" id="players"></div>
     <div class="bwrap" id="bwrap"><button class="zbtn" id="zoom" aria-label="Ampliar tablero">＋</button><svg id="board" viewBox="0 0 ${VBW.toFixed(0)} ${VBH.toFixed(0)}" role="img" aria-label="Tablero de la isla"></svg></div>
-    <div id="panel"></div><div class="panel" id="minebox"></div><div class="panel"><ul class="log" id="log"></ul></div>`, "game|" + S.code)) {
+    <div id="panel"></div><div class="panel"><ul class="log" id="log"></ul></div><div class="panel" id="minebox"></div><div id="legend"></div>`, "game|" + S.code)) {
     on("#out", "click", () => leave(""));
     on("#zoom", "click", () => { S.zoom = !S.zoom; document.getElementById("bwrap").classList.toggle("zoom", S.zoom); document.getElementById("zoom").textContent = S.zoom ? "－" : "＋"; });
     document.getElementById("board").addEventListener("click", e => { const el = e.target.closest("[data-k]"); if (el) onHex(el.dataset.k); });
@@ -902,7 +956,10 @@ function renderGame() {
   if (g.status === "end") panel.outerHTML = `<div id="panel">${endHTML()}</div>`;
   else { panel.className = "panel"; panel.innerHTML = panelHTML(); }
   document.getElementById("minebox").innerHTML = myHTML();
-  document.getElementById("log").innerHTML = (g.log || []).slice(0, 8).map(l => `<li>${esc(l)}</li>`).join("");
+  const lg = g.log || [], cut = lg.findIndex(l => l.startsWith("▶")), recent = lg.slice(0, Math.max(cut + 1, 4));
+  document.getElementById("log").innerHTML = `<li class="lh">Lo que está pasando</li>` + recent.slice(0, 12).map(l => `<li class="${l.startsWith("▶") ? "sep" : ""}">${esc(l)}</li>`).join("")
+    + (lg.length > recent.length ? `<li><details><summary class="small">Ver más</summary>${lg.slice(recent.length).map(l => `<div class="${l.startsWith("▶") ? "sep" : ""}">${esc(l)}</div>`).join("")}</details></li>` : "");
+  document.getElementById("legend").innerHTML = legendHTML();
   $app.querySelectorAll("[data-v]").forEach(b => b.addEventListener("click", () => { S.pv = +b.dataset.v; render(); }));
   $app.querySelectorAll("[data-tp]").forEach(b => b.addEventListener("click", () => { S.tp = b.dataset.tp; S.sel = null; S.pick = null; render(); }));
   $app.querySelectorAll("[data-pk]").forEach(b => b.addEventListener("click", () => { S.sel = myUnits(S.g, me()).filter(u => u.k === S.pick)[+b.dataset.pk]; S.pick = null; render(); }));

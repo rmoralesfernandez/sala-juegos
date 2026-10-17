@@ -212,6 +212,53 @@
     return { over: false, check: chk };
   }
 
+
+  /* ¿La pieza de s ataca la casilla t? (con el tablero b tal cual) */
+  function attacksSq(b, s, t) {
+    const p = b[s]; if (!p || s === t) return false;
+    const tp = type(p), df = (t & 7) - (s & 7), dr = (t >> 3) - (s >> 3);
+    if (tp === "p") return Math.abs(df) === 1 && dr === (isW(p) ? 1 : -1);
+    if (tp === "n") return (Math.abs(df) === 1 && Math.abs(dr) === 2) || (Math.abs(df) === 2 && Math.abs(dr) === 1);
+    if (tp === "k") return Math.max(Math.abs(df), Math.abs(dr)) === 1;
+    const diag = Math.abs(df) === Math.abs(dr), orth = df === 0 || dr === 0;
+    if ((tp === "b" && !diag) || (tp === "r" && !orth) || (tp === "q" && !diag && !orth)) return false;
+    const sf = Math.sign(df), sr = Math.sign(dr);
+    for (let x = (s & 7) + sf, y = (s >> 3) + sr; x !== (t & 7) || y !== (t >> 3); x += sf, y += sr) if (b[y * 8 + x]) return false;
+    return true;
+  }
+  const attackersOf = (b, t, by) => { const out = []; for (let s = 0; s < 64; s++) if (b[s] && colorOf(b[s]) === by && attacksSq(b, s, t)) out.push({ sq: s, p: b[s] }); return out; };
+
+  /* Por qué es jaque mate: quién da jaque, por qué el rey no puede escapar, comer ni tapar. */
+  function explainMate(pos) {
+    const c = pos.turn, e = c === "w" ? "b" : "w", b = pos.b, k = kingSq(b, c);
+    const checkers = attackersOf(b, k, e);
+    const noKing = b.slice(); noKing[k] = null;
+    const escapes = [];
+    for (const [df, dr] of K_OFF) {
+      const f = (k & 7) + df, r = (k >> 3) + dr; if (!on(f, r)) continue;
+      const t = r * 8 + f, q = b[t];
+      if (q && colorOf(q) === c) { escapes.push({ sq: t, why: "own", p: q }); continue; }
+      const nb = noKing.slice(); nb[t] = c === "w" ? "K" : "k";
+      const by = attackersOf(nb, t, e);
+      escapes.push({ sq: t, why: q ? "defended" : "attacked", p: q, by });
+    }
+    let capture = null, block = null;
+    if (checkers.length === 1) {
+      const ch = checkers[0];
+      const takers = attackersOf(b, ch.sq, c).filter(a => type(a.p) !== "k");
+      const pinned = takers.filter(a => { const nb = b.slice(); nb[ch.sq] = a.p; nb[a.sq] = null; return attackersOf(nb, k, e).length > 0; });
+      const kingNext = Math.max(Math.abs((ch.sq & 7) - (k & 7)), Math.abs((ch.sq >> 3) - (k >> 3))) === 1;
+      capture = { takers, pinned, kingNext, defenders: kingNext ? (escapes.find(x => x.sq === ch.sq) || {}).by || [] : [] };
+      const tp = type(ch.p), between = [];
+      if (tp === "b" || tp === "r" || tp === "q") {
+        const sf = Math.sign((k & 7) - (ch.sq & 7)), sr = Math.sign((k >> 3) - (ch.sq >> 3));
+        for (let x = (ch.sq & 7) + sf, y = (ch.sq >> 3) + sr; x !== (k & 7) || y !== (k >> 3); x += sf, y += sr) between.push(y * 8 + x);
+      }
+      block = { between };
+    }
+    return { color: c, king: k, checkers, escapes, capture, block };
+  }
+
   /* Material capturado por cada bando (para mostrar los escombros). */
   function captured(hist) {
     const out = { w: [], b: [] };
@@ -314,7 +361,7 @@
   const LEVELS = { 1: { depth: 1, ms: 300, noise: 180 }, 2: { depth: 3, ms: 900, noise: 25 }, 3: { depth: 6, ms: 1800, noise: 0 } };
   function bestMove(moves, level) { return search(replay(moves).pos, LEVELS[level] || LEVELS[2]); }
 
-  const api = { START, FILES, VAL, sqName, sqIdx, isW, colorOf, type, fromFEN, toFEN, legalMoves, make, san, uciOf, findMove, inCheck, attacked, replay, outcome, captured, material, evaluate, bestMove, pseudo };
+  const api = { START, FILES, VAL, sqName, sqIdx, isW, colorOf, type, fromFEN, toFEN, legalMoves, make, san, explainMate, attackersOf, uciOf, findMove, inCheck, attacked, replay, outcome, captured, material, evaluate, bestMove, pseudo };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.Chess = api;
   /* Como Web Worker: piensa la jugada de la máquina sin congelar la pantalla */

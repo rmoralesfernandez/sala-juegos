@@ -104,8 +104,8 @@ details summary::-webkit-details-marker{display:none}
 .frame{padding:clamp(6px,1.8vw,12px);border-radius:14px;background:
   linear-gradient(145deg,#3A343B,#1B181D 55%,#2C272E);
   box-shadow:inset 0 2px 0 rgba(255,255,255,.08),inset 0 -3px 0 rgba(0,0,0,.5),0 18px 40px -12px rgba(0,0,0,.8),0 0 0 1px #000}
-.board{position:relative;aspect-ratio:1;border-radius:4px;overflow:hidden;box-shadow:0 0 0 2px #0D0B0E,inset 0 0 30px rgba(0,0,0,.4);touch-action:manipulation;user-select:none;-webkit-user-select:none}
-.sqs{position:absolute;inset:0;display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr)}
+.board{position:relative;aspect-ratio:1;border-radius:4px;overflow:visible;box-shadow:0 0 0 2px #0D0B0E,inset 0 0 30px rgba(0,0,0,.4);touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.sqs{position:absolute;inset:0;border-radius:4px;overflow:hidden;display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr)}
 .sq{appearance:none;border:0;padding:0;margin:0;position:relative;border-radius:0;cursor:pointer}
 .sq.l{background:linear-gradient(135deg,#D6CEBF,var(--sqL) 60%,#BCB2A1)}
 .sq.d{background:linear-gradient(135deg,#55525C,var(--sqD) 60%,#3B3941)}
@@ -122,6 +122,15 @@ details summary::-webkit-details-marker{display:none}
 .sq.chk.l{background:radial-gradient(circle,rgba(255,70,50,.95),rgba(200,30,20,.55) 45%,transparent 75%),var(--sqL)}
 .sq.chk::before{content:"";position:absolute;inset:0;animation:pulse 1.1s ease-in-out infinite;background:radial-gradient(circle,rgba(255,90,60,.6),transparent 70%)}
 @keyframes pulse{50%{opacity:.2}}
+.sq.why-a::after{content:"";position:absolute;inset:4%;border-radius:50%;box-shadow:inset 0 0 0 4px rgba(255,70,50,.95),0 0 16px rgba(255,60,40,.8);z-index:4;pointer-events:none}
+.sq.why-d::after{content:"";position:absolute;inset:8%;border-radius:50%;border:3px dashed rgba(255,170,60,.95);z-index:4;pointer-events:none}
+.sq.why-x::after{content:"✕";position:absolute;inset:0;display:grid;place-items:center;font:900 clamp(16px,5vw,26px)/1 var(--body);color:rgba(230,40,30,.85);text-shadow:0 0 6px rgba(0,0,0,.5);z-index:4;pointer-events:none}
+.why{display:grid;gap:6px;text-align:left;background:var(--bg);border-radius:12px;padding:12px 14px;font-size:14.5px}
+.why h3{font-size:15px;color:var(--gold)}
+.why ul{margin:0;padding-left:18px;display:grid;gap:4px}
+.why .lg{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12.5px;color:var(--muted)}
+.why .lg i{font-style:normal;font-weight:800}
+.why .lg i.ring{display:inline-block;width:12px;height:12px;border-radius:50%;vertical-align:-1px}
 .grain{position:absolute;inset:0;pointer-events:none;opacity:.32;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .5 0 0 0 1.4 -.3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E")}
 .veins{position:absolute;inset:0;pointer-events:none;opacity:.18;background:
   linear-gradient(115deg,transparent 30%,rgba(255,255,255,.5) 31%,transparent 32.5%),
@@ -130,12 +139,11 @@ details summary::-webkit-details-marker{display:none}
 .pcs,.fx{position:absolute;inset:0;pointer-events:none}
 .fx{z-index:8}
 .pc{position:absolute;width:12.5%;height:12.5%;z-index:5;will-change:transform}
-.pc svg{width:100%;height:100%;display:block;padding:4%}
-.pc.up{z-index:7;filter:drop-shadow(0 12px 10px rgba(0,0,0,.55))}
+.pc svg,.shard svg{position:absolute;left:-14%;bottom:1%;width:128%;height:128%;display:block;overflow:visible}
+.pc.up{z-index:30!important;filter:drop-shadow(0 12px 10px rgba(0,0,0,.55))}
 .pc.fallen svg{transform:rotate(-82deg) scale(.86) translate(6%,4%);filter:grayscale(.7) brightness(.7)}
 .shard-box{position:absolute;width:12.5%;height:12.5%}
 .shard{position:absolute;inset:0;will-change:transform,opacity}
-.shard svg{width:100%;height:100%;display:block;padding:4%}
 .dust{position:absolute;left:50%;top:55%;width:50%;height:50%;margin:-25% 0 0 -25%;border-radius:50%;background:radial-gradient(circle,rgba(200,188,170,.75),rgba(150,140,125,.35) 45%,transparent 70%);will-change:transform,opacity}
 .dust.dk{background:radial-gradient(circle,rgba(90,86,96,.8),rgba(50,48,55,.4) 45%,transparent 70%)}
 .chip-bit{position:absolute;left:50%;top:55%;width:7%;height:7%;border-radius:2px;will-change:transform,opacity}
@@ -202,17 +210,30 @@ const other = c => (c === "w" ? "b" : "w");
 const circ = (x, y, r) => `M${x - r} ${y}a${r} ${r} 0 1 0 ${2 * r} 0a${r} ${r} 0 1 0 ${-2 * r} 0Z`;
 const BASE = ["M20 92L80 92L80 86Q80 82 76 82L24 82Q20 82 20 86Z", "M27 82L73 82L69 75L31 75Z"];
 const SHAPES = {
-  p: { parts: [...BASE, "M37 75Q40 60 44 50L56 50Q60 60 63 75Z", "M36 51Q36 45 42 44L58 44Q64 45 64 51Z", circ(50, 31, 13)], lines: ["M41 66H59"] },
-  r: { parts: [...BASE, "M33 75L36 44L64 44L67 75Z", "M30 46L70 46L70 40L30 40Z", "M30 40L30 17L39 17L39 24L45 24L45 17L55 17L55 24L61 24L61 17L70 17L70 40Z"],
-       lines: ["M36 57H64M35 66H65M50 46V57M43 57V66M57 57V66", "M50 28V35"] },
-  n: { parts: [...BASE, "M32 75C32 62 36 54 44 47C40 48 34 50 29 49C24 48 21 43 24 38C28 32 34 27 38 23L40 12L46 18C59 18 71 28 72 45C74 58 70 68 68 75Z"],
-       lines: ["M60 23C66 30 69 38 70 47M55 29C61 36 63 44 63 53", "M24 43L31 44.5"], dots: [[43, 30, 2.4], [28.5, 41, 1.4]] },
-  b: { parts: [...BASE, "M38 75Q41 62 44 55L56 55Q59 62 62 75Z", "M35 56Q35 51 41 50L59 50Q65 51 65 56Z", "M50 13C40 21 34 31 34 39C34 46 39 50 44 50L56 50C61 50 66 46 66 39C66 31 60 21 50 13Z", circ(50, 10, 4.2)],
-       lines: ["M57 24L46 38"] },
-  q: { parts: [...BASE, "M36 75Q40 60 42 46L58 46Q60 60 64 75Z", "M34 48Q34 43 40 42L60 42Q66 43 66 48Z", "M33 42L26 20L36 31L39 14L46 30L50 10L54 30L61 14L64 31L74 20L67 42Z",
-       circ(26, 19, 3.4), circ(39, 13, 3.4), circ(50, 9, 3.4), circ(61, 13, 3.4), circ(74, 19, 3.4)], lines: ["M34 37H66", "M42 62H58"] },
-  k: { parts: [...BASE, "M36 75Q40 60 42 46L58 46Q60 60 64 75Z", "M34 48Q34 43 40 42L60 42Q66 43 66 48Z", "M33 42C31 34 34 26 42 25L58 25C66 26 69 34 67 42Z", "M47 5H53V10H58V16H53V25H47V16H42V10H47Z"],
-       lines: ["M35 36H65", "M42 25Q50 32 58 25", "M42 62H58"] }
+  /* soldado con yelmo, escudo y lanza */
+  p: { parts: [...BASE, "M65.5 75H69.5V19H65.5Z", "M67.5 7L72.5 21L62.5 21Z", "M35 75C36 66 38 58 41 52L59 52C62 58 64 66 65 75Z", "M38 56C38 48 43 45 50 45C57 45 62 48 62 56Z",
+       "M41 40C41 27 59 27 59 40L60 46L40 46Z", "M40 55L60 55L60 63C60 70 55 74 50 76C45 74 40 70 40 63Z"],
+       lines: ["M50 31V44M43 39H57", "M50 58V72M44 62H56"] },
+  /* torre de fortaleza con almenas, puerta y saeteras */
+  r: { parts: [...BASE, "M31 75L34 44L66 44L69 75Z", "M29 45L71 45L69 39L31 39Z", "M29 39L29 19L36 19L36 25L43 25L43 19L57 19L57 25L64 25L64 19L71 19L71 39Z"],
+       holes: ["M44 75L44 65Q50 57 56 65L56 75Z", "M48.5 48H51.5V55H48.5Z", "M38 28h2.4v6h-2.4zM59.6 28h2.4v6h-2.4z"],
+       lines: ["M34 52H45M55 52H66M33 61H42M58 61H67M38 52V61M62 52V61"] },
+  /* caballo con armadura y penacho */
+  n: { parts: [...BASE, "M32 75C32 62 36 54 44 47C40 48 34 50 29 49C24 48 21 43 24 38C28 32 34 27 38 23L40 12L46 18C59 18 71 28 72 45C74 58 70 68 68 75Z",
+       "M39 22L28 35L32 38L44 25Z"],
+       lines: ["M60 23C66 30 69 38 70 47M55 29C61 36 63 44 63 53M64 26C69 33 72 41 72 50", "M24 43L31 44.5", "M30 46L46 37M46 37C52 44 55 52 55 62"], dots: [[44, 30, 2.4], [28.5, 41, 1.4]] },
+  /* obispo con mitra y báculo */
+  b: { parts: [...BASE, "M30 75C32 62 35 52 39 45L61 45C65 52 68 62 70 75Z", "M26.5 75H31.5V24H26.5Z", circ(29, 18, 6.5), "M35 51C35 42 42 38 50 38C58 38 65 42 65 51Z", circ(50, 30, 7.5),
+       "M50 6C43 11 41 18 41 26L59 26C59 18 57 11 50 6Z", circ(31.5, 52, 3.2)],
+       holes: [circ(29, 18, 2.6)], lines: ["M53.5 11L47 22", "M46 47V74M54 47V74", "M38 58Q36 66 35 74M62 58Q64 66 65 74"] },
+  /* reina con velo, corona alta y cetro */
+  q: { parts: [...BASE, "M25 75C31 64 36 54 40 47L60 47C64 54 69 64 75 75Z", "M40 28C40 20 60 20 60 28L63 46L37 46Z", "M39 51C39 43 44 39 50 39C56 39 61 43 61 51Z", circ(50, 29, 7.5),
+       "M42 24L40 11L45 17L47 7L50 14L53 7L55 17L60 11L58 24Z", "M59.8 66L68.3 25.5L72.3 26.4L63.8 66.9Z", circ(70.6, 23, 4.2), circ(62.5, 56, 2.8)],
+       lines: ["M40 52H60", "M45 56Q42 66 37 74M50 56V74M55 56Q58 66 63 74", "M42 21H58"] },
+  /* rey barbado con corona y espadón */
+  k: { parts: [...BASE, "M27 75C29 60 31 50 35 44L65 44C69 50 71 60 73 75Z", "M32 50C32 41 40 37 50 37C60 37 68 41 68 50Z", circ(50, 29, 8), "M43 31C43 40 47 44 50 45C53 44 57 40 57 31Z",
+       "M41 24L40 13L45 18L50 11L55 18L60 13L59 24Z", "M48.6 2H51.4V5H54V7.8H51.4V11.5H48.6V7.8H46V5H48.6Z", "M47.6 52H52.4V69L50 74L47.6 69Z", "M41 48.5H59V53H41Z", circ(45.5, 47, 3), circ(54.5, 47, 3)],
+       lines: ["M37 56Q35 66 33 74M63 56Q65 66 67 74", "M41 21H59"] }
 };
 const STONE = {
   w: { out: "#3E372E", carve: "rgba(70,58,44,.6)", speck: "rgba(90,78,60,.32)", stops: ["#FFFDF6", "#E8E0D1", "#BDB29E", "#8E8371"] },
@@ -232,8 +253,9 @@ function buildDefs() {
       <g fill="url(#g-${c})">${parts}</g>
       <g clip-path="url(#clip-${t})"><g fill="${st.speck}">${sp}</g><rect width="100" height="100" fill="url(#sh)"/></g>
       <g fill="none" stroke="${st.carve}" stroke-width="2" stroke-linecap="round">${(S.lines || []).map(l => `<path d="${l}"/>`).join("")}</g>
+      ${(S.holes || []).map(h => `<path d="${h}" fill="${st.carve}"/>`).join("")}
       ${(S.dots || []).map(([x, y, rr]) => `<circle cx="${x}" cy="${y}" r="${rr}" fill="${st.carve}"/>`).join("")}
-      <g fill="none" stroke="${st.out}" stroke-width="2.3" stroke-linejoin="round">${parts}</g></symbol>`;
+      <g fill="none" stroke="${st.out}" stroke-width="2.7" stroke-linejoin="round">${parts}</g></symbol>`;
   }
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("aria-hidden", "true");
@@ -819,6 +841,11 @@ function drawBoard(gm, m, noHL) {
   const last = gm.hist[gm.hist.length - 1];
   const legal = !noHL && S.sel !== null ? C.legalMoves(pos).filter(x => x.f === S.sel) : [];
   const chk = !noHL && C.inCheck(pos) ? pos.b.indexOf(pos.turn === "w" ? "K" : "k") : -1;
+  let why = null;
+  if (!noHL && res.over && res.reason === "mate") {
+    const ex = C.explainMate(pos);
+    why = { a: new Set(ex.checkers.map(c => c.sq)), d: new Set(((ex.capture && ex.capture.defenders) || []).map(d => d.sq)), x: new Set(ex.escapes.filter(e => e.why === "attacked").map(e => e.sq)) };
+  }
   let sh = "";
   for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) {
     const sq = bottom === "w" ? (7 - y) * 8 + x : y * 8 + (7 - x);
@@ -830,6 +857,7 @@ function drawBoard(gm, m, noHL) {
     const lm = legal.find(l => l.t === sq);
     if (lm) cls.push(lm.c ? "cap" : "hint");
     if (sq === chk) cls.push("chk");
+    if (why) { if (why.a.has(sq)) cls.push("why-a"); else if (why.d.has(sq)) cls.push("why-d"); else if (why.x.has(sq)) cls.push("why-x"); }
     const co = (y === 7 ? `<span class="co f">${C.FILES[sq & 7]}</span>` : "") + (x === 0 ? `<span class="co r">${(sq >> 3) + 1}</span>` : "");
     sh += `<button class="${cls.join(" ")}" data-sq="${sq}" aria-label="${C.sqName(sq)}${p ? ", " + NAME[C.type(p)] + (C.isW(p) ? " blanco" : " negro") : ""}">${co}</button>`;
   }
@@ -839,7 +867,7 @@ function drawBoard(gm, m, noHL) {
   for (let sq = 0; sq < 64; sq++) {
     const p = pos.b[sq]; if (!p) continue;
     const d = disp(sq, bottom), fallen = loser && p === (loser === "w" ? "K" : "k") && !noHL;
-    ph += `<div class="pc${fallen ? " fallen" : ""}" data-sq="${sq}" data-c="${C.colorOf(p)}" style="left:${d.x * 12.5}%;top:${d.y * 12.5}%">${pieceSVG(p)}</div>`;
+    ph += `<div class="pc${fallen ? " fallen" : ""}" data-sq="${sq}" data-c="${C.colorOf(p)}" style="left:${d.x * 12.5}%;top:${d.y * 12.5}%;z-index:${6 + d.y}">${pieceSVG(p)}</div>`;
   }
   pcs.innerHTML = ph;
 }
@@ -878,7 +906,7 @@ function updateGame(noHL) {
     const R2 = { mate: "¡Jaque mate!", ahogado: "Tablas por rey ahogado", material: "Tablas: no queda material para dar mate", 50: "Tablas por la regla de las 50 jugadas", repeticion: "Tablas por triple repetición", rinde: `${m.names[res.by] || ""} se rinde`, acuerdo: "Tablas de mutuo acuerdo" };
     const sub = res.winner ? (m.mode === "online" && m.my ? (res.winner === m.my ? "¡Has ganado!" : `Gana ${m.names[res.winner]}`) : m.mode === "ai" ? (res.winner === m.my ? "¡Has ganado a la máquina!" : "Gana la máquina") : `Gana ${m.names[res.winner]}`) : "Nadie gana esta vez";
     const canRe = m.mode !== "online" || !!m.my;
-    eh = `<div class="end"><h2>${esc(R2[res.reason] || "Fin")}</h2><p>${esc(sub)}</p><div class="row">${canRe ? `<button class="btn gold" id="re">Revancha</button>` : ""}<button class="btn ghost" id="bye">Salir</button></div>
+    eh = `<div class="end"><h2>${esc(R2[res.reason] || "Fin")}</h2><p>${esc(sub)}</p>${res.reason === "mate" ? whyMateHTML(pos) : ""}<div class="row">${canRe ? `<button class="btn gold" id="re">Revancha</button>` : ""}<button class="btn ghost" id="bye">Salir</button></div>
       ${canRe ? `<p class="muted small">En la revancha se cambian los colores.</p>` : ""}</div>`;
   } else if (m.mode === "online" && m.offer && m.my) {
     eh = m.offer === m.my ? `<div class="offer"><p>Has ofrecido tablas. Esperando respuesta…</p><button class="btn sm ghost" id="offX">Retirar</button></div>`
@@ -906,6 +934,34 @@ function updateGame(noHL) {
   on("#offY", "click", () => put({ end: { winner: null, reason: "acuerdo" }, offer: null }));
   on("#offN", "click", () => put({ offer: null }));
   on("#offX", "click", () => put({ offer: null }));
+}
+
+/* ================= por qué es jaque mate ================= */
+const FEM = t => t === "q" || t === "r";
+const pn = (p, sq) => `${FEM(C.type(p)) ? "la" : "el"} ${NAME[C.type(p)]} de ${C.sqName(sq)}`;
+const listY = a => a.length < 2 ? a.join("") : a.slice(0, -1).join(", ") + " y " + a[a.length - 1];
+function whyMateHTML(pos) {
+  const ex = C.explainMate(pos), L = [], k = C.sqName(ex.king);
+  const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+  if (ex.checkers.length > 1) L.push(`<b>Doble jaque:</b> ${listY(ex.checkers.map(c => pn(c.p, c.sq)))} atacan al rey de ${k} a la vez. Contra un doble jaque solo vale mover el rey.`);
+  else {
+    const ch = ex.checkers[0], t = C.type(ch.p), f = FEM(t), lo = f ? "la" : "lo", cp = ex.capture;
+    L.push(`${cap(pn(ch.p, ch.sq))} da jaque al rey de ${k}.`);
+    if (cp.kingNext) L.push(cp.defenders.length ? `El rey no puede comer${lo} porque está ${f ? "protegida" : "protegido"} por ${listY(cp.defenders.map(d => pn(d.p, d.sq)))}: se pondría en jaque.` : "");
+    if (cp.pinned.length) L.push(`${cap(listY(cp.pinned.map(a => pn(a.p, a.sq))))} podría comer${lo}, pero está clavad${cp.pinned.length > 1 ? "os" : FEM(C.type(cp.pinned[0].p)) ? "a" : "o"}: si se mueve, el rey queda en jaque.`);
+    else L.push(`Ninguna${cp.kingNext ? " otra" : ""} pieza puede comer${lo}.`);
+    if (t === "n") L.push("A un caballo no se le puede tapar el jaque.");
+    else if (!ex.block.between.length) L.push(`Está pegad${f ? "a" : "o"} al rey, así que no hay casilla en medio para tapar el jaque.`);
+    else L.push(`Ninguna pieza puede ponerse en medio (${listY(ex.block.between.map(C.sqName))}).`);
+  }
+  const own = ex.escapes.filter(e => e.why === "own").map(e => C.sqName(e.sq));
+  const att = ex.escapes.filter(e => e.why === "attacked");
+  const defd = ex.escapes.filter(e => e.why === "defended" && !ex.checkers.some(c => c.sq === e.sq));
+  if (own.length) L.push(`${own.length > 1 ? "Las casillas" : "La casilla"} ${listY(own)} ${own.length > 1 ? "están ocupadas" : "está ocupada"} por sus propias piezas.`);
+  for (const e of att) L.push(`No puede escapar a ${C.sqName(e.sq)}: la controla ${pn(e.by[0].p, e.by[0].sq)}.`);
+  for (const e of defd) L.push(`No puede comer ${pn(e.p, e.sq)}: ${FEM(C.type(e.p)) ? "la" : "lo"} defiende ${pn(e.by[0].p, e.by[0].sq)}.`);
+  return `<div class="why"><h3>¿Por qué es jaque mate?</h3><ul>${L.filter(Boolean).map(x => `<li>${x}</li>`).join("")}</ul>
+    <div class="lg"><span><i class="ring" style="border:2px solid #ff5a46"></i> da jaque</span><span><i class="ring" style="border:2px dashed #ffaa3c"></i> protege</span><span><i style="color:#e6281e">✕</i> casilla vigilada</span></div></div>`;
 }
 
 /* ================= hoja inferior ================= */
