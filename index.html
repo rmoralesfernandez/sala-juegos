@@ -21,21 +21,22 @@
 /* Layout: estantería de cajas de juego — cabecera corta, rejilla de "cajas" con portada de color, botón Jugar grande */
 :root{
   --bg:#EEF0F3; --surface:#FFFFFF; --ink:#141821; --muted:#5A6272; --line:#D7DBE2;
-  --c1:#2C7A4D; --c2:#D9480F; --c3:#1D5AA6; --c4:#7B3FB0; --c5:#163B36; --c6:#B8862B; --c7:#C2185B; --c8:#8A5A1F; --c9:#0E6E8C; --c10:#4A2A5C; --c11:#2E3F86; --c12:#3B4250;
+  --c1:#2C7A4D; --c2:#D9480F; --c3:#1D5AA6; --c4:#7B3FB0; --c5:#163B36; --c6:#B8862B; --c7:#C2185B; --c8:#8A5A1F; --c9:#0E6E8C; --c10:#4A2A5C; --c11:#2E3F86; --c12:#3B4250; --c13:#A8462A; --c14:#3A3F8F; --c15:#B0306A;
   --on:#FFFFFF; --focus:#2D52D0;
   --display:"Bricolage Grotesque","Trebuchet MS",system-ui,sans-serif;
   --body:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#0F1218; --surface:#191E27; --ink:#EEF1F5; --muted:#9AA3B2; --line:#2A313D;
-  --c1:#2E8A56; --c2:#D2501A; --c3:#2D6BC0; --c4:#8A4FC2; --c5:#1E5149; --c6:#A87A22; --c7:#D63A78; --c8:#9A6626; --c9:#1680A3; --c10:#5E3A73; --c11:#3D51A3; --c12:#4A5262;
+  --c1:#2E8A56; --c2:#D2501A; --c3:#2D6BC0; --c4:#8A4FC2; --c5:#1E5149; --c6:#A87A22; --c7:#D63A78; --c8:#9A6626; --c9:#1680A3; --c10:#5E3A73; --c11:#3D51A3; --c12:#4A5262; --c13:#B85434; --c14:#4A50A8; --c15:#C8407E;
   --focus:#8EA4FF; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0F1218; --surface:#191E27; --ink:#EEF1F5; --muted:#9AA3B2; --line:#2A313D;
-  --c1:#2E8A56; --c2:#D2501A; --c3:#2D6BC0; --c4:#8A4FC2; --c5:#1E5149; --c6:#A87A22; --c7:#D63A78; --c8:#9A6626; --c9:#1680A3; --c10:#5E3A73; --c11:#3D51A3; --c12:#4A5262;
+  --c1:#2E8A56; --c2:#D2501A; --c3:#2D6BC0; --c4:#8A4FC2; --c5:#1E5149; --c6:#A87A22; --c7:#D63A78; --c8:#9A6626; --c9:#1680A3; --c10:#5E3A73; --c11:#3D51A3; --c12:#4A5262; --c13:#B85434; --c14:#4A50A8; --c15:#C8407E;
   --focus:#8EA4FF; color-scheme:dark}
 
 *,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
 body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased}
 .wrap{max-width:1040px;margin:0 auto;padding-inline:16px;padding-block:28px 48px;display:grid;gap:28px}
 :focus-visible{outline:3px solid var(--focus);outline-offset:3px}
@@ -53,8 +54,8 @@ h1{margin:0;font-family:var(--display);font-weight:800;font-size:clamp(40px,10vw
 .cover{position:relative;background:var(--tone);color:var(--on);padding:18px 18px 16px;min-height:150px;display:flex;flex-direction:column;justify-content:space-between;gap:12px;overflow:hidden}
 .cover svg.art{position:absolute;right:-10px;top:-6px;width:140px;height:140px;opacity:.28}
 .tag{align-self:flex-start;font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;background:rgba(0,0,0,.22);padding:4px 9px;border-radius:999px;position:relative}
-.cover h2{position:relative;margin:0;font-family:var(--display);font-weight:800;font-size:30px;line-height:1;letter-spacing:-.01em}
-.cover h2 small{display:block;margin-top:6px;font-family:var(--body);font-weight:500;font-size:13px;letter-spacing:0;opacity:.85}
+.cover .gt{position:relative;margin:0;font-family:var(--display);font-weight:800;font-size:30px;line-height:1;letter-spacing:-.01em}
+.cover .gt small{display:block;margin-top:6px;font-family:var(--body);font-weight:500;font-size:13px;letter-spacing:0;opacity:.85}
 .body{padding:16px 18px 18px;display:grid;gap:14px;flex:1;align-content:space-between}
 .body p{margin:0;color:var(--muted)}
 .meta{display:flex;flex-wrap:wrap;gap:6px}
@@ -72,6 +73,29 @@ h1{margin:0;font-family:var(--display);font-weight:800;font-size:clamp(40px,10vw
 .me-row{display:flex;flex-wrap:wrap;gap:8px}
 .me input{flex:1 1 220px;min-width:0;min-height:48px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font:600 17px var(--body);padding:0 14px}
 .hint{margin:0;color:var(--muted);font-size:13.5px}
+
+.finder{display:grid;gap:12px;position:sticky;top:0;z-index:5;background:var(--bg);padding-block:10px;margin-block:-10px}
+.search{position:relative}
+.search svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
+.search input{width:100%;min-height:50px;border-radius:14px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font:600 16px var(--body);padding:0 44px 0 44px;-webkit-appearance:none;appearance:none}
+.search input::-webkit-search-cancel-button{display:none}
+.search input:focus{border-color:var(--focus);outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--focus) 25%,transparent)}
+.clear{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:38px;height:38px;border:0;border-radius:10px;background:transparent;color:var(--muted);cursor:pointer;display:grid;place-items:center}
+.clear:hover{color:var(--ink);background:var(--bg)}
+.chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin-inline:-16px;padding-inline:16px;scroll-padding-inline:16px}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;appearance:none;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font:700 14px var(--body);border-radius:999px;min-height:40px;padding:0 14px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.chip:hover{border-color:var(--ink)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chip .n{font-size:12px;font-weight:800;opacity:.6}
+.shelf{display:grid;gap:28px}
+.cat{display:grid;gap:14px}
+.cat-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.cat-h h2{margin:0;font-family:var(--display);font-weight:800;font-size:24px;letter-spacing:-.01em}
+.cat-h p{margin:0;color:var(--muted);font-size:14px}
+.empty{background:var(--surface);border-radius:18px;padding:28px 18px;text-align:center;box-shadow:0 0 0 1px var(--line);color:var(--muted)}
+.empty b{display:block;color:var(--ink);font-family:var(--display);font-size:20px;margin-bottom:4px}
+.empty button{margin-top:14px}
 #toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,12px);opacity:0;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:700;font-size:14px;transition:opacity .2s,transform .2s;pointer-events:none;max-width:calc(100% - 32px)}
 #toast.on{opacity:1;transform:translate(-50%,0)}
 @media (prefers-reduced-motion:reduce){.game,#toast{transition:none}.game:hover{transform:none}}
@@ -99,7 +123,17 @@ h1{margin:0;font-family:var(--display);font-weight:800;font-size:clamp(40px,10vw
     <p class="hint" id="iosHint" hidden>Para tenerla como app en el iPhone: botón Compartir de Safari y «Añadir a pantalla de inicio».</p>
   </section>
 
-  <main class="grid" id="grid"></main>
+  <section class="finder" aria-label="Buscar juegos">
+    <div class="search">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="q" type="search" placeholder="Buscar juego, jugadores o tipo…" autocomplete="off" enterkeyhint="search" aria-label="Buscar juego">
+      <button type="button" class="clear" id="clearQ" aria-label="Borrar búsqueda" hidden>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+    <div class="chips" id="chips" role="toolbar" aria-label="Categorías"></div>
+  </section>
+
+  <main class="shelf" id="shelf" aria-live="polite"></main>
 
   <section class="tips" aria-labelledby="tipsT">
     <h3 id="tipsT">Para jugar con amigos</h3>
@@ -126,45 +160,87 @@ const ART={
   mask:'<svg class="art" viewBox="0 0 100 100" aria-hidden="true"><path d="M6 30c14-9 30-7 44 2 14-9 30-11 44-2 2 22-6 44-24 48-11 2-17-6-20-15-3 9-9 17-20 15C12 74 4 52 6 30z" fill="currentColor"/><ellipse cx="31" cy="44" rx="10" ry="7" fill="rgba(0,0,0,.35)"/><ellipse cx="69" cy="44" rx="10" ry="7" fill="rgba(0,0,0,.35)"/></svg>',
   moon:'<svg class="art" viewBox="0 0 100 100" aria-hidden="true"><path d="M62 10a36 36 0 1 0 28 54A30 30 0 0 1 62 10z" fill="currentColor"/><path d="M0 100V82l12-10 10 8 12-16 12 12 10-8 14 14 12-12 18 12v18z" fill="currentColor" opacity=".6"/></svg>',
   knight:'<svg class="art" viewBox="0 0 100 100" aria-hidden="true" fill="currentColor"><path d="M32 78C32 64 36 56 44 49C40 50 34 52 29 51C24 50 21 45 24 40C28 34 34 29 38 25L40 14L46 20C59 20 71 30 72 47C74 60 70 70 68 78Z"/><rect x="22" y="80" width="56" height="10" rx="3"/><circle cx="43" cy="32" r="3" fill="rgba(0,0,0,.35)"/></svg>',
+  camel:'<svg class="art" viewBox="0 0 100 100" aria-hidden="true" fill="currentColor"><path d="M12 30c0-5 5-8 10-8l6 1c3 1 4 4 3 7l3 14c2 2 4 0 6-2 4-6 8-12 16-14 8-2 14 6 18 12 4 2 8 4 10 8l2 8h-2l-2-4-2 12v22h-4l-2-20-2 20h-4V64c-8 2-16 2-22 0v22h-4l-2-20-2 20h-4V62c-4-6-6-14-8-22l-2-6h-6c-4 0-6-1-6-4z"/></svg>',
+  crown:'<svg class="art" viewBox="0 0 100 100" aria-hidden="true" fill="currentColor"><path d="M10 72 15 28l21 22 14-32 14 32 21-22 5 44z"/><rect x="10" y="76" width="80" height="11" rx="3"/></svg>',
+  pencil:'<svg class="art" viewBox="0 0 100 100" aria-hidden="true" fill="currentColor"><path d="M66 10l24 24-46 46-30 8 8-30z"/><path d="M22 66l12 12-14 4z" fill="rgba(0,0,0,.35)"/><path d="M8 94c18-8 30 4 46-6" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" opacity=".6"/></svg>',
   dice:'<svg class="art" viewBox="0 0 100 100" aria-hidden="true"><rect x="10" y="10" width="80" height="80" rx="16" fill="currentColor"/><g fill="rgba(0,0,0,.35)"><circle cx="30" cy="30" r="8"/><circle cx="70" cy="30" r="8"/><circle cx="50" cy="50" r="8"/><circle cx="30" cy="70" r="8"/><circle cx="70" cy="70" r="8"/></g></svg>'
 };
+const CATS=[
+  {id:"fiesta",name:"Fiesta y beber",desc:"Para animar la quedada en grupo."},
+  {id:"roles",name:"Roles y deducción",desc:"Pistas, faroles y adivinar quién es quién."},
+  {id:"duelo",name:"Estrategia para 2",desc:"Cara a cara, online o en un solo móvil."},
+  {id:"mesa",name:"Tablero en grupo",desc:"Clásicos de mesa para 2 a 4."}
+];
 const GAMES=[
-  {name:"Código Secreto",sub:"Operación Dúo",url:"./codigo/",tone:"var(--c1)",art:"grid",tag:"Cooperativo",
+  {name:"Código Secreto",sub:"Operación Dúo",url:"./codigo/",cat:"roles",kw:"codenames palabras pistas",tone:"var(--c1)",art:"grid",tag:"Cooperativo",
    desc:"Dad pistas de una palabra y contactad a los 15 agentes sin tocar a un asesino.",meta:["2 jugadores","1 o 2 móviles"]},
-  {name:"Stop",sub:"Stop Party",url:"./stop/",tone:"var(--c2)",art:"stop",tag:"Grupo",
+  {name:"Stop",sub:"Stop Party",url:"./stop/",cat:"fiesta",kw:"palabras letras rapido",tone:"var(--c2)",art:"stop",tag:"Grupo",
    desc:"Sale una letra y a rellenar categorías antes que nadie. El primero que acaba grita ¡Stop!",meta:["2 o más jugadores"]},
-  {name:"Trivial",sub:"Quesito Show",url:"./trivial/",tone:"var(--c7)",art:"pie",tag:"Concurso",
+  {name:"Trivial",sub:"Quesito Show",url:"./trivial/",cat:"fiesta",kw:"preguntas quiz cultura",tone:"var(--c7)",art:"pie",tag:"Concurso",
    desc:"Ruleta, rondas locas y el Doble o nada final. Gana quien más quesitos se lleve.",meta:["2 o más jugadores","Cada uno su móvil"]},
-  {name:"El Impostor",sub:"Una palabra, un traidor",url:"./impostor/",tone:"var(--c10)",art:"mask",tag:"Fiesta",
+  {name:"El Impostor",sub:"Una palabra, un traidor",url:"./impostor/",cat:"roles",kw:"palabras traidor votar",tone:"var(--c10)",art:"mask",tag:"Fiesta",
    desc:"Todos tienen la misma palabra secreta menos el impostor. Pistas, debate y votación para pillarlo.",meta:["3 a 16 jugadores","Cada uno su móvil"]},
-  {name:"El Pueblo Duerme",sub:"Hombres lobo",url:"./pueblo/",tone:"var(--c11)",art:"moon",tag:"Roles ocultos",
+  {name:"El Pueblo Duerme",sub:"Hombres lobo",url:"./pueblo/",cat:"roles",kw:"lobo hombres lobo mafia narrador",tone:"var(--c11)",art:"moon",tag:"Roles ocultos",
    desc:"Lobos, vidente, bruja, cazador y Cupido. El móvil hace de narrador y guía la noche y el día.",meta:["4 a 18 jugadores","Cada uno su móvil"]},
-  {name:"Duelo de Maravillas",sub:"Estilo 7 Wonders Duel",url:"./duelo/",tone:"var(--c8)",art:"temple",tag:"Estrategia",
-   desc:"Tres eras de cartas, maravillas, ciencia y ejército. Gana por puntos, por ciencia o conquistando la capital rival.",meta:["2 jugadores","Cada uno su móvil"]},
-  {name:"Ajedrez Mágico",sub:"Piezas de piedra",url:"./ajedrez/",tone:"var(--c12)",art:"knight",tag:"Clásico",
+  {name:"Duelo de Maravillas",sub:"Estilo 7 Wonders Duel",url:"./duelo/",cat:"duelo",kw:"7 wonders duel maravillas cartas",tone:"var(--c8)",art:"temple",tag:"Estrategia",
+   desc:"Tres eras de cartas, maravillas, ciencia y ejército. Con las expansiones Panteón (dioses) y Ágora (Senado y conspiraciones), juntas o por separado.",meta:["2 jugadores","Cada uno su móvil","Expansiones"]},
+  {name:"Ajedrez Mágico",sub:"Piezas de piedra",url:"./ajedrez/",cat:"duelo",kw:"chess",tone:"var(--c12)",art:"knight",tag:"Clásico",
    desc:"Ajedrez de toda la vida con piezas de piedra que se hacen añicos al ser capturadas. Online, en el mismo móvil o contra la máquina.",meta:["2 jugadores","Online o 1 móvil","Contra la máquina"]},
-  {name:"Survive",sub:"Escapa de la Isla",url:"./survive/",tone:"var(--c9)",art:"isle",tag:"Mesa",
+  {name:"Mercaderes",sub:"Estilo Jaipur",url:"./mercaderes/",cat:"duelo",kw:"jaipur camellos",tone:"var(--c13)",art:"camel",tag:"Cartas",
+   desc:"Compra en el mercado, vende antes que tu rival y junta camellos. Trae reglas, visita guiada y pistas para aprender jugando.",meta:["2 jugadores","Online o 1 móvil","Contra la máquina"]},
+  {name:"Por el Trono",sub:"Estilo Claim",url:"./trono/",cat:"duelo",kw:"claim bazas",tone:"var(--c14)",art:"crown",tag:"Cartas",
+   desc:"Gana bazas para reclutar seguidores y luego úsalos para hacerte con 3 de las 5 facciones del reino. Con reglas, visita guiada y pistas.",meta:["2 jugadores","Online o 1 móvil","Contra la máquina"]},
+  {name:"Survive",sub:"Escapa de la Isla",url:"./survive/",cat:"mesa",kw:"isla escape atlantis",tone:"var(--c9)",art:"isle",tag:"Mesa",
    desc:"La isla se hunde: salva a tus exploradores de tiburones, ballenas y serpientes. Solo tú sabes cuánto vale cada uno.",meta:["2 a 4 jugadores","Cada uno su móvil"]},
-  {name:"Hundir la Flota",sub:"Batalla naval",url:"./flota/",tone:"var(--c3)",art:"ship",tag:"Duelo",
+  {name:"Hundir la Flota",sub:"Batalla naval",url:"./flota/",cat:"duelo",kw:"barcos battleship",tone:"var(--c3)",art:"ship",tag:"Duelo",
    desc:"Coloca tus barcos y dispara a ciegas hasta hundir la flota rival.",meta:["2 jugadores"]},
-  {name:"¿Quién es quién?",sub:"¿Quién Será?",url:"./quien/",tone:"var(--c4)",art:"face",tag:"Duelo",
+  {name:"¿Quién es quién?",sub:"¿Quién Será?",url:"./quien/",cat:"roles",kw:"adivinar caras guess who",tone:"var(--c4)",art:"face",tag:"Duelo",
    desc:"Pregunta, descarta caras y adivina el personaje del otro antes que el otro.",meta:["2 jugadores"]},
-  {name:"Rummikub",sub:"Ficha a Ficha",url:"./rummikub/",tone:"var(--c5)",art:"tiles",tag:"Mesa",
+  {name:"Rummikub",sub:"Ficha a Ficha",url:"./rummikub/",cat:"mesa",kw:"fichas numeros",tone:"var(--c5)",art:"tiles",tag:"Mesa",
    desc:"Escaleras y grupos de fichas. Primera bajada de 30 puntos y a vaciar el atril.",meta:["2 a 4 jugadores","Cada uno su móvil"]},
-  {name:"Parchís de Chupitos",sub:"Extra",url:"./parchis/",tone:"var(--c6)",art:"dice",tag:"Fiesta",
+  {name:"Trazos y Tragos",sub:"Estilo Si bebes no dibujes",url:"./dibujes/",cat:"fiesta",kw:"si bebes no dibujes dibujar dibujo pictionary adivinar beber tragos chupitos",tone:"var(--c15)",art:"pencil",tag:"Dibujar",
+   desc:"Te toca un personaje haciendo algo en un sitio raro: dibújalo y que los demás adivinen. El que no acierta, bebe.",meta:["2 a 12 jugadores","Online o 1 móvil"]},
+  {name:"Parchís de Chupitos",sub:"Extra",url:"./parchis/",cat:"fiesta",kw:"beber chupitos retos verdad dados",tone:"var(--c6)",art:"dice",tag:"Fiesta",
    desc:"Tira el dado, avanza y haz lo que diga la casilla: retos, verdades y chupitos.",meta:["Grupo","1 o varios móviles"]}
 ];
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-document.getElementById("grid").innerHTML=GAMES.map(g=>`
+const norm=v=>String(v).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/¿|\?|¡|!/g,"");
+GAMES.forEach(g=>{g.hay=norm([g.name,g.sub,g.tag,g.desc,g.kw,g.meta.join(" ")].join(" "))});
+const card=g=>`
   <article class="game" style="--tone:${g.tone}">
-    <div class="cover">${ART[g.art]}<span class="tag">${esc(g.tag)}</span><h2>${esc(g.name)}<small>${esc(g.sub)}</small></h2></div>
+    <div class="cover">${ART[g.art]}<span class="tag">${esc(g.tag)}</span><h3 class="gt">${esc(g.name)}<small>${esc(g.sub)}</small></h3></div>
     <div class="body">
       <p>${esc(g.desc)}</p>
       <div class="meta">${g.meta.map(m=>`<span>${esc(m)}</span>`).join("")}</div>
       <a class="play" href="${g.url}">Jugar
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
     </div>
-  </article>`).join("");
+  </article>`;
+const shelf=document.getElementById("shelf"),q=document.getElementById("q"),clearQ=document.getElementById("clearQ"),chips=document.getElementById("chips");
+let cur="all";try{const v=localStorage.getItem("sala.cat");if(v&&CATS.some(c=>c.id===v))cur=v}catch(e){}
+chips.innerHTML=[{id:"all",name:"Todos"},...CATS].map(c=>`<button type="button" class="chip" data-cat="${c.id}" aria-pressed="false">${esc(c.name)} <span class="n">${c.id==="all"?GAMES.length:GAMES.filter(g=>g.cat===c.id).length}</span></button>`).join("");
+function render(){
+  const terms=norm(q.value).trim().split(/\s+/).filter(Boolean);
+  clearQ.hidden=!q.value;
+  chips.querySelectorAll(".chip").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.cat===cur)));
+  const list=GAMES.filter(g=>(cur==="all"||g.cat===cur)&&terms.every(t=>g.hay.includes(t)));
+  if(!list.length){
+    shelf.innerHTML=`<div class="empty"><b>Nada por aquí</b>Ningún juego encaja con «${esc(q.value.trim())}»${cur!=="all"?" en esta categoría":""}.<br><button type="button" class="share" id="reset">Ver todos los juegos</button></div>`;
+    document.getElementById("reset").onclick=()=>{q.value="";cur="all";save();render();q.focus()};
+    return;
+  }
+  const cats=CATS.filter(c=>cur==="all"||c.id===cur);
+  shelf.innerHTML=cats.map(c=>{
+    const gs=list.filter(g=>g.cat===c.id);if(!gs.length)return"";
+    return `<section class="cat" aria-labelledby="cat-${c.id}"><div class="cat-h"><h2 id="cat-${c.id}">${esc(c.name)}</h2><p>${esc(c.desc)}</p></div><div class="grid">${gs.map(card).join("")}</div></section>`;
+  }).join("");
+}
+function save(){try{localStorage.setItem("sala.cat",cur)}catch(e){}}
+chips.addEventListener("click",e=>{const b=e.target.closest(".chip");if(!b)return;cur=b.dataset.cat;save();render();const f=chips.parentElement;if(scrollY>f.offsetTop)scrollTo({top:f.offsetTop,behavior:"smooth"});b.scrollIntoView({block:"nearest",inline:"nearest"})});
+q.addEventListener("input",render);
+q.addEventListener("keydown",e=>{if(e.key==="Escape"){q.value="";render()}if(e.key==="Enter")q.blur()});
+clearQ.addEventListener("click",()=>{q.value="";render();q.focus()});
+render();
 
 const toast=document.getElementById("toast");let t;
 function say(m){toast.textContent=m;toast.classList.add("on");clearTimeout(t);t=setTimeout(()=>toast.classList.remove("on"),2600)}

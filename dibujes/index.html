@@ -1,0 +1,904 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Trazos y Tragos</title>
+<meta name="theme-color" content="#151A2E">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="../icons/icon-192.png">
+<link rel="apple-touch-icon" href="../icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=DM+Sans:opsz,wght@9..40,400;9..40,600;9..40,800&family=Caveat:wght@700&display=swap">
+<script>window.APP_KEY="dibujes"</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="../firebase-config.js"></script>
+<script src="../shared/claude-shim.js"></script>
+<script src="cartas.js"></script>
+<style>
+/* Layout: una columna; carta de 3 partes arriba, lienzo cuadrado blanco, herramientas debajo */
+:root{
+  --bg:#151A2E; --bg-2:#1D2340; --panel:#232A4A; --panel-2:#2D355C; --line:#3B4470;
+  --ink:#F4F6FF; --muted:#A9B0D3; --pink:#FF4F8B; --yellow:#FFD23F; --cyan:#3EC6FF; --ok:#4BE3A0; --bad:#FF6B6B;
+  --display:"Archivo Black","Arial Black",system-ui,sans-serif;
+  --body:"DM Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --hand:"Caveat","Comic Sans MS",cursive;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:radial-gradient(110% 60% at 50% -10%,#3B2353,var(--bg) 65%) fixed;background-color:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
+#app{max-width:560px;margin:0 auto;min-height:100%;padding-inline:16px;padding-block:14px 36px;display:flex;flex-direction:column;gap:12px}
+h1,h2,h3{font-family:var(--display);font-weight:400;margin:0;letter-spacing:.01em;text-wrap:balance}
+p{margin:0}
+.muted{color:var(--muted)}
+.small{font-size:13.5px}
+.center{text-align:center}
+
+.btn{appearance:none;border:0;border-radius:14px;min-height:52px;padding:0 18px;background:var(--panel-2);color:var(--ink);font-family:var(--display);font-size:17px;letter-spacing:.03em;text-transform:uppercase;box-shadow:0 4px 0 rgba(0,0,0,.4);transition:transform .08s,box-shadow .08s;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.4)}
+.btn.pink{background:var(--pink);color:#fff}
+.btn.yel{background:var(--yellow);color:#2B2100}
+.btn.ghost{background:transparent;box-shadow:inset 0 0 0 2px var(--line)}
+.btn.sm{min-height:40px;font-size:13px;padding:0 14px}
+.btn:disabled{opacity:.45;cursor:default;transform:none}
+.btn.wide{width:100%}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>*{flex:1 1 130px}
+input.text{width:100%;min-height:52px;border-radius:14px;border:2px solid var(--line);background:var(--bg-2);padding:0 14px;font-size:18px;font-weight:600}
+input.code{text-transform:uppercase;letter-spacing:.3em;font-family:var(--display);font-size:24px;text-align:center}
+label.lbl,.lbl{display:grid;gap:6px;font-size:12.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+
+.hero{display:grid;gap:10px;justify-items:center;text-align:center;padding-block:14px 4px}
+.logo{font-family:var(--display);font-size:clamp(40px,12vw,64px);line-height:.92;letter-spacing:-.01em}
+.logo span{color:var(--pink)}
+.logo small{display:block;font-family:var(--hand);font-size:.5em;letter-spacing:0;color:var(--yellow);margin-top:4px;transform:rotate(-3deg)}
+.brush{width:110px;height:70px}
+.card{background:var(--panel);border-radius:18px;padding:16px;display:grid;gap:12px;box-shadow:0 6px 0 rgba(0,0,0,.28)}
+.card h2{font-size:19px;text-transform:uppercase;letter-spacing:.04em}
+.how{display:grid;gap:8px;font-size:15px}
+.how b{color:var(--yellow)}
+.how ol{margin:0;padding-left:20px;display:grid;gap:6px}
+summary{cursor:pointer;font-weight:800;min-height:28px}
+.msg{min-height:1.4em;color:var(--yellow);text-align:center;font-weight:700}
+.msg.err{color:var(--bad)}
+.modes{display:grid;gap:10px;grid-template-columns:1fr 1fr}
+.mode{appearance:none;border:0;border-radius:18px;padding:16px 14px;background:var(--panel);text-align:left;display:grid;gap:6px;box-shadow:0 6px 0 rgba(0,0,0,.28)}
+.mode b{font-family:var(--display);font-weight:400;font-size:17px;text-transform:uppercase}
+.mode span{color:var(--muted);font-size:13.5px}
+.mode[aria-pressed="true"]{background:var(--pink)}
+.mode[aria-pressed="true"] span{color:#FFE3EC}
+@media (max-width:360px){.modes{grid-template-columns:1fr}}
+
+.top{display:flex;align-items:center;gap:8px}
+.chip{font-family:var(--display);font-size:14px;letter-spacing:.12em;background:var(--panel);padding:6px 12px;border-radius:999px;white-space:nowrap}
+.top .sp{flex:1}
+.big-code{font-family:var(--display);font-size:56px;letter-spacing:.18em;line-height:1;text-align:center;color:var(--yellow)}
+.plist{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.plist li{display:flex;align-items:center;gap:8px;background:var(--bg-2);border-radius:12px;padding:8px 10px;font-weight:700;min-width:0}
+.plist li span.n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.plist li.turn{box-shadow:inset 0 0 0 2px var(--yellow)}
+.av{flex:0 0 auto;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-size:14px;color:#151A2E;background:var(--c,#fff)}
+.tick{color:var(--ok);font-weight:900}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{appearance:none;border:0;border-radius:10px;min-height:42px;min-width:46px;padding:0 12px;background:var(--bg-2);font-weight:800}
+.seg button[aria-pressed="true"]{background:var(--yellow);color:#2B2100}
+.toggle{display:flex;align-items:center;gap:10px;font-weight:600;min-height:40px}
+.toggle input{width:22px;height:22px;accent-color:var(--pink)}
+.names{display:grid;gap:8px}
+.names .nrow{display:flex;gap:8px;align-items:center}
+.names .nrow input{flex:1}
+.names .nrow button{flex:0 0 44px;min-height:44px;border-radius:12px;border:0;background:var(--bg-2);font-weight:900}
+
+/* carta: personaje + acción + lugar */
+.combo{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;align-items:baseline;background:#FFF8E7;color:#1C1C28;border-radius:18px;padding:14px 16px;box-shadow:0 6px 0 rgba(0,0,0,.35);transform:rotate(-.6deg)}
+.combo .part{display:contents}
+.combo .part i{font-style:normal;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#8A7F66}
+.combo .part b{font-family:var(--hand);font-size:28px;line-height:1.05}
+.combo.mini{transform:none;padding:10px 12px;gap:0 10px}
+.combo.mini .part b{font-size:22px}
+.cover{border-radius:18px;min-height:150px;display:grid;place-items:center;text-align:center;padding:20px;background:repeating-linear-gradient(135deg,#2A3157 0 14px,#262C50 14px 28px);box-shadow:inset 0 0 0 2px var(--line);cursor:pointer;gap:6px}
+
+/* lienzo */
+.padwrap{position:relative;border-radius:16px;overflow:hidden;background:#fff;box-shadow:0 6px 0 rgba(0,0,0,.35);aspect-ratio:1/1;width:100%;max-width:min(100%,50vh);margin-inline:auto}
+#pad{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
+.padwrap.locked::after{content:"";position:absolute;inset:0;background:rgba(21,26,46,.18)}
+.tools{display:grid;gap:8px}
+.colors{display:flex;gap:5px;flex-wrap:wrap;justify-content:center}
+.colors button{appearance:none;width:30px;height:30px;border-radius:50%;border:3px solid transparent;background:var(--c);box-shadow:inset 0 0 0 2px rgba(0,0,0,.25)}
+.colors button[aria-pressed="true"]{border-color:var(--yellow);transform:scale(1.12)}
+.trow{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.trow button{appearance:none;border:0;border-radius:10px;min-height:42px;min-width:44px;padding:0 10px;background:var(--bg-2);font-weight:800;display:inline-flex;align-items:center;gap:6px}
+.trow button[aria-pressed="true"]{background:var(--yellow);color:#2B2100}
+.dot{display:inline-block;border-radius:50%;background:currentColor}
+.timer{font-family:var(--display);font-size:22px;color:var(--yellow);font-variant-numeric:tabular-nums}
+.timer.hurry{color:var(--bad)}
+.drawing{width:100%;max-width:min(100%,50vh);margin-inline:auto;aspect-ratio:1/1;border-radius:16px;background:#fff;object-fit:contain;display:block;box-shadow:0 6px 0 rgba(0,0,0,.35)}
+.drawing.empty{display:grid;place-items:center;color:#777;font-weight:700}
+
+/* adivinar */
+.opts{display:grid;gap:6px}
+.opts .og{display:grid;gap:6px}
+.opts .og>span{font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.opts .ob{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.opts .ob button{appearance:none;border:0;border-radius:12px;min-height:50px;padding:6px 10px;background:var(--bg-2);font-weight:700;text-align:left;line-height:1.2}
+.opts .ob button[aria-pressed="true"]{background:var(--cyan);color:#06263A}
+.opts .ob button.right{background:var(--ok);color:#06301E}
+.opts .ob button.wrong{background:var(--bad);color:#300}
+
+/* resultados */
+.res{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.res li{display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center;background:var(--bg-2);border-radius:12px;padding:8px 12px}
+.res li .pts{font-family:var(--display);color:var(--yellow)}
+.res li .marks{grid-column:2/4;display:flex;gap:6px;flex-wrap:wrap;font-size:13px}
+.res li .marks span{padding:2px 8px;border-radius:8px;background:rgba(255,107,107,.18);color:#FFC2C2}
+.res li .marks span.ok{background:rgba(75,227,160,.18);color:#B8F5D9}
+.drinks{display:grid;gap:6px;background:linear-gradient(135deg,#3A2A10,#2B2240);border-radius:14px;padding:12px 14px;box-shadow:inset 0 0 0 2px #6B5320}
+.drinks p{font-weight:700}
+.drinks b{color:var(--yellow)}
+.scores{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.scores li{display:flex;gap:10px;align-items:center;background:var(--bg-2);border-radius:12px;padding:8px 12px;font-weight:700}
+.scores li .p{margin-left:auto;font-family:var(--display);color:var(--yellow)}
+.scores li .t{color:var(--muted);font-size:13px;font-weight:600}
+.scores li.last{box-shadow:inset 0 0 0 2px var(--bad)}
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.gallery figure{margin:0;display:grid;gap:6px}
+.gallery figcaption{font-size:13px;line-height:1.25}
+.gallery figcaption b{display:block}
+.verdict{text-align:center;display:grid;gap:8px;padding:6px 0}
+.verdict .big{font-family:var(--display);font-size:32px;line-height:1.05}
+.menu{display:grid;gap:8px}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,16px);opacity:0;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:800;transition:.2s;pointer-events:none;max-width:calc(100% - 32px);z-index:60}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+@keyframes pop{from{transform:scale(.94);opacity:0}to{transform:none;opacity:1}}
+.pop{animation:pop .25s ease-out}
+@media (prefers-reduced-motion:reduce){.pop{animation:none}}
+</style>
+</head>
+<body>
+<div id="app"><div class="hero"><div class="logo">TRAZOS <span>Y</span> TRAGOS</div><p class="muted">Cargando…</p></div></div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+"use strict";
+const CARDS = window.DIBUJES_CARTAS || { p: [], a: [], l: [], pp: [], ap: [], lp: [] };
+const PCOL = ["#FF6B8A", "#5AB8FF", "#FFD166", "#4BE3A0", "#C59BFF", "#FF9F5A", "#7EE8E0", "#F2A7D8", "#B8E86B", "#FFFFFF", "#E8C07E", "#9AA8FF"];
+const MAX_PLAYERS = 12, MAX_LOCAL = 10;
+const PARTS = [["p", "Personaje"], ["a", "Acción"], ["l", "Lugar"]];
+const BRUSH_SVG = `<svg class="brush" viewBox="0 0 110 70" aria-hidden="true"><path d="M8 52c14-30 30-36 40-22s22 10 30-8" fill="none" stroke="#FF4F8B" stroke-width="7" stroke-linecap="round"/><path d="M70 10l26 26-8 8-26-26z" fill="#FFD23F"/><path d="M62 18l8-8 4 4-8 8z" fill="#F4F6FF"/><path d="M88 44c6 6 8 14 2 18s-14 0-14-8z" fill="#3EC6FF"/></svg>`;
+const DEF_CFG = { time: 90, gtime: 60, rounds: 2, spicy: false, drinks: true };
+
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const shuffle = a => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const clone = o => JSON.parse(JSON.stringify(o));
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const ls = {
+  get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } },
+  del(k) { try { localStorage.removeItem(k); } catch {} }
+};
+const $app = document.getElementById("app");
+let toastT;
+function toast(m) { const t = document.getElementById("toast"); t.textContent = m; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), 2800); }
+const clock = ms => { const s = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+
+/* ================= cartas, reparto y puntuación (común a los dos modos) ================= */
+function decks(cfg) {
+  const d = { p: [...CARDS.p], a: [...CARDS.a], l: [...CARDS.l] };
+  if (cfg.spicy) { d.p.push(...CARDS.pp); d.a.push(...CARDS.ap); d.l.push(...CARDS.lp); }
+  return d;
+}
+/* una carta por jugador sin repetir en la ronda (y evitando las ya usadas), con 3 opciones trampa por parte */
+function deal(n, cfg, used) {
+  const d = decks(cfg), taken = new Set(used || []), out = [];
+  const draw = key => {
+    let pool = d[key].filter(x => !taken.has(x));
+    if (!pool.length) pool = d[key].filter(x => !out.some(c => c[key] === x));
+    if (!pool.length) pool = d[key];
+    const x = pick(pool); taken.add(x); return x;
+  };
+  for (let i = 0; i < n; i++) {
+    const c = { p: draw("p"), a: draw("a"), l: draw("l") };
+    c.o = {};
+    PARTS.forEach(([k]) => { c.o[k] = shuffle([c[k], ...shuffle(d[k].filter(x => x !== c[k])).slice(0, 3)]); });
+    out.push(c);
+  }
+  return out;
+}
+function usedFrom(list, prev) { return [...(prev || []), ...list.flatMap(c => [c.p, c.a, c.l])].slice(-240); }
+/* guesses: [{u, g:{p,a,l}|null}] -> resultados, puntos del dibujante y tragos */
+function judge(drawer, ans, guesses, cfg) {
+  const res = guesses.map(x => {
+    const ok = {}; PARTS.forEach(([k]) => { ok[k] = !!(x.g && x.g[k] === ans[k]); });
+    return { u: x.u, g: x.g || null, ok, n: PARTS.filter(([k]) => ok[k]).length };
+  });
+  const avg = res.length ? res.reduce((s, r) => s + r.n, 0) / res.length : 0;
+  const dp = res.filter(r => r.n >= 2).length;
+  const drinks = [];
+  if (cfg.drinks) {
+    res.forEach(r => {
+      if (r.n === 0) drinks.push({ u: r.u, t: "bebe 1 trago: no ha acertado nada", sip: 1 });
+      if (r.n === 3) drinks.push({ u: r.u, t: "reparte 1 trago: ¡pleno!", give: 1 });
+    });
+    if (res.length && avg < 1) drinks.push({ u: drawer, t: "bebe 1 trago: su dibujo no lo entiende nadie", sip: 1 });
+  }
+  return { res, dp, drinks };
+}
+function applyScores(scores, sips, drawer, j) {
+  scores[drawer] = (scores[drawer] || 0) + j.dp;
+  j.res.forEach(r => { scores[r.u] = (scores[r.u] || 0) + r.n; });
+  j.drinks.forEach(d => { if (d.sip) sips[d.u] = (sips[d.u] || 0) + d.sip; });
+}
+
+/* ================= lienzo ================= */
+const INK = ["#1C1C28", "#E53935", "#1E88E5", "#43A047", "#FDD835", "#FB8C00", "#8E24AA", "#F48FB1", "#8D6E63", "#9E9E9E"];
+const SIZES = [[5, 6], [12, 11], [26, 18]];
+const PAD = { strokes: [], color: INK[0], w: 12, erase: false, cur: null, cv: null, ctx: null, locked: false, key: "" };
+function padReset(key) { PAD.strokes = []; PAD.cur = null; PAD.key = key; PAD.locked = false; }
+function padAttach() {
+  const cv = document.getElementById("pad");
+  if (!cv) { PAD.cv = null; return; }
+  if (PAD.cv === cv) return;
+  PAD.cv = cv; PAD.ctx = cv.getContext("2d");
+  padSize();
+  const pos = e => { const r = cv.getBoundingClientRect(); return [Math.round((e.clientX - r.left) / r.width * 1000), Math.round((e.clientY - r.top) / r.height * 1000)]; };
+  cv.addEventListener("pointerdown", e => {
+    if (PAD.locked) return;
+    e.preventDefault(); cv.setPointerCapture(e.pointerId);
+    PAD.cur = { c: PAD.erase ? "#FFFFFF" : PAD.color, w: PAD.erase ? 40 : PAD.w, pts: [pos(e)] };
+    PAD.strokes.push(PAD.cur); strokeDraw(PAD.ctx, PAD.cur, cv.width / 1000, PAD.cur.pts.length - 1);
+  });
+  cv.addEventListener("pointermove", e => {
+    if (!PAD.cur) return;
+    const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+    (evs.length ? evs : [e]).forEach(ev => {
+      const p = pos(ev), last = PAD.cur.pts[PAD.cur.pts.length - 1];
+      if (Math.abs(p[0] - last[0]) + Math.abs(p[1] - last[1]) < 3) return;
+      PAD.cur.pts.push(p); strokeDraw(PAD.ctx, PAD.cur, cv.width / 1000, PAD.cur.pts.length - 2);
+    });
+  });
+  const end = () => { PAD.cur = null; };
+  cv.addEventListener("pointerup", end); cv.addEventListener("pointercancel", end); cv.addEventListener("lostpointercapture", end);
+}
+function padSize() {
+  const cv = PAD.cv; if (!cv) return;
+  const r = cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
+  const px = Math.max(200, Math.round(r.width * dpr));
+  if (cv.width !== px) { cv.width = px; cv.height = px; }
+  padRedraw();
+}
+function padRedraw() {
+  const cv = PAD.cv; if (!cv) return;
+  const ctx = PAD.ctx; ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, cv.width, cv.height);
+  PAD.strokes.forEach(s => strokeDraw(ctx, s, cv.width / 1000, -1));
+}
+/* from = -1 dibuja el trazo entero; si no, solo el tramo desde ese punto */
+function strokeDraw(ctx, s, k, from) {
+  ctx.strokeStyle = s.c; ctx.fillStyle = s.c; ctx.lineWidth = s.w * k; ctx.lineCap = "round"; ctx.lineJoin = "round";
+  const P = s.pts;
+  if (P.length === 1 || (from >= 0 && from === 0 && P.length === 1)) { ctx.beginPath(); ctx.arc(P[0][0] * k, P[0][1] * k, s.w * k / 2, 0, Math.PI * 2); ctx.fill(); return; }
+  const a = from < 0 ? 0 : from;
+  ctx.beginPath(); ctx.moveTo(P[a][0] * k, P[a][1] * k);
+  for (let i = a + 1; i < P.length; i++) ctx.lineTo(P[i][0] * k, P[i][1] * k);
+  ctx.stroke();
+}
+function padExport() {
+  const c = document.createElement("canvas"); c.width = 480; c.height = 480;
+  const ctx = c.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, 480, 480);
+  PAD.strokes.forEach(s => strokeDraw(ctx, s, .48, -1));
+  return PAD.strokes.length ? c.toDataURL("image/jpeg", .75) : "";
+}
+window.addEventListener("resize", () => padSize());
+function padHTML() {
+  return `<div class="padwrap"><canvas id="pad" aria-label="Lienzo para dibujar"></canvas></div>
+  <div class="tools">
+    <div class="colors">${INK.map(c => `<button type="button" style="--c:${c}" aria-label="Color" aria-pressed="false" data-on="click:ink:${c}"></button>`).join("")}</div>
+    <div class="trow">${SIZES.map(([w, d]) => `<button type="button" aria-label="Grosor" aria-pressed="false" data-on="click:size:${w}"><span class="dot" style="width:${d}px;height:${d}px"></span></button>`).join("")}
+      <button type="button" aria-pressed="false" data-on="click:eraser">Goma</button>
+      <button type="button" aria-label="Deshacer" data-on="click:undo">↶</button>
+      <button type="button" data-on="click:wipe">Borrar</button></div>
+  </div>`;
+}
+function toolsSync() {
+  $app.querySelectorAll(".colors button").forEach(b => b.setAttribute("aria-pressed", String(!PAD.erase && b.dataset.on.endsWith(":" + PAD.color))));
+  $app.querySelectorAll(".trow button[aria-label='Grosor']").forEach(b => b.setAttribute("aria-pressed", String(!PAD.erase && b.dataset.on.endsWith(":" + PAD.w))));
+  const er = $app.querySelector("[data-on='click:eraser']"); if (er) er.setAttribute("aria-pressed", String(PAD.erase));
+}
+
+/* ================= estado ================= */
+const S = {
+  db: null, uid: null, ready: false, offline: false, mode: ls.get("dib.mode") || "online",
+  name: (localStorage.getItem("sala.nick") || "").slice(0, 16),
+  code: null, g: null, players: [], acts: {}, sec: null, all: null, unsubs: [], secUnsubs: [], secKey: "",
+  homeMsg: "", homeErr: false, busy: false, menu: false, lastHtml: "", sel: {}, selKey: "", sent: "", imgs: {}, show: false,
+  L: null, names: ls.get("dib.names") || ["", ""]
+};
+const me = () => S.uid;
+const isHost = () => S.g && S.g.host === S.uid;
+
+async function boot() {
+  try {
+    const [db, user] = await Promise.all(["db", "user"].map(n => window.claude ? claude.use(n).catch(() => null) : null));
+    S.db = db; if (user) S.uid = await user.id();
+  } catch {}
+  if (!S.db || !S.uid) S.offline = true;
+  if (S.offline) S.mode = "local";
+  S.ready = true;
+  S.first = !ls.get("dib.seen"); ls.set("dib.seen", 1);
+  const h = (location.hash || "").replace("#", "").toUpperCase(), last = ls.get("dib.last");
+  if (!S.offline && /^[A-Z]{4}$/.test(h)) { S.prefill = h; S.mode = "online"; }
+  else if (!S.offline && last && last.code && Date.now() - last.t < 12 * 3600e3) S.rejoin = last.code;
+  const saved = ls.get("dib.local");
+  if (saved && saved.step && saved.step !== "end") S.resume = saved;
+  render();
+  setInterval(tick, 500);
+}
+
+/* ================= vistas: utilidades ================= */
+function render() {
+  if (!S.ready) return;
+  if (S.L) return renderLocal();
+  if (!S.code) return renderHome();
+  if (!S.g) return view(`<div class="hero"><div class="logo">TRAZOS <span>Y</span> TRAGOS</div><p class="muted">Entrando en la partida…</p></div>`);
+  if (S.g.status === "lobby") return renderLobby();
+  renderGame();
+}
+function view(html) {
+  if (html === S.lastHtml) { patch(); return; }
+  const keep = {}, ae = document.activeElement, focusId = ae && ae.id;
+  $app.querySelectorAll("input[id]").forEach(el => { keep[el.id] = el.type === "checkbox" ? null : el.value; });
+  S.lastHtml = html; $app.innerHTML = html;
+  Object.entries(keep).forEach(([id, v]) => { const el = document.getElementById(id); if (el && v !== null && el.dataset.keep !== undefined) el.value = v; });
+  if (focusId) { const el = document.getElementById(focusId); if (el && el.dataset.keep !== undefined) el.focus(); }
+  bind(); PAD.cv = null; padAttach(); toolsSync(); patch(); tick();
+}
+const H = {};
+function bind() {
+  $app.querySelectorAll("[data-on]").forEach(el => {
+    const [ev, fn, ...rest] = el.dataset.on.split(":");
+    el.addEventListener(ev, e => { if (H[fn]) H[fn](rest.join(":"), e, el); });
+  });
+}
+/* datos que cambian a menudo sin rehacer la pantalla (no corta un trazo a medias) */
+function patch() {
+  const g = S.g;
+  const dn = document.getElementById("dn");
+  if (dn && g && g.order) dn.textContent = `${g.order.filter(u => actOf(g, u)).length}/${g.order.length}`;
+  const gn = document.getElementById("gn");
+  if (gn && g && g.order) { const gs = g.order.filter(u => u !== g.order[g.i]); gn.textContent = `${gs.filter(u => actOf(g, u)).length}/${gs.length}`; }
+}
+function tick() {
+  $app.querySelectorAll("[data-until]").forEach(el => {
+    const left = +el.dataset.until - Date.now();
+    el.textContent = clock(left); el.classList.toggle("hurry", left < 10500);
+  });
+  const g = S.g;
+  if (!S.L && g && g.status === "play") {
+    if (g.phase === "draw" && g.until && Date.now() >= g.until - 3000 && inGame(g) && S.sent !== g.k) submitDraw();
+    if (isHost() && g.until && Date.now() >= g.until) drive();
+  }
+  if (S.L && S.L.step === "draw" && S.L.until && Date.now() >= S.L.until) H.ldone();
+}
+const seg = (fn, cur, opts) => `<div class="seg">${opts.map(([v, l]) => `<button type="button" aria-pressed="${String(cur) === String(v)}" data-on="click:${fn}:${v}">${l}</button>`).join("")}</div>`;
+const comboHTML = (c, mini) => `<div class="combo${mini ? " mini" : ""}">${PARTS.map(([k, n]) => `<div class="part"><i>${n}</i><b>${esc(c[k])}</b></div>`).join("")}</div>`;
+const comboText = c => `${c.p} ${c.a} ${c.l}`;
+const imgHTML = src => src ? `<img class="drawing" src="${src}" alt="Dibujo">` : `<div class="drawing empty">Sin dibujo</div>`;
+
+function rulesHTML(open) {
+  return `<details class="card"${open ? " open" : ""}><summary>Cómo se juega</summary><div class="how">
+    <p>De <b>2 a ${MAX_PLAYERS}</b> jugadores. Online (cada uno con su móvil) o pasándoos un solo móvil.</p>
+    <ol>
+      <li><b>Tu carta:</b> te toca una combinación de <b>personaje + acción + lugar</b>, por ejemplo «Drácula · dando a luz · en un volcán». Solo la ves tú.</li>
+      <li><b>A dibujar:</b> tienes el tiempo que marque el reloj. Nada de letras ni números: solo dibujos, flechas y símbolos.</li>
+      <li><b>A adivinar:</b> los demás ven tu dibujo y eligen, entre 4 opciones, cuál es el personaje, cuál la acción y cuál el lugar.</li>
+      <li><b>Puntos:</b> quien adivina gana 1 punto por cada parte acertada. El que dibuja gana 1 punto por cada jugador que acierte al menos 2 de las 3.</li>
+    </ol>
+    <p><b>Tragos</b> (se pueden quitar): quien no acierta ninguna parte bebe un trago, quien hace pleno reparte uno y, si casi nadie entiende un dibujo, bebe su autor. Al final, el último de la tabla se toma un chupito.</p>
+    <p class="muted small">Cada ronda dibujáis todos una vez. Con 2 jugadores funciona igual: uno dibuja y el otro adivina, y luego al revés.</p></div></details>`;
+}
+
+/* ================= inicio ================= */
+function renderHome() {
+  const first = S.first;
+  const online = S.mode === "online" && !S.offline;
+  const names = S.names;
+  view(`
+  <div class="hero">${BRUSH_SVG}<div class="logo">TRAZOS <span>Y</span> TRAGOS<small>si bebes, no dibujes</small></div>
+    <p class="muted">Te toca un personaje haciendo algo en un sitio raro. Dibújalo como puedas y que los demás lo adivinen.</p></div>
+  <div class="modes">
+    <button class="mode" type="button" aria-pressed="${online}" data-on="click:mode:online"${S.offline ? " disabled" : ""}><b>Varios móviles</b><span>Cada uno dibuja en el suyo a la vez.</span></button>
+    <button class="mode" type="button" aria-pressed="${!online}" data-on="click:mode:local"><b>Un solo móvil</b><span>Os lo vais pasando por turnos.</span></button>
+  </div>
+  ${online ? `
+  <label class="lbl" for="nm">Tu nombre<input id="nm" data-keep class="text" maxlength="16" autocomplete="nickname" value="${esc(S.name)}" placeholder="Tu nombre"></label>
+  <div class="card"><h2>Nueva partida</h2><button class="btn pink wide" data-on="click:create"${S.busy ? " disabled" : ""}>Crear partida</button></div>
+  <div class="card"><h2>Unirse</h2>
+    <div class="row"><input id="jc" data-keep class="text code" maxlength="4" autocomplete="off" placeholder="ABCD" value="${esc(S.prefill || "")}" aria-label="Código de la partida" data-on="keydown:joinKey"><button class="btn" data-on="click:join"${S.busy ? " disabled" : ""}>Entrar</button></div>
+    ${S.rejoin ? `<button class="btn ghost" data-on="click:rejoin">Volver a la partida ${esc(S.rejoin)}</button>` : ""}</div>`
+  : `
+  ${S.resume ? `<div class="card"><h2>Partida a medias</h2><p class="muted">${esc(S.resume.names.join(", "))} · ronda ${S.resume.r}</p><div class="row"><button class="btn yel" data-on="click:lresume">Continuar</button><button class="btn ghost" data-on="click:ldrop">Descartar</button></div></div>` : ""}
+  <div class="card"><h2>Jugadores</h2>
+    <div class="names">${names.map((n, i) => `<div class="nrow"><input id="ln${i}" class="text" maxlength="14" placeholder="Jugador ${i + 1}" value="${esc(n)}" data-on="input:lname:${i}">${names.length > 2 ? `<button type="button" aria-label="Quitar" data-on="click:ldel:${i}">✕</button>` : ""}</div>`).join("")}</div>
+    ${names.length < MAX_LOCAL ? `<button class="btn ghost sm" data-on="click:ladd">+ Añadir jugador</button>` : ""}
+  </div>
+  ${cfgHTML(localCfg(), "l")}
+  <button class="btn pink wide" data-on="click:lstart">Empezar</button>`}
+  <p class="msg ${S.homeErr ? "err" : ""}" role="status">${esc(S.homeMsg)}</p>
+  ${rulesHTML(first)}`);
+}
+H.mode = m => { S.mode = m; ls.set("dib.mode", m); S.homeMsg = ""; render(); };
+function cfgHTML(cfg, p) {
+  return `<div class="card"><h2>Ajustes</h2>
+    <span class="lbl">Tiempo para dibujar</span>${seg(p + "cfg:time", cfg.time, [[60, "1 min"], [90, "1:30"], [120, "2 min"], [180, "3 min"]])}
+    <span class="lbl">Rondas (cada uno dibuja una vez por ronda)</span>${seg(p + "cfg:rounds", cfg.rounds, [[1, "1"], [2, "2"], [3, "3"], [5, "5"]])}
+    ${p === "o" ? `<span class="lbl">Tiempo para adivinar</span>${seg(p + "cfg:gtime", cfg.gtime, [[30, "30 s"], [60, "1 min"], [90, "1:30"]])}` : ""}
+    <label class="toggle"><input type="checkbox" ${cfg.drinks ? "checked" : ""} data-on="change:${p}tog:drinks"> Con tragos</label>
+    <label class="toggle"><input type="checkbox" ${cfg.spicy ? "checked" : ""} data-on="change:${p}tog:spicy"> Cartas picantes (+18)</label>
+  </div>`;
+}
+
+/* ================= online ================= */
+const base = () => "games/" + S.code;
+function watch(code) {
+  unwatch(); S.code = code; ls.set("dib.last", { code, t: Date.now() });
+  S.unsubs.push(S.db.doc(base()).onSnapshot(snap => {
+    if (!snap.exists) { leave("Esa partida ya no existe."); return; }
+    const d = snap.data();
+    if (S.g && d.seq < S.g.seq && d.gid === S.g.gid) return;
+    const prev = S.g; S.g = d; onGame(prev); render(); drive();
+  }, () => leave("Se ha perdido la conexión con la partida.")));
+  S.unsubs.push(S.db.collection(base() + "/players").orderBy("joinedAt").onSnapshot(q => {
+    S.players = q.docs.map(d => ({ id: d.id, ...d.data() })); render(); drive();
+  }, () => {}));
+  S.unsubs.push(S.db.collection(base() + "/act").onSnapshot(q => {
+    const a = {}; q.docs.forEach(d => { a[d.id] = d.data(); }); S.acts = a; render(); drive();
+  }, () => {}));
+}
+function unwatch() { [...S.unsubs, ...S.secUnsubs].forEach(u => { try { u(); } catch {} }); S.unsubs = []; S.secUnsubs = []; S.secKey = ""; S.g = null; S.players = []; S.acts = {}; S.sec = null; S.all = null; }
+function leave(msg) { unwatch(); S.code = null; S.homeMsg = msg || ""; S.homeErr = !!msg; history.replaceState(null, "", location.pathname); render(); }
+const secPath = (uid, gid, r) => `${base()}/secret/${uid}_${gid}_${r}`;
+const allPath = (gid, r) => `${base()}/secret/_all_${gid}_${r}`;
+const imgPath = (gid, r, uid) => `${base()}/img/${gid}_${r}_${uid}`;
+function onGame(prev) {
+  const g = S.g;
+  if (prev && prev.k !== g.k) S.menu = false;
+  if (g.phase === "draw" && PAD.key !== g.k) { padReset(g.k); S.show = false; }
+  if (g.k !== S.selKey) { S.sel = {}; S.selKey = g.k; }
+  watchSecrets();
+}
+function watchSecrets() {
+  const g = S.g; if (!g || !g.gid || g.status === "lobby") return;
+  const key = me() + "_" + g.gid + "_" + g.round + (isHost() ? "_h" : ""); if (key === S.secKey) return;
+  S.secUnsubs.forEach(u => u()); S.secUnsubs = []; S.secKey = key; S.sec = null; S.all = null;
+  S.secUnsubs.push(S.db.doc(secPath(me(), g.gid, g.round)).onSnapshot(s => { S.sec = s.exists ? s.data() : null; render(); }, () => {}));
+  if (isHost()) S.secUnsubs.push(S.db.doc(allPath(g.gid, g.round)).onSnapshot(s => { if (s.exists) S.all = s.data(); drive(); render(); }, () => {}));
+}
+function saveName() {
+  const el = document.getElementById("nm"); const v = ((el && el.value) || S.name || "").trim().slice(0, 16);
+  if (!v) { S.homeMsg = "Escribe tu nombre para que te reconozcan."; S.homeErr = true; render(); return false; }
+  S.name = v; try { localStorage.setItem("sala.nick", v); } catch {} return true;
+}
+const genCode = () => { const A = "ABCDEFGHJKLMNPQRSTUVWXYZ"; let c = ""; for (let i = 0; i < 4; i++) c += A[Math.floor(Math.random() * A.length)]; return c; };
+async function createGame() {
+  if (!saveName()) return;
+  S.busy = true; render();
+  try {
+    let code;
+    for (let i = 0; i < 6; i++) { code = genCode(); if (!(await S.db.doc("games/" + code).get()).exists) break; }
+    await S.db.doc("games/" + code).set({ v: 1, status: "lobby", host: me(), createdAt: Date.now(), seq: 0, cfg: { ...DEF_CFG, ...(ls.get("dib.cfg") || {}) }, scores: {}, sips: {}, used: [] });
+    S.code = code; await joinSeat(code);
+    location.hash = code; watch(code);
+  } catch { S.homeMsg = "No se pudo crear la partida. Revisa la conexión."; S.homeErr = true; }
+  S.busy = false; render();
+}
+async function joinSeat(code) {
+  const ref = S.db.doc(`games/${code}/players/${me()}`);
+  const cur = await ref.get();
+  if (cur.exists) { await ref.update({ name: S.name }); return true; }
+  const all = await S.db.collection(`games/${code}/players`).get();
+  if (all.docs.length >= MAX_PLAYERS) { toast("La partida está llena: entras como público."); return false; }
+  await ref.set({ name: S.name, joinedAt: Date.now() });
+  return true;
+}
+async function joinGame(code) {
+  if (!saveName()) return;
+  code = String(code || "").toUpperCase().replace(/[^A-Z]/g, "");
+  if (code.length !== 4) { S.homeMsg = "El código tiene 4 letras."; S.homeErr = true; render(); return; }
+  S.busy = true; render();
+  try {
+    const snap = await S.db.doc("games/" + code).get();
+    if (!snap.exists) { S.homeMsg = "No hay ninguna partida con ese código."; S.homeErr = true; }
+    else {
+      const g = snap.data(), mine = (await S.db.doc(`games/${code}/players/${me()}`).get()).exists;
+      if (g.status === "lobby" || mine) await joinSeat(code);
+      else toast("La partida ya ha empezado: entras como público y jugarás en la siguiente.");
+      location.hash = code; watch(code);
+    }
+  } catch { S.homeMsg = "No se pudo entrar. Revisa la conexión."; S.homeErr = true; }
+  S.busy = false; render();
+}
+
+const nameOf = id => (S.players.find(p => p.id === id) || {}).name || "Alguien";
+const colorOf = id => { let i = S.g && S.g.order ? S.g.order.indexOf(id) : -1; if (i < 0) i = S.players.findIndex(p => p.id === id); return PCOL[(i < 0 ? 0 : i) % PCOL.length]; };
+const av = id => `<span class="av" style="--c:${colorOf(id)}">${esc(nameOf(id).charAt(0).toUpperCase() || "?")}</span>`;
+const actOf = (g, u) => { const a = S.acts[u]; return a && a.k === g.k ? a : null; };
+const inGame = g => g && g.order && g.order.includes(me());
+async function act(data) {
+  const g = S.g; if (!g) return;
+  try { await S.db.doc(`${base()}/act/${me()}`).set({ k: g.k, ...data, t: Date.now() }); }
+  catch { toast("No se ha podido enviar. Revisa la conexión."); }
+}
+async function commit(g) {
+  g.seq = (S.g.seq || 0) + 1; g.ts = Date.now();
+  const prev = S.g; S.g = g; onGame(prev); render();
+  try { await S.db.doc(base()).set(g); }
+  catch { toast("No se pudo guardar. Reintentando…"); setTimeout(() => S.db.doc(base()).set(S.g).catch(() => toast("Sin conexión.")), 1500); }
+}
+
+/* ---------- anfitrión ---------- */
+async function dealRound(g) {
+  const combos = deal(g.order.length, g.cfg, g.used);
+  const map = {}, opts = {};
+  g.order.forEach((u, i) => { const c = combos[i]; map[u] = { p: c.p, a: c.a, l: c.l }; opts[u] = c.o; });
+  await Promise.all(g.order.map(u => S.db.doc(secPath(u, g.gid, g.round)).set(map[u])));
+  await S.db.doc(allPath(g.gid, g.round)).set(map);
+  S.all = map;
+  g.opts = opts; g.used = usedFrom(combos, g.used);
+  g.phase = "draw"; g.i = 0; g.k = `${g.gid}|d${g.round}`; g.until = Date.now() + g.cfg.time * 1000 + 3000;
+  g.ans = null; g.res = null; g.drinks = null; g.dp = 0;
+}
+async function hostStart() {
+  const ids = S.players.map(p => p.id);
+  if (ids.length < 2) { toast("Hacen falta al menos 2 jugadores."); return; }
+  S.busy = true; render();
+  const g = { ...clone(S.g), cfg: { ...DEF_CFG, ...S.g.cfg }, status: "play", gid: Date.now(), order: shuffle(ids), round: 1, scores: {}, sips: {}, gallery: [] };
+  try { await dealRound(g); } catch { S.busy = false; toast("No se pudo repartir. Revisa la conexión."); render(); return; }
+  S.busy = false;
+  await commit(g);
+}
+function toGuess(g, i) {
+  g.phase = "guess"; g.i = i; g.k = `${g.gid}|g${g.round}-${i}`; g.until = Date.now() + g.cfg.gtime * 1000;
+  g.ans = null; g.res = null; g.drinks = null; g.dp = 0;
+}
+function afterShow(g) {
+  if (g.i + 1 < g.order.length) return toGuess(g, g.i + 1);
+  g.until = null; g.k = `${g.gid}|r${g.round}`;
+  if (g.round >= g.cfg.rounds) { g.status = "end"; g.phase = "end"; }
+  else g.phase = "round";
+}
+function drive() {
+  if (!isHost() || !S.g || S.g.status !== "play" || !S.all) return;
+  const g0 = S.g, now = Date.now(), A = u => actOf(g0, u);
+  if (S.driving === g0.k) return;
+  const g = clone(g0);
+  switch (g0.phase) {
+    case "draw":
+      if (g0.order.every(A) || now >= g0.until + 8000) { S.driving = g0.k; toGuess(g, 0); return commit(g).finally(() => { S.driving = ""; }); }
+      return;
+    case "guess": {
+      const d = g0.order[g0.i], gs = g0.order.filter(u => u !== d);
+      if (!(gs.every(A) || now >= g0.until)) return;
+      const ans = S.all[d]; if (!ans) return;
+      const j = judge(d, ans, gs.map(u => ({ u, g: A(u) && A(u).g })), g.cfg);
+      applyScores(g.scores, g.sips, d, j);
+      g.phase = "show"; g.k = `${g.gid}|s${g.round}-${g.i}`; g.until = null;
+      g.ans = ans; g.res = j.res; g.drinks = j.drinks; g.dp = j.dp;
+      g.gallery = [...(g.gallery || []).filter(x => x.r === g.round), { r: g.round, u: d, ans }];
+      S.driving = g0.k; return commit(g).finally(() => { S.driving = ""; });
+    }
+  }
+}
+async function hostNext() {
+  if (!isHost()) return;
+  const g = clone(S.g);
+  if (g.phase === "show") afterShow(g);
+  else if (g.phase === "round") {
+    g.round++; S.busy = true; render();
+    try { await dealRound(g); } catch { S.busy = false; toast("No se pudo repartir."); render(); return; }
+    S.busy = false;
+  } else if (g.phase === "draw") { if (g.until - 3000 <= Date.now()) toGuess(g, 0); else g.until = Date.now() + 3000; }
+  else if (g.phase === "guess") { g.until = Date.now() - 1; S.g = g; return drive(); }
+  else return;
+  await commit(g);
+}
+async function hostKick(u) {
+  if (!isHost()) return;
+  const g = clone(S.g), idx = g.order.indexOf(u);
+  if (idx < 0) return;
+  g.order = g.order.filter(x => x !== u);
+  if (g.order.length < 2) { g.status = "end"; g.phase = "end"; return commit(g); }
+  if ((g.phase === "guess" || g.phase === "show") && idx <= g.i) {
+    if (idx === g.i && g.phase === "guess") { if (g.i < g.order.length) toGuess(g, g.i); else { g.i = g.order.length - 1; afterShow(g); } }
+    else g.i = Math.max(0, g.i - 1);
+  }
+  await commit(g);
+}
+async function toLobby() {
+  if (!isHost()) return;
+  const g = clone(S.g);
+  Object.assign(g, { status: "lobby", phase: null, k: null, until: null, ans: null, res: null, drinks: null, order: [], opts: null, gallery: [] });
+  await commit(g);
+}
+async function takeOver() {
+  if (!S.g || isHost()) return;
+  try { await S.db.doc(base()).update({ host: me() }); toast("Ahora llevas tú la partida."); } catch { toast("No se pudo."); }
+}
+async function setCfg(patch) {
+  if (!isHost()) return;
+  ls.set("dib.cfg", { ...DEF_CFG, ...S.g.cfg, ...patch });
+  try { await S.db.doc(base()).update({ cfg: patch }); } catch { toast("No se pudo guardar."); }
+}
+async function submitDraw() {
+  const g = S.g; if (!g || g.phase !== "draw" || S.sent === g.k || !inGame(g)) return;
+  S.sent = g.k; PAD.locked = true;
+  const img = padExport();
+  S.imgs[`${g.gid}_${g.round}_${me()}`] = img;
+  try {
+    await S.db.doc(imgPath(g.gid, g.round, me())).set({ img });
+    await act({ done: true });
+  } catch { S.sent = ""; PAD.locked = false; toast("No se ha podido enviar el dibujo. Pulsa otra vez."); }
+  render();
+}
+function img(gid, r, u) {
+  const key = `${gid}_${r}_${u}`;
+  if (key in S.imgs) return S.imgs[key];
+  S.imgs[key] = null;
+  S.db.doc(imgPath(gid, r, u)).get().then(s => { S.imgs[key] = s.exists ? (s.data().img || "") : ""; render(); }, () => { delete S.imgs[key]; });
+  return null;
+}
+const imgOrWait = src => src === null ? `<div class="drawing empty">Cargando dibujo…</div>` : imgHTML(src);
+
+/* ---------- handlers online ---------- */
+H.create = createGame;
+H.join = () => joinGame(document.getElementById("jc").value);
+H.joinKey = (_, e) => { if (e.key === "Enter") joinGame(e.target.value); };
+H.rejoin = () => joinGame(S.rejoin);
+H.out = () => { if (S.g && S.g.status === "play" && !confirm("¿Salir de la partida?")) return; leave(""); };
+H.share = () => {
+  const url = location.origin + location.pathname + "#" + S.code;
+  if (navigator.share) { navigator.share({ title: "Trazos y Tragos", text: "Entra con el código " + S.code, url }).catch(() => {}); return; }
+  navigator.clipboard?.writeText(url).then(() => toast("Enlace copiado"), () => toast(url));
+};
+H.sit = () => joinSeat(S.code).catch(() => toast("No se pudo entrar."));
+H.start = hostStart;
+H.ocfg = (a) => { const [k, v] = a.split(":"); setCfg({ [k]: +v }); };
+H.otog = (k, e) => setCfg({ [k]: e.target.checked });
+H.menu = () => { S.menu = !S.menu; render(); };
+H.next = () => { S.menu = false; hostNext(); };
+H.kick = u => { if (confirm(`¿Quitar a ${nameOf(u)} de la partida?`)) { S.menu = false; hostKick(u); } };
+H.lobby = () => { if (S.g.status !== "end" && !confirm("¿Terminar la partida y volver a la sala?")) return; S.menu = false; toLobby(); };
+H.take = () => { if (confirm("¿Llevar tú la partida?")) { S.menu = false; takeOver(); } };
+H.flip = () => { S.show = !S.show; render(); };
+H.done = () => { if (S.L) return H.ldone(); submitDraw(); };
+H.ink = c => { PAD.color = c; PAD.erase = false; toolsSync(); };
+H.size = w => { PAD.w = +w; PAD.erase = false; toolsSync(); };
+H.eraser = () => { PAD.erase = !PAD.erase; toolsSync(); };
+H.undo = () => { if (PAD.locked) return; PAD.strokes.pop(); padRedraw(); };
+H.wipe = () => { if (PAD.locked || !PAD.strokes.length) return; if (confirm("¿Borrar todo el dibujo?")) { PAD.strokes = []; padRedraw(); } };
+H.opt = a => {
+  const [k, i] = a.split(":");
+  const src = S.L ? S.L.cur.o : S.g.opts[S.g.order[S.g.i]];
+  S.sel = { ...S.sel, [k]: src[k][+i] }; render();
+};
+H.guess = () => {
+  if (PARTS.some(([k]) => !S.sel[k])) { toast("Elige personaje, acción y lugar."); return; }
+  if (S.L) return H.lguess();
+  act({ g: { ...S.sel } });
+};
+
+/* ---------- vistas online ---------- */
+function renderLobby() {
+  const g = S.g, host = isHost(), inList = S.players.some(p => p.id === me()), cfg = { ...DEF_CFG, ...g.cfg }, n = S.players.length;
+  const list = S.players.map(p => `<li>${av(p.id)}<span class="n">${esc(p.name)}${p.id === g.host ? " 🎩" : ""}${p.id === me() ? " (tú)" : ""}</span></li>`).join("");
+  view(`
+  <div class="top"><button class="btn ghost sm" data-on="click:out">Salir</button><span class="sp"></span><span class="chip">SALA ${esc(S.code)}</span></div>
+  <div class="card center"><p class="muted small">Código de la partida</p><div class="big-code">${esc(S.code)}</div>
+    <button class="btn ghost" data-on="click:share">Invitar</button></div>
+  <div class="card"><h2>Jugadores (${n})</h2><ul class="plist">${list || "<li>Esperando…</li>"}</ul>
+    ${!inList && n < MAX_PLAYERS ? `<button class="btn" data-on="click:sit">Sentarme</button>` : ""}</div>
+  ${host ? cfgHTML(cfg, "o") : `<div class="card"><h2>Ajustes</h2><p class="muted">${clock(cfg.time * 1000)} para dibujar · ${cfg.rounds} ronda${cfg.rounds > 1 ? "s" : ""}${cfg.drinks ? " · con tragos" : " · sin tragos"}${cfg.spicy ? " · picante" : ""}</p></div>`}
+  ${host ? `<button class="btn pink wide" data-on="click:start"${n < 2 || S.busy ? " disabled" : ""}>${S.busy ? "Repartiendo…" : n < 2 ? "Falta otro jugador" : "Repartir cartas"}</button>`
+    : `<p class="muted center">Esperando a que ${esc(nameOf(g.host))} reparta.</p>`}
+  ${rulesHTML(false)}`);
+}
+function topBar(g) {
+  return `<div class="top"><button class="btn ghost sm" data-on="click:out">Salir</button><span class="sp"></span>
+    <span class="chip">RONDA ${g.round}/${g.cfg.rounds}</span><button class="btn ghost sm" data-on="click:menu" aria-expanded="${S.menu}" aria-label="Más opciones">⋯</button></div>
+    ${S.menu ? menuHTML(g) : ""}`;
+}
+function menuHTML(g) {
+  if (isHost()) return `<div class="card menu"><h2>Anfitrión</h2>
+    ${g.phase === "draw" ? `<button class="btn sm" data-on="click:next">Cortar el tiempo y adivinar</button>` : g.phase === "guess" ? `<button class="btn sm" data-on="click:next">Cerrar respuestas ya</button>` : ""}
+    <p class="muted small">Quitar a alguien que se ha ido:</p>
+    <div class="seg">${(g.order || []).filter(u => u !== me()).map(u => `<button type="button" data-on="click:kick:${u}">✕ ${esc(nameOf(u))}</button>`).join("")}</div>
+    <button class="btn ghost sm" data-on="click:lobby">Terminar y volver a la sala</button></div>`;
+  return `<div class="card menu"><p class="muted small">La partida la lleva ${esc(nameOf(g.host))}. Si se ha ido y esto se ha quedado parado, puedes llevarla tú.</p>
+    <button class="btn sm" data-on="click:take">Llevar yo la partida</button></div>`;
+}
+function renderGame() {
+  const g = S.g;
+  if (g.status === "end") return renderEnd();
+  const mine = actOf(g, me()), playing = inGame(g);
+  let body = "";
+  if (g.phase === "draw") {
+    const sent = !!mine || S.sent === g.k;
+    if (!playing) body = `<div class="card center"><h2>Están dibujando</h2><p class="muted">Jugarás en la siguiente partida. Listos: <span id="dn"></span></p></div>`;
+    else if (!S.sec) body = `<div class="cover"><span class="muted">Repartiendo carta…</span></div>`;
+    else body = `
+      <div class="top"><span class="timer" data-until="${g.until - 3000}"></span><span class="sp"></span><span class="muted small">Han terminado <span id="dn"></span></span></div>
+      ${comboHTML(S.sec)}
+      ${sent ? `<div class="card center pop"><h2>¡Entregado!</h2><p class="muted">Esperando a que terminen los demás (<span id="dn"></span>).</p></div>${imgHTML(S.imgs[`${g.gid}_${g.round}_${me()}`])}`
+        : `${padHTML()}<button class="btn pink wide" data-on="click:done">He terminado</button>`}`;
+  } else if (g.phase === "guess") {
+    const d = g.order[g.i], src = img(g.gid, g.round, d), mineDraw = d === me();
+    body = `
+      <div class="top">${av(d)}<b>${esc(nameOf(d))}</b><span class="sp"></span><span class="timer" data-until="${g.until}"></span></div>
+      <p class="muted small">Dibujo ${g.i + 1} de ${g.order.length}</p>
+      ${imgOrWait(src)}
+      ${mineDraw ? `<div class="card center"><h2>Es tu dibujo</h2><p class="muted">Calladito. Están adivinando: <span id="gn"></span></p>${S.sec ? comboHTML(S.sec, true) : ""}</div>`
+        : !playing ? `<p class="muted center">Adivinando: <span id="gn"></span></p>`
+        : mine ? `<div class="card center"><h2>Respuesta enviada</h2><p class="muted">Faltan los demás: <span id="gn"></span></p></div>`
+        : optsHTML(g.opts[d], S.sel) + `<button class="btn pink wide" data-on="click:guess">Confirmar</button>`}`;
+  } else if (g.phase === "show") {
+    const d = g.order[g.i];
+    body = showHTML({ src: img(g.gid, g.round, d), drawer: d, ans: g.ans, res: g.res, drinks: g.drinks, dp: g.dp, nameOf, av, opts: g.opts[d], mine: (g.res || []).find(r => r.u === me()) })
+      + (isHost() ? `<button class="btn pink wide" data-on="click:next">${g.i + 1 < g.order.length ? "Siguiente dibujo" : g.round >= g.cfg.rounds ? "Ver el final" : "Fin de la ronda"}</button>`
+        : `<p class="muted center">${esc(nameOf(g.host))} pasa al siguiente.</p>`);
+  } else if (g.phase === "round") {
+    body = `<div class="card verdict pop"><div class="big">Fin de la ronda ${g.round}</div></div>
+      ${scoresHTML(g.order, g.scores, g.sips, nameOf, av, false, g.cfg)}
+      ${galleryHTML(g.gallery, u => img(g.gid, g.round, u), nameOf)}
+      ${isHost() ? `<button class="btn pink wide" data-on="click:next"${S.busy ? " disabled" : ""}>Siguiente ronda</button>` : `<p class="muted center">${esc(nameOf(g.host))} reparte la siguiente.</p>`}`;
+  }
+  view(`${topBar(g)}${body}`);
+}
+function renderEnd() {
+  const g = S.g;
+  view(`
+  <div class="top"><button class="btn ghost sm" data-on="click:out">Salir</button><span class="sp"></span><span class="chip">SALA ${esc(S.code)}</span></div>
+  ${endHTML(g.order || [], g.scores || {}, g.sips || {}, nameOf, av, g.cfg)}
+  ${galleryHTML(g.gallery || [], u => img(g.gid, g.round, u), nameOf)}
+  ${isHost() ? `<button class="btn pink wide" data-on="click:lobby">Otra partida</button>` : `<p class="muted center">${esc(nameOf(g.host))} puede empezar otra.</p>`}`);
+}
+
+/* ---------- piezas comunes de las vistas ---------- */
+function optsHTML(o, sel) {
+  return `<div class="card opts">${PARTS.map(([k, n]) => `<div class="og"><span>${n}</span><div class="ob">${o[k].map((x, i) => `<button type="button" aria-pressed="${sel[k] === x}" data-on="click:opt:${k}:${i}">${esc(x)}</button>`).join("")}</div></div>`).join("")}</div>`;
+}
+function showHTML({ src, drawer, ans, res, drinks, dp, nameOf, av, opts, mine }) {
+  res = res || []; drinks = drinks || [];
+  const head = mine ? (mine.n === 3 ? "¡Pleno!" : mine.n === 0 ? "Ni una…" : `Has acertado ${mine.n} de 3`) : `${nameOf(drawer)} ha dibujado…`;
+  return `<div class="card verdict pop"><div class="big">${esc(head)}</div></div>
+    ${src === undefined ? "" : imgOrWait(src)}
+    ${comboHTML(ans)}
+    <div class="card"><h2>Respuestas</h2>
+      <ul class="res">${res.map(r => `<li>${av(r.u)}<b>${esc(nameOf(r.u))}</b><span class="pts">+${r.n}</span>
+        <span class="marks">${r.g ? PARTS.map(([k]) => `<span class="${r.ok[k] ? "ok" : ""}">${r.ok[k] ? "✓" : "✗"} ${esc(r.g[k])}</span>`).join("") : `<span>Sin respuesta</span>`}</span></li>`).join("") || `<li><span></span><span class="muted">Nadie ha respondido.</span><span></span></li>`}</ul>
+      <p class="muted small">${esc(nameOf(drawer))} gana <b>+${dp}</b> por su dibujo.</p></div>
+    ${drinks.length ? `<div class="drinks">${drinks.map(d => `<p>🍺 <b>${esc(nameOf(d.u))}</b> ${esc(d.t)}</p>`).join("")}</div>` : ""}`;
+}
+function ranking(ids, scores) { return [...ids].sort((a, b) => (scores[b] || 0) - (scores[a] || 0)); }
+function scoresHTML(ids, scores, sips, nameOf, av, end, cfg) {
+  const r = ranking(ids, scores), min = Math.min(...r.map(u => scores[u] || 0));
+  return `<div class="card"><h2>Marcador</h2><ul class="scores">${r.map((u, i) => `<li class="${end && cfg.drinks && (scores[u] || 0) === min && r.length > 1 ? "last" : ""}">${end && i === 0 ? "👑" : av(u)}<span>${esc(nameOf(u))}</span>${cfg.drinks ? `<span class="t">🍺 ${sips[u] || 0}</span>` : ""}<span class="p">${scores[u] || 0}</span></li>`).join("")}</ul></div>`;
+}
+function endHTML(ids, scores, sips, nameOf, av, cfg) {
+  const r = ranking(ids, scores);
+  if (!r.length) return `<div class="card verdict"><div class="big">Fin</div></div>`;
+  const top = scores[r[0]] || 0, winners = r.filter(u => (scores[u] || 0) === top);
+  const min = Math.min(...r.map(u => scores[u] || 0)), losers = r.filter(u => (scores[u] || 0) === min);
+  const names = list => list.map(u => nameOf(u)).join(" y ");
+  return `<div class="card verdict pop"><p class="muted">Fin de la partida</p>
+      <div class="big">${winners.length === r.length ? "¡Empate total!" : `${esc(names(winners))} ${winners.length > 1 ? "ganan" : "gana"}`}</div>
+      ${cfg.drinks && winners.length !== r.length ? `<div class="drinks"><p>🥃 <b>${esc(names(losers))}</b> ${losers.length > 1 ? "se toman" : "se toma"} un chupito por quedar ${losers.length > 1 ? "últimos" : "último"}.</p></div>` : ""}</div>
+    ${scoresHTML(ids, scores, sips, nameOf, av, true, cfg)}`;
+}
+function galleryHTML(gal, srcOf, nameOf) {
+  if (!gal || !gal.length) return "";
+  return `<div class="card"><h2>Galería de la ronda</h2><div class="gallery">${gal.map(x => { const s = srcOf(x.u); return `<figure>${imgOrWait(s)}<figcaption><b>${esc(nameOf(x.u))}</b>${esc(comboText(x.ans))}</figcaption></figure>`; }).join("")}</div></div>`;
+}
+
+/* ================= un solo móvil ================= */
+function localCfg() { return { ...DEF_CFG, ...(ls.get("dib.lcfg") || {}) }; }
+H.lcfg = a => { const [k, v] = a.split(":"); ls.set("dib.lcfg", { ...localCfg(), [k]: +v }); render(); };
+H.ltog = (k, e) => { ls.set("dib.lcfg", { ...localCfg(), [k]: e.target.checked }); render(); };
+H.lname = (i, e) => { S.names[+i] = e.target.value.slice(0, 14); ls.set("dib.names", S.names); };
+H.ladd = () => { if (S.names.length < MAX_LOCAL) { S.names.push(""); ls.set("dib.names", S.names); render(); setTimeout(() => { const el = document.getElementById("ln" + (S.names.length - 1)); el && el.focus(); }, 0); } };
+H.ldel = i => { S.names.splice(+i, 1); ls.set("dib.names", S.names); S.lastHtml = ""; render(); };
+H.lstart = () => {
+  const names = S.names.map(n => n.trim()).filter(Boolean);
+  if (names.length < 2) { S.homeMsg = "Escribid al menos 2 nombres."; S.homeErr = true; render(); return; }
+  if (new Set(names.map(n => n.toLowerCase())).size !== names.length) { S.homeMsg = "Hay dos nombres iguales."; S.homeErr = true; render(); return; }
+  S.homeMsg = "";
+  const cfg = localCfg();
+  S.L = { names, cfg, r: 1, scores: {}, sips: {}, used: [], step: "pass", i: 0, gi: 0, guesses: [], gallery: [] };
+  lRound(); lSave(); render();
+};
+H.lresume = () => { S.L = S.resume; S.resume = null; if (S.L.step === "draw") { S.L.step = "see"; } if (S.L.step === "guess") S.L.step = "gpass"; render(); };
+H.ldrop = () => { ls.del("dib.local"); S.resume = null; render(); };
+function lRound() {
+  const L = S.L, combos = deal(L.names.length, L.cfg, L.used);
+  L.used = usedFrom(combos, L.used);
+  L.order = shuffle(L.names.map((_, i) => i)); L.combos = combos; L.i = 0; L.step = "pass"; L.gallery = []; lCur();
+}
+function lCur() { const L = S.L; L.cur = L.combos[L.i]; L.drawer = L.order[L.i]; L.gi = 0; L.guesses = []; L.img = ""; L.j = null; }
+function lGuessers() { const L = S.L, k = L.order.indexOf(L.drawer); return [...L.order.slice(k + 1), ...L.order.slice(0, k)]; }
+function lSave() {
+  const L = S.L; if (!L) return;
+  if (!ls.set("dib.local", L)) ls.set("dib.local", { ...L, gallery: L.gallery.map(x => ({ ...x, img: "" })) });
+}
+const lName = i => S.L.names[i] || "?";
+const lAv = i => `<span class="av" style="--c:${PCOL[i % PCOL.length]}">${esc(lName(i).charAt(0).toUpperCase())}</span>`;
+H.lsee = () => { S.L.step = "see"; lSave(); render(); };
+H.ldraw = () => { const L = S.L; padReset("l" + Date.now()); L.step = "draw"; L.until = Date.now() + L.cfg.time * 1000; render(); };
+H.ldone = () => {
+  const L = S.L; if (!L || L.step !== "draw") return;
+  L.img = padExport(); L.until = null; L.step = "gpass"; L.gi = 0; lSave(); render();
+};
+H.lgsee = () => { S.L.step = "guess"; S.sel = {}; render(); };
+H.lguess = () => {
+  const L = S.L, gs = lGuessers();
+  L.guesses.push({ u: gs[L.gi], g: { ...S.sel } }); S.sel = {};
+  L.gi++;
+  if (L.gi < gs.length) L.step = "gpass";
+  else {
+    const j = judge(L.drawer, L.cur, L.guesses, L.cfg);
+    applyScores(L.scores, L.sips, L.drawer, j);
+    L.j = j; L.gallery.push({ u: L.drawer, ans: { p: L.cur.p, a: L.cur.a, l: L.cur.l }, img: L.img });
+    L.step = "show";
+  }
+  lSave(); render();
+};
+H.lnext = () => {
+  const L = S.L;
+  if (L.step === "show") {
+    if (L.i + 1 < L.order.length) { L.i++; lCur(); L.step = "pass"; }
+    else L.step = L.r >= L.cfg.rounds ? "end" : "round";
+  } else if (L.step === "round") { L.r++; lRound(); }
+  lSave(); render();
+};
+H.lquit = () => { if (S.L.step !== "end" && !confirm("¿Salir? Podréis continuar la partida luego.")) return; if (S.L.step === "end") ls.del("dib.local"); else S.resume = S.L; S.L = null; render(); };
+H.lagain = () => { ls.del("dib.local"); S.L = null; S.names = ls.get("dib.names") || S.names; H.lstart(); };
+function renderLocal() {
+  const L = S.L, d = L.drawer, ids = L.names.map((_, i) => i);
+  const top = `<div class="top"><button class="btn ghost sm" data-on="click:lquit">Salir</button><span class="sp"></span><span class="chip">RONDA ${L.r}/${L.cfg.rounds}</span></div>`;
+  let body = "";
+  if (L.step === "pass") body = `<div class="card center pop"><p class="muted">Dibujo ${L.i + 1} de ${L.order.length}</p><h2 style="font-size:26px">Pasa el móvil a ${esc(lName(d))}</h2>
+      <p class="muted">Los demás, no miréis la pantalla.</p></div>
+      <button class="btn pink wide" data-on="click:lsee">Soy ${esc(lName(d))}: ver mi carta</button>`;
+  else if (L.step === "see") body = `<p class="muted center">Esto es lo que tienes que dibujar, ${esc(lName(d))}:</p>${comboHTML(L.cur)}
+      <p class="muted small center">Sin letras ni números. Cuando pulses, empieza el reloj (${clock(L.cfg.time * 1000)}).</p>
+      <button class="btn pink wide" data-on="click:ldraw">Empezar a dibujar</button>`;
+  else if (L.step === "draw") body = `<div class="top"><span class="timer" data-until="${L.until}"></span><span class="sp"></span>${lAv(d)}<b>${esc(lName(d))}</b></div>
+      ${comboHTML(L.cur, true)}${padHTML()}<button class="btn pink wide" data-on="click:done">He terminado</button>`;
+  else if (L.step === "gpass") { const u = lGuessers()[L.gi]; body = `<div class="card center pop"><p class="muted">Ha dibujado ${esc(lName(d))}</p><h2 style="font-size:26px">Pasa el móvil a ${esc(lName(u))}</h2>
+      <p class="muted">${L.gi ? "Que no vea lo que han elegido los demás." : `${esc(lName(d))}, no digas nada.`}</p></div>
+      <button class="btn pink wide" data-on="click:lgsee">Soy ${esc(lName(u))}: adivinar</button>`; }
+  else if (L.step === "guess") { const u = lGuessers()[L.gi]; body = `<div class="top">${lAv(u)}<b>${esc(lName(u))} adivina</b><span class="sp"></span><span class="muted small">Dibujo de ${esc(lName(d))}</span></div>
+      ${imgHTML(L.img)}${optsHTML(L.cur.o, S.sel)}<button class="btn pink wide" data-on="click:guess">Confirmar</button>`; }
+  else if (L.step === "show") body = showHTML({ src: L.img, drawer: d, ans: L.cur, res: L.j.res, drinks: L.j.drinks, dp: L.j.dp, nameOf: lName, av: lAv })
+      + `<button class="btn pink wide" data-on="click:lnext">${L.i + 1 < L.order.length ? "Siguiente dibujo" : L.r >= L.cfg.rounds ? "Ver el final" : "Fin de la ronda"}</button>`;
+  else if (L.step === "round") body = `<div class="card verdict pop"><div class="big">Fin de la ronda ${L.r}</div></div>
+      ${scoresHTML(ids, L.scores, L.sips, lName, lAv, false, L.cfg)}${galleryHTML(L.gallery, u => (L.gallery.find(x => x.u === u) || {}).img || "", lName)}
+      <button class="btn pink wide" data-on="click:lnext">Siguiente ronda</button>`;
+  else if (L.step === "end") body = `${endHTML(ids, L.scores, L.sips, lName, lAv, L.cfg)}${galleryHTML(L.gallery, u => (L.gallery.find(x => x.u === u) || {}).img || "", lName)}
+      <div class="row"><button class="btn pink" data-on="click:lagain">Otra partida</button><button class="btn ghost" data-on="click:lquit">Salir</button></div>`;
+  view(top + body);
+}
+
+window.__dib = { S, PAD, deal, judge, drive, decks };
+boot();
+})();
+</script>
+</body>
+</html>

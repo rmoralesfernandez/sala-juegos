@@ -1,0 +1,906 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Mercaderes</title>
+<meta name="theme-color" content="#170F28">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="../icons/icon-192.png">
+<link rel="apple-touch-icon" href="../icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rozha+One&family=Manrope:wght@500;700;800&display=swap">
+<script>window.APP_KEY="mercaderes"</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="../firebase-config.js"></script>
+<script src="../shared/claude-shim.js"></script>
+<script src="motor.js"></script>
+<style>
+/* Layout: mesa de bazar a una columna. Rival arriba, fichas y mercado en el centro, tu rebaño y tu mano abajo, botón de acción fijo bajo la mano */
+:root{
+  --bg:#170F28; --bg2:#2B1840; --panel:#231936; --panel2:#33254A; --line:#45345E;
+  --ink:#FBF3E4; --muted:#B9A9C9; --gold:#F2B544; --gold2:#A8741C; --ok:#7CDB9A; --bad:#FF7A6B;
+  --D:#C21E3A; --O:#D99A12; --P:#8D9AA8; --T:#7E3FA6; --E:#2F8A45; --C:#94592A; --K:#E2C084;
+  --display:"Rozha One",Georgia,serif;
+  --body:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:
+  radial-gradient(70% 45% at 50% -5%,rgba(242,181,68,.16),transparent 70%),
+  radial-gradient(120% 80% at 50% 0%,var(--bg2),var(--bg) 70%) fixed;
+  background-color:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.4;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+#app{max-width:600px;margin:0 auto;min-height:100%;padding-inline:16px;padding-block:calc(12px + env(safe-area-inset-top,0px)) calc(24px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:10px}
+h1,h2,h3{font-family:var(--display);font-weight:400;margin:0;letter-spacing:.01em;text-wrap:balance}
+p{margin:0}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+
+.btn{appearance:none;border:0;border-radius:14px;min-height:50px;padding:0 18px;background:var(--panel2);color:var(--ink);font-weight:800;font-size:16px;box-shadow:0 3px 0 rgba(0,0,0,.45);display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:transform .08s;text-align:center}
+.btn:active{transform:translateY(2px)}
+.btn.gold{background:linear-gradient(180deg,#FFD27A,var(--gold));color:#3A2104}
+.btn.ghost{background:transparent;box-shadow:inset 0 0 0 2px var(--line)}
+.btn.sm{min-height:40px;font-size:14px;padding:0 12px;border-radius:11px}
+.btn:disabled{opacity:.42;cursor:default;transform:none}
+.btn.wide{width:100%}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>*{flex:1 1 140px}
+input.text{width:100%;min-height:50px;border-radius:12px;border:2px solid var(--line);background:var(--bg);padding:0 14px;font-size:17px;font-weight:700}
+input.code{text-transform:uppercase;letter-spacing:.3em;font-family:var(--display);font-size:24px;text-align:center}
+label.lbl,.lbl{display:grid;gap:6px;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.card{background:var(--panel);border-radius:18px;padding:16px;display:grid;gap:12px;box-shadow:0 0 0 1px var(--line)}
+.card h2{font-size:22px}
+.msg{min-height:1.4em;color:var(--gold);text-align:center;font-weight:700}
+.msg.err{color:var(--bad)}
+.hero{display:grid;gap:10px;justify-items:center;text-align:center;padding-block:10px 4px}
+.logo{font-family:var(--display);font-size:clamp(42px,12vw,62px);line-height:.95;color:var(--gold);text-shadow:0 3px 0 #6B3F08,0 10px 30px rgba(0,0,0,.6)}
+.logo small{display:block;font-family:var(--body);font-weight:800;font-size:.22em;letter-spacing:.4em;color:var(--ink);text-shadow:none;margin-bottom:8px}
+.fan{display:flex;justify-content:center;height:118px;align-items:flex-end;margin-bottom:18px}
+.fan .cardx{width:66px;margin:0 -10px;box-shadow:0 10px 20px rgba(0,0,0,.5)}
+.seg{display:flex;gap:6px;background:var(--bg);border-radius:12px;padding:4px}
+.seg button{flex:1;appearance:none;border:0;background:transparent;border-radius:9px;min-height:40px;font-weight:800;font-size:14px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--panel2);color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--gold2)}
+
+.top{display:flex;align-items:center;gap:8px}
+.top .sp{flex:1}
+.chip{font-weight:800;font-size:12px;letter-spacing:.1em;background:var(--panel);padding:7px 11px;border-radius:999px;box-shadow:0 0 0 1px var(--line);white-space:nowrap}
+.icon-btn{appearance:none;border:0;width:40px;height:40px;border-radius:11px;background:var(--panel);box-shadow:0 0 0 1px var(--line);display:grid;place-items:center;color:var(--ink);font-weight:800;font-size:18px;flex:none}
+.big-code{font-family:var(--display);font-size:56px;letter-spacing:.16em;line-height:1;text-align:center;color:var(--gold)}
+.seats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.seat{background:var(--bg);border-radius:14px;padding:12px;display:grid;gap:2px;text-align:center;min-width:0}
+.seat b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.seat.empty{color:var(--muted);border:2px dashed var(--line);background:transparent}
+.wait{display:grid;place-items:center;gap:6px;text-align:center;padding:14px;background:var(--panel);border-radius:16px}
+
+/* ---------- cartas ---------- */
+.cardx{position:relative;aspect-ratio:5/7;border-radius:10px;display:grid;place-items:center;background:var(--g);color:#fff;
+  box-shadow:inset 0 0 0 2px rgba(255,255,255,.18),inset 0 0 0 5px rgba(0,0,0,.18),0 3px 0 rgba(0,0,0,.4);overflow:hidden;user-select:none;-webkit-user-select:none}
+.cardx::before{content:"";position:absolute;inset:4px;border-radius:7px;border:1.5px solid rgba(255,230,170,.55);pointer-events:none}
+.cardx::after{content:"";position:absolute;inset:0;background:linear-gradient(160deg,rgba(255,255,255,.28),transparent 40%,rgba(0,0,0,.22));pointer-events:none}
+.cardx svg.ic{width:74%;height:auto;filter:drop-shadow(0 2px 2px rgba(0,0,0,.35))}
+.cardx .nm{position:absolute;bottom:7%;left:0;right:0;text-align:center;font-weight:800;font-size:clamp(8px,2.1vw,11px);letter-spacing:.06em;text-transform:uppercase;opacity:.92}
+.cardx.K{color:#4A2E0A}
+.cardx.back{background:radial-gradient(circle at 50% 50%,#E8B04A 0 9%,transparent 10%),repeating-linear-gradient(45deg,#7A1328 0 6px,#8E1A31 6px 12px);}
+.cardx.back::before{border-color:rgba(242,181,68,.7)}
+.g-D{--g:linear-gradient(160deg,#E2405A,var(--D) 55%,#7E0F22)}
+.g-O{--g:linear-gradient(160deg,#F7C64A,var(--O) 55%,#8F5E05)}
+.g-P{--g:linear-gradient(160deg,#C9D2DB,var(--P) 55%,#57626E)}
+.g-T{--g:linear-gradient(160deg,#A566CC,var(--T) 55%,#4C2068)}
+.g-E{--g:linear-gradient(160deg,#55B568,var(--E) 55%,#185226)}
+.g-C{--g:linear-gradient(160deg,#BC7D47,var(--C) 55%,#5B3414)}
+.g-K{--g:linear-gradient(160deg,#F5DEAE,var(--K) 55%,#B48D4E)}
+button.cardx{appearance:none;border:0;padding:0;cursor:pointer;transition:transform .15s,box-shadow .15s}
+button.cardx.sel{transform:translateY(-10px);box-shadow:inset 0 0 0 2px rgba(255,255,255,.18),0 0 0 3px var(--gold),0 0 18px rgba(242,181,68,.75),0 8px 14px rgba(0,0,0,.5)}
+button.cardx:disabled{cursor:default}
+.cardx.new{animation:deal .5s cubic-bezier(.2,.8,.3,1.2) both}
+.cardx.flash{box-shadow:inset 0 0 0 2px rgba(255,255,255,.18),0 0 0 3px #FFE3A0,0 0 20px rgba(255,220,140,.8)}
+@keyframes deal{from{transform:translateY(-28px) rotate(-6deg) scale(.7);opacity:0}}
+
+/* ---------- jugadores ---------- */
+.pl{display:flex;align-items:center;gap:10px;min-height:52px;padding:8px 12px;border-radius:14px;background:var(--panel);box-shadow:0 0 0 1px var(--line);transition:box-shadow .2s}
+.pl.turn{box-shadow:0 0 0 2px var(--gold),0 0 22px -6px var(--gold)}
+.pl .who{display:grid;min-width:0;flex:1}
+.pl .who b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pl .who span{font-size:12.5px;color:var(--muted)}
+.mini{display:flex;align-items:center}
+.mini .cardx{width:20px;margin-left:-11px;border-radius:4px;box-shadow:0 1px 0 rgba(0,0,0,.5)}
+.mini .cardx::before{inset:2px;border-radius:2px;border-width:1px}
+.mini .cardx:first-child{margin-left:0}
+.stat{display:flex;align-items:center;gap:4px;font-weight:800;font-size:14px;white-space:nowrap}
+.stat svg{width:22px;height:22px}
+.seals{display:flex;gap:3px}
+.seals i{width:14px;height:14px;border-radius:50%;box-shadow:inset 0 0 0 2px var(--gold2)}
+.seals i.on{background:radial-gradient(circle at 35% 30%,#FFE6A6,var(--gold) 60%,#9C6A12);box-shadow:0 0 8px rgba(242,181,68,.6)}
+
+/* ---------- fichas ---------- */
+.tokens{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;background:var(--panel);border-radius:14px;padding:8px;box-shadow:0 0 0 1px var(--line)}
+.tk{appearance:none;border:0;background:transparent;padding:0;display:grid;justify-items:center;gap:1px;min-width:0}
+.coin{width:min(42px,11vw);aspect-ratio:1;border-radius:50%;display:grid;place-items:center;background:var(--g);font-family:var(--display);font-size:clamp(17px,5vw,22px);line-height:1;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.6);box-shadow:inset 0 0 0 2px rgba(255,235,190,.6),inset 0 -3px 0 rgba(0,0,0,.25),0 2px 0 rgba(0,0,0,.45)}
+.coin.K{color:#4A2E0A;text-shadow:none}
+.coin.out{background:var(--bg);color:var(--muted);box-shadow:inset 0 0 0 2px var(--line);font-size:16px}
+.tk small{font-size:11px;color:var(--muted);font-weight:700}
+.bonusrow{display:flex;justify-content:center;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--muted);font-weight:700}
+.bonusrow b{color:var(--ink)}
+.bonusrow .warn{color:var(--gold)}
+
+/* ---------- mercado ---------- */
+.zone{display:grid;gap:6px}
+.zone-h{display:flex;align-items:center;justify-content:space-between;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.market{display:grid;grid-template-columns:repeat(5,1fr);gap:clamp(5px,1.6vw,10px);padding-top:10px}
+.deck{display:flex;align-items:center;gap:6px;text-transform:none;letter-spacing:0}
+.deck .cardx{width:22px;border-radius:4px}
+.deck .cardx::before{inset:2px;border-radius:2px;border-width:1px}
+.last{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:rgba(242,181,68,.1);border-radius:12px;padding:8px 12px;font-size:14px;font-weight:700;box-shadow:inset 0 0 0 1px rgba(242,181,68,.35)}
+.last.fresh{animation:glow 1.6s ease-out}
+@keyframes glow{0%{background:rgba(242,181,68,.45)}}
+
+/* ---------- tu zona ---------- */
+.herd{display:flex;align-items:center;gap:6px;text-transform:none;letter-spacing:0;font-size:14px;color:var(--ink)}
+.herd .hb{appearance:none;border:0;display:flex;align-items:center;gap:4px;background:linear-gradient(160deg,#F5DEAE,var(--K));color:#4A2E0A;border-radius:999px;padding:3px 10px 3px 6px;font-weight:800;min-height:34px;box-shadow:0 2px 0 rgba(0,0,0,.4)}
+.herd .hb svg{width:24px;height:24px}
+.herd .give{color:#FFB2A8;font-weight:800}
+.stepper button{appearance:none;border:0;width:32px;height:32px;border-radius:9px;background:var(--panel2);font-weight:800;font-size:18px;line-height:1;color:var(--ink)}
+.hand{display:grid;grid-template-columns:repeat(var(--cols,5),1fr);gap:clamp(4px,1.4vw,9px);min-height:60px;align-items:end;padding-top:12px}
+.hand .empty{grid-column:1/-1;color:var(--muted);font-size:14px;text-align:center;padding:16px 0}
+.quick{display:flex;flex-wrap:wrap;gap:6px}
+.quick button{appearance:none;border:0;border-radius:999px;background:var(--panel);box-shadow:0 0 0 1px var(--line);padding:5px 10px 5px 5px;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;min-height:34px}
+.quick button .dot{width:24px;height:24px;border-radius:50%;background:var(--g);display:grid;place-items:center}
+.quick button .dot svg{width:17px;height:17px}
+.quick button b{color:var(--gold)}
+.quick button.no{opacity:.6}
+.coach{font-size:14.5px;font-weight:700;text-align:center;min-height:2.8em;color:var(--ink);text-wrap:balance}
+.coach.err{color:#FFB2A8}
+.coach.ok{color:var(--gold)}
+.acts{display:flex;gap:8px}
+.acts .btn{flex:1 1 0;min-width:0}
+.acts .btn.main{flex:2.4 1 0}
+.myscore{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13.5px;color:var(--muted);font-weight:700}
+.myscore b{color:var(--ink)}
+.log{background:var(--panel);border-radius:14px;padding:10px 12px;box-shadow:0 0 0 1px var(--line);font-size:13.5px}
+.log summary{font-weight:800;cursor:pointer}
+.log ol{margin:8px 0 0;padding-left:20px;display:grid;gap:3px;max-height:160px;overflow:auto}
+
+/* ---------- cubierta para pasar el móvil ---------- */
+.cover{display:grid;gap:16px;justify-items:center;text-align:center;padding:40px 8px}
+.cover h2{font-size:34px;color:var(--gold)}
+
+/* ---------- final de ronda ---------- */
+.res{width:100%;border-collapse:collapse;font-size:14.5px}
+.res th,.res td{padding:7px 4px;text-align:right;border-bottom:1px solid var(--line)}
+.res th:first-child,.res td:first-child{text-align:left}
+.res thead th{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.res tr.tot td{font-weight:800;font-size:17px;border-bottom:0}
+.res .w{color:var(--gold)}
+.end-h{color:var(--gold);font-size:30px;text-align:center}
+
+/* ---------- hojas, ayuda y tutorial ---------- */
+#sheet{position:fixed;inset:0;z-index:50;display:none}
+#sheet.on{display:block}
+#sheet .scrim{position:absolute;inset:0;background:rgba(0,0,0,.62)}
+#sheet .pane{position:absolute;left:0;right:0;bottom:0;max-width:600px;max-height:92svh;overflow:auto;margin:0 auto;background:var(--panel);border-radius:22px 22px 0 0;padding:18px 16px calc(20px + env(safe-area-inset-bottom,0px));display:grid;gap:12px;box-shadow:0 -10px 40px rgba(0,0,0,.6)}
+.rules{display:grid;gap:14px;font-size:15px}
+.rules h3{font-size:20px;color:var(--gold)}
+.rules section{display:grid;gap:6px}
+.rules ul{margin:0;padding-left:20px;display:grid;gap:4px}
+.rules b{color:var(--gold)}
+.rules .ex{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.rules .ex .cardx{width:44px;border-radius:6px}
+.rules .ex .cardx::before{inset:3px;border-radius:4px;border-width:1px}
+.rules .ex .cardx .nm{display:none}
+.tbl{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center;font-size:14px}
+.tbl .coin{width:30px;font-size:14px}
+#tour{position:fixed;inset:0;z-index:70;display:none}
+#tour.on{display:block}
+#tour .bub{position:fixed;left:50%;transform:translateX(-50%);width:min(560px,calc(100% - 24px));background:#FFF6E4;color:#2A1A08;border-radius:18px;padding:16px;display:grid;gap:10px;box-shadow:0 20px 50px rgba(0,0,0,.6)}
+#tour .bub h3{font-size:22px;color:#8A4B04}
+#tour .bub .row .btn{flex:1 1 0}
+#tour .bub .btn.ghost{color:#2A1A08;box-shadow:inset 0 0 0 2px #D8C4A0}
+#tour .steps{font-size:12px;font-weight:800;color:#8A6A3A;letter-spacing:.08em}
+#tour .shade{position:fixed;inset:0;background:rgba(0,0,0,.55)}
+.spot{position:relative;z-index:65;box-shadow:0 0 0 4px var(--gold),0 0 0 9999px rgba(0,0,0,.6)!important;border-radius:14px}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,12px);opacity:0;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:700;font-size:14px;transition:opacity .2s,transform .2s;pointer-events:none;max-width:calc(100% - 32px);z-index:80;text-align:center}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+.float{position:fixed;z-index:60;font-family:var(--display);font-size:34px;color:var(--gold);text-shadow:0 2px 0 #6B3F08,0 0 20px rgba(0,0,0,.8);pointer-events:none;animation:up 1.4s ease-out forwards}
+@keyframes up{from{transform:translate(-50%,0) scale(.6);opacity:0}20%{transform:translate(-50%,-10px) scale(1.15);opacity:1}to{transform:translate(-50%,-70px) scale(1);opacity:0}}
+@media (prefers-reduced-motion:reduce){.cardx.new,.last.fresh,.float{animation:none}button.cardx{transition:none}#toast{transition:none}}
+</style>
+</head>
+<body>
+<div id="app"><div class="hero"><div class="logo"><small>EL BAZAR DE LOS</small>Mercaderes</div><p class="muted">Abriendo el bazar…</p></div></div>
+<div id="sheet"></div>
+<div id="tour"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+"use strict";
+const B = window.Bazar;
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const ls = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }, del(k) { try { localStorage.removeItem(k); } catch {} } };
+const $app = document.getElementById("app"), $sheet = document.getElementById("sheet"), $tour = document.getElementById("tour");
+let toastT;
+function toast(m, ms) { const t = document.getElementById("toast"); t.textContent = m; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), ms || 3000); }
+function on(sel, ev, fn, root) { (root || $app).querySelectorAll(sel).forEach(el => el.addEventListener(ev, fn)); }
+const buzz = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch {} };
+const LVL = { 1: "Aprendiz", 2: "Comerciante", 3: "Gran visir" };
+const N = B.NAME, N1 = B.NAME1;
+const plural = (n, t) => n === 1 ? `1 ${N1[t]}` : `${n} ${N[t]}`;
+const sum = a => a.reduce((x, y) => x + y, 0);
+
+/* ================= dibujos (SVG propios) ================= */
+const ICON = {
+  D: `<path d="M30 26h40l16 18-36 40-36-40z" fill="#FFF4F4"/><path d="M14 44h72M30 26l8 18 12-18 12 18 8-18M38 44l12 40 12-40" fill="none" stroke="#B3142F" stroke-width="2.6" stroke-linejoin="round"/><path d="M36 30l-4 10" stroke="#fff" stroke-width="3" stroke-linecap="round"/>`,
+  O: `<g stroke="#7A4B00" stroke-width="2.4" stroke-linejoin="round"><path d="M10 78l7-15h26l7 15z" fill="#FFE08A"/><path d="M50 78l7-15h26l7 15z" fill="#FFE08A"/><path d="M30 61l7-15h26l7 15z" fill="#FFF0B8"/></g><path d="M20 66h18M60 66h18M40 49h18" stroke="#fff" stroke-width="2.5" stroke-linecap="round" opacity=".8"/>`,
+  P: `<g stroke="#3E4852" stroke-width="2.4"><ellipse cx="50" cy="74" rx="28" ry="9" fill="#E6ECF2"/><path d="M22 74v-8M78 74v-8" /><ellipse cx="50" cy="64" rx="28" ry="9" fill="#F2F6FA"/><path d="M22 64v-8M78 64v-8"/><ellipse cx="50" cy="54" rx="28" ry="9" fill="#FFFFFF"/><ellipse cx="50" cy="54" rx="15" ry="4.6" fill="none"/></g><path d="M44 28l6-8 6 8-6 8z" fill="#fff" stroke="#3E4852" stroke-width="2"/>`,
+  T: `<g stroke="#3D1157" stroke-width="2.4" stroke-linejoin="round"><path d="M30 26h44a9 22 0 0 1 0 44H30z" fill="#E9C9FA"/><path d="M74 70c4 6 6 12 4 18H42c6-6 10-12 10-18z" fill="#D9A9F2"/><ellipse cx="30" cy="48" rx="9" ry="22" fill="#F6E6FF"/><ellipse cx="30" cy="48" rx="4" ry="10" fill="none"/></g><path d="M42 30v36M54 30v36M66 30v36" stroke="#9A55C4" stroke-width="3" stroke-dasharray="4 4"/>`,
+  E: `<g stroke="#0F4A1E" stroke-width="2.4" stroke-linejoin="round"><path d="M22 58c3-16 16-28 28-28s25 12 28 28z" fill="#F3A33A"/><path d="M14 58h72c-2 16-16 26-36 26S16 74 14 58z" fill="#C9F0D2"/></g><g fill="#B5441A"><circle cx="40" cy="46" r="2.4"/><circle cx="52" cy="40" r="2.4"/><circle cx="60" cy="50" r="2.4"/><circle cx="46" cy="53" r="2.4"/></g><path d="M24 70h52" stroke="#2F8A45" stroke-width="3" stroke-linecap="round"/>`,
+  C: `<path d="M30 16c6 4 13 6 20 6s14-2 20-6c2 8 6 13 13 15-4 9-4 18 0 27-7 2-11 7-13 15-6-4-13-6-20-6s-14 2-20 6c-2-8-6-13-13-15 4-9 4-18 0-27 7-2 11-7 13-15z" fill="#F0D2B0" stroke="#4A2808" stroke-width="2.4" stroke-linejoin="round" transform="translate(0 6)"/><path d="M34 32c5 3 10 4 16 4s11-1 16-4c1 5 3 9 7 11-2 6-2 12 0 18-4 2-6 6-7 11-5-3-10-4-16-4s-11 1-16 4c-1-5-3-9-7-11 2-6 2-12 0-18 4-2 6-6 7-11z" fill="none" stroke="#94592A" stroke-width="2" stroke-dasharray="3 3" transform="translate(0 2)"/>`,
+  K: `<path d="M12 30c0-5 5-8 10-8l6 1c3 1 4 4 3 7l3 14c2 2 4 0 6-2 4-6 8-12 16-14 8-2 14 6 18 12 4 2 8 4 10 8l2 8h-2l-2-4-2 12v22h-4l-2-20-2 20h-4V64c-8 2-16 2-22 0v22h-4l-2-20-2 20h-4V62c-4-6-6-14-8-22l-2-6h-6c-4 0-6-1-6-4z" fill="#5A3A12"/><circle cx="20" cy="27" r="1.8" fill="#F5DEAE"/>`,
+  rupee: `<circle cx="50" cy="50" r="40" fill="#F2B544" stroke="#8A5A0A" stroke-width="5"/><path d="M36 32h28M36 44h28M44 32c14 0 14 24 0 24h-6l22 18" fill="none" stroke="#6B3F08" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>`
+};
+const icon = (t, cls) => `<svg class="${cls || "ic"}" viewBox="0 0 100 100" aria-hidden="true">${ICON[t]}</svg>`;
+const cardHTML = (t, extra = "", tag = "div", attrs = "") => `<${tag} class="cardx g-${t} ${t} ${extra}" ${attrs}>${icon(t)}<span class="nm">${t === "K" ? "Camello" : N1[t] === "oro" || N1[t] === "plata" || N1[t] === "cuero" ? N1[t] : N[t]}</span></${tag}>`;
+const backHTML = (extra = "", style = "") => `<div class="cardx back ${extra}"${style ? ` style="${style}"` : ""} aria-hidden="true"></div>`;
+
+/* ================= sonido sintetizado ================= */
+const SFX = {
+  ctx: null, noise: null, on: ls.get("mercaderes.sound") !== false,
+  init() {
+    if (this.ctx) { if (this.ctx.state === "suspended") this.ctx.resume().catch(() => {}); return; }
+    try { const A = window.AudioContext || window.webkitAudioContext; if (!A) return; this.ctx = new A();
+      const n = this.ctx.createBuffer(1, this.ctx.sampleRate, this.ctx.sampleRate), d = n.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; this.noise = n; } catch {}
+  },
+  ok() { return this.on && this.ctx && this.ctx.state === "running"; },
+  hiss(freq, dur, g, at = 0, q = 1) {
+    const c = this.ctx, t = c.currentTime + at, s = c.createBufferSource(), f = c.createBiquadFilter(), v = c.createGain();
+    s.buffer = this.noise; f.type = "bandpass"; f.frequency.value = freq; f.Q.value = q;
+    v.gain.setValueAtTime(g, t); v.gain.exponentialRampToValueAtTime(.001, t + dur);
+    s.connect(f).connect(v).connect(c.destination); s.start(t, Math.random() * .5); s.stop(t + dur + .02);
+  },
+  bell(f, dur, g, at = 0) {
+    const c = this.ctx, t = c.currentTime + at;
+    [[1, 1], [2.76, .35], [5.4, .12]].forEach(([m, k]) => { const o = c.createOscillator(), v = c.createGain(); o.frequency.value = f * m;
+      v.gain.setValueAtTime(.0001, t); v.gain.exponentialRampToValueAtTime(g * k, t + .01); v.gain.exponentialRampToValueAtTime(.0001, t + dur / m ** .3);
+      o.connect(v).connect(c.destination); o.start(t); o.stop(t + dur + .05); });
+  },
+  card() { if (this.ok()) { this.hiss(2400, .12, .25, 0, .7); this.hiss(1600, .1, .15, .05, .7); } },
+  coins(n) { if (!this.ok()) return; for (let i = 0; i < Math.min(n, 6); i++) this.bell(1800 + Math.random() * 900, .25, .07, i * .07); },
+  camel() { if (this.ok()) { this.hiss(300, .25, .4, 0, 2); this.hiss(220, .3, .35, .18, 2); } },
+  fanfare() { if (this.ok()) [523, 659, 784, 1047].forEach((f, i) => this.bell(f, .9, .1, i * .13)); },
+  tick() { if (this.ok()) this.hiss(3000, .03, .08); }
+};
+addEventListener("pointerdown", () => SFX.init(), { capture: true });
+
+/* ================= estado ================= */
+const S = {
+  db: null, uid: null, ready: false, offline: false,
+  name: (localStorage.getItem("sala.nick") || "").slice(0, 16),
+  mode: null, code: null, g: null, unsub: null, L: null,
+  sel: { m: [], h: [], cam: 0 }, cover: false, seenN: -1, summaryShown: "",
+  homeTab: "online", aiLevel: ls.get("mercaderes.lvl") || 2, homeMsg: "", homeErr: false, busy: false, lastKey: "",
+  help: ls.get("mercaderes.ayudas") !== false, aiTimer: null, cache: { k: null, v: null }
+};
+const me = () => S.uid;
+window.__mer = { S, B };
+
+async function boot() {
+  try {
+    const [db, user] = await Promise.all(["db", "user"].map(n => window.claude ? claude.use(n).catch(() => null) : null));
+    S.db = db; if (user) S.uid = await user.id();
+  } catch {}
+  if (!S.db || !S.uid) S.offline = true;
+  S.ready = true;
+  const h = (location.hash || "").replace("#", "").toUpperCase(), last = ls.get("mercaderes.last");
+  if (!S.offline && /^[A-Z]{4}$/.test(h)) S.prefill = h;
+  else if (!S.offline && last && last.code && Date.now() - last.t < 12 * 3600e3) S.rejoin = last.code;
+  render();
+}
+
+/* ================= modelo común ================= */
+const seatOf = id => { const st = (S.g && S.g.seats) || {}; return [0, 1].find(i => st[i] && st[i].id === id); };
+function parseSt(str) { if (S.cache.k === str) return S.cache.v; let v = null; try { v = JSON.parse(str); } catch {} S.cache = { k: str, v }; return v; }
+function model() {
+  if (S.mode === "online") {
+    const g = S.g, st = parseSt(g.st), seats = g.seats || {}, seat = seatOf(me());
+    return { mode: "online", st, names: [(seats[0] || {}).name || "Jugador 1", (seats[1] || {}).name || "Jugador 2"], me: seat === undefined ? null : seat };
+  }
+  const L = S.L;
+  return { mode: L.mode, st: L.st, names: L.names, me: L.mode === "ai" ? 0 : L.st.turn, level: L.level };
+}
+/* Desde qué jugador se mira la mesa */
+const viewer = m => m.me === null ? 0 : m.me;
+const canAct = m => !m.st.over && m.me !== null && m.st.turn === m.me && !(m.mode === "local" && S.cover);
+
+/* ================= online ================= */
+function watch(code) {
+  unwatch(); S.mode = "online"; S.code = code; ls.set("mercaderes.last", { code, t: Date.now() });
+  S.unsub = S.db.doc("games/" + code).onSnapshot(snap => {
+    if (!snap.exists) { leave("Esa partida ya no existe."); return; }
+    const prev = S.g; S.g = snap.data(); onRemote(prev); render();
+  }, () => leave("Se ha perdido la conexión con la partida."));
+}
+function unwatch() { if (S.unsub) try { S.unsub(); } catch {} S.unsub = null; S.g = null; clearSel(); closeSheet(); }
+function leave(msg) {
+  unwatch(); clearTimeout(S.aiTimer); S.aiTimer = null;
+  S.mode = null; S.code = null; S.L = null; S.cover = false; S.seenN = -1; S.summaryShown = "";
+  S.homeMsg = msg || ""; S.homeErr = !!msg; history.replaceState(null, "", location.pathname); endTour(); render();
+}
+function onRemote(prev) {
+  if (!prev || !S.g || !S.g.st || prev.st === S.g.st) return;
+  const m = model(), a = parseSt(prev.st), b = m.st;
+  if (!a || !b || m.me === null) return;
+  if (b.n !== a.n || b.round !== a.round) clearSel();
+  if (b.n > a.n && b.last && b.last.p !== m.me && !b.over) { buzz(40); }
+}
+function saveName() {
+  const el = document.getElementById("nm"), v = ((el && el.value) || S.name || "").trim().slice(0, 16);
+  if (!v) { S.homeMsg = "Escribe tu nombre."; S.homeErr = true; render(); return false; }
+  S.name = v; try { localStorage.setItem("sala.nick", v); } catch {} return true;
+}
+const genCode = () => { const A = "ABCDEFGHJKLMNPQRSTUVWXYZ"; let c = ""; for (let i = 0; i < 4; i++) c += A[Math.floor(Math.random() * A.length)]; return c; };
+async function freeCode() { let code; for (let i = 0; i < 6; i++) { code = genCode(); if (!(await S.db.doc("games/" + code).get()).exists) break; } return code; }
+const newSeed = () => Math.floor(Math.random() * 2 ** 31);
+async function createOnline() {
+  if (!saveName()) return;
+  S.busy = true; render();
+  try {
+    const code = await freeCode();
+    await S.db.doc("games/" + code).set({ v: 1, status: "lobby", host: me(), createdAt: Date.now(), seats: { 0: { id: me(), name: S.name } }, st: "" });
+    location.hash = code; watch(code);
+  } catch { S.homeMsg = "No se pudo crear la partida. Revisa la conexión."; S.homeErr = true; }
+  S.busy = false; render();
+}
+async function joinOnline(code) {
+  if (!saveName()) return;
+  code = String(code || "").toUpperCase().replace(/[^A-Z]/g, "");
+  if (code.length !== 4) { S.homeMsg = "El código tiene 4 letras."; S.homeErr = true; render(); return; }
+  S.busy = true; render();
+  try {
+    const ref = S.db.doc("games/" + code), snap = await ref.get();
+    if (!snap.exists) { S.homeMsg = "No hay ninguna partida con ese código."; S.homeErr = true; }
+    else {
+      const g = snap.data(), seats = g.seats || {};
+      const mine = [0, 1].find(i => seats[i] && seats[i].id === me());
+      if (mine !== undefined) { if (seats[mine].name !== S.name) await ref.update({ seats: { [mine]: { id: me(), name: S.name } } }); }
+      else if (!seats[1] && g.status === "lobby") await ref.update({ seats: { 1: { id: me(), name: S.name } } });
+      else toast("La partida está completa: entras como público.");
+      location.hash = code; watch(code);
+    }
+  } catch { S.homeMsg = "No se pudo entrar. Revisa la conexión."; S.homeErr = true; }
+  S.busy = false; render();
+}
+async function put(patch) {
+  S.g = { ...S.g, ...patch }; render();
+  try { await S.db.doc("games/" + S.code).update(patch); }
+  catch { toast("No se pudo guardar. Reintentando…"); setTimeout(() => S.db.doc("games/" + S.code).update(patch).catch(() => toast("Sin conexión con la partida.")), 1500); }
+}
+
+/* ================= mismo móvil y máquina ================= */
+function startLocal(kind) {
+  if (!saveName()) return;
+  let L;
+  if (kind === "local") {
+    const rv = (document.getElementById("rv").value || "").trim().slice(0, 16);
+    if (!rv) { S.homeMsg = "Escribe el nombre del rival."; S.homeErr = true; render(); return; }
+    L = { mode: "local", names: [S.name, rv], st: B.newMatch(newSeed(), Math.random() < .5 ? 0 : 1) };
+    S.cover = true;
+  } else {
+    ls.set("mercaderes.lvl", S.aiLevel);
+    L = { mode: "ai", level: S.aiLevel, names: [S.name, `La máquina · ${LVL[S.aiLevel]}`], st: B.newMatch(newSeed(), Math.random() < .5 ? 0 : 1) };
+  }
+  S.mode = "local"; S.L = L; S.seenN = -1; S.summaryShown = ""; clearSel(); saveLocal(); render();
+}
+function saveLocal() { if (S.L) ls.set("mercaderes.partida", S.L); }
+function resumeLocal() { const L = ls.get("mercaderes.partida"); if (!L) return; S.mode = "local"; S.L = L; S.cover = L.mode === "local" && !L.st.over; S.seenN = L.st.n; S.summaryShown = ""; clearSel(); render(); }
+
+/* ================= jugar ================= */
+function commit(st) {
+  if (S.mode === "online") put({ st: JSON.stringify(st), status: "play" });
+  else { S.L.st = st; if (S.L.mode === "local" && !st.over) S.cover = true; saveLocal(); render(); }
+}
+function act(a) {
+  const m = model(), p = m.me;
+  const err = B.check(m.st, p, a);
+  if (err) { toast(err); return; }
+  const st = B.apply(m.st, p, a);
+  feedback(st.last, true);
+  clearSel(); commit(st);
+}
+function feedback(last, mine) {
+  if (!last) return;
+  if (last.t === "sell") {
+    SFX.coins(last.got.length + (last.bonus > 0 ? 2 : 0));
+    const v = sum(last.got);
+    if (mine && v) floatText(`+${v}${last.bonus > 0 ? " +★" : ""}`);
+  } else if (last.t === "camels") SFX.camel();
+  else SFX.card();
+}
+function floatText(t) {
+  const host = document.getElementById("tok"); if (!host) return;
+  const r = host.getBoundingClientRect(), el = document.createElement("div");
+  el.className = "float"; el.textContent = t; el.style.left = (r.left + r.width / 2) + "px"; el.style.top = (r.top + r.height / 2 - 20) + "px";
+  document.body.appendChild(el); setTimeout(() => el.remove(), 1500);
+}
+function clearSel() { S.sel = { m: [], h: [], cam: 0 }; }
+function maybeAI() {
+  if (S.mode !== "local" || !S.L || S.L.mode !== "ai" || S.aiTimer) return;
+  const st = S.L.st;
+  if (st.over || st.turn !== 1) return;
+  S.aiTimer = setTimeout(() => {
+    S.aiTimer = null;
+    if (!S.L || S.L.mode !== "ai" || S.L.st !== st) return;
+    const a = B.bestMove(st, 1, S.L.level);
+    if (!a) return;
+    const ns = B.apply(st, 1, a);
+    feedback(ns.last, false);
+    S.L.st = ns; saveLocal(); render();
+  }, 1300);
+}
+function nextRound() {
+  const m = model(); if (!m.st.over) return;
+  const st = m.st.match === null ? B.nextRound(m.st) : B.rematch(m.st, B.mix(m.st.seed, 7777 + m.st.round));
+  closeSheet(); clearSel(); S.summaryShown = "";
+  if (S.mode === "online") put({ st: JSON.stringify(st) });
+  else { S.L.st = st; S.cover = S.L.mode === "local"; saveLocal(); render(); }
+}
+
+/* Lo que el jugador ha seleccionado → qué acción sería y qué le falta */
+function intent(m) {
+  const st = m.st, p = viewer(m), hand = st.hands[p], mk = st.market, { m: sm, h: sh, cam } = S.sel;
+  const out = (o) => o;
+  if (!sm.length && !sh.length && !cam) {
+    if (!canAct(m)) return out({ text: "" });
+    return out({ text: S.help ? "Toca cartas del <b>mercado</b> para cogerlas, o cartas iguales de <b>tu mano</b> para venderlas." : "Elige cartas del mercado o de tu mano.", idle: true });
+  }
+  if (sm.length && sm.every(i => mk[i] === "K")) {
+    if (sh.length || cam) return out({ err: "Los camellos se cogen sin dar nada a cambio. Quita las cartas de tu mano." });
+    const n = sm.length;
+    return out({ a: { t: "camels" }, label: `Coger ${n === 1 ? "1 camello" : n + " camellos"}`, text: S.help ? `Te llevas <b>todos</b> los camellos del mercado a tu rebaño y se reponen ${n} cartas del mazo.` : "" });
+  }
+  if (!sm.length) {
+    if (cam && !sh.length) return out({ err: "Para dar camellos, primero elige 2 o más cartas del mercado." });
+    const types = [...new Set(sh.map(i => hand[i]))];
+    if (types.length > 1) return out({ err: "Solo puedes vender un tipo de mercancía por turno. Para cambiar, elige también cartas del mercado." });
+    if (cam) return out({ err: "Para cambiar, elige primero cartas del mercado." });
+    const k = types[0], n = sh.length, a = { t: "sell", k, n };
+    const err = B.check(st, p, a);
+    if (err) return out({ err });
+    const got = st.tok[k].slice(0, n), v = sum(got), bk = n >= 5 ? 5 : n >= 3 ? n : 0;
+    const bonusTxt = bk ? (st.bon[bk].length ? ` + ficha de bonificación (${bk === 5 ? "5 o más" : bk} cartas)` : " (ya no quedan bonificaciones de " + bk + ")") : "";
+    const left = B.count(hand, k) - n;
+    return out({ a, label: `Vender ${plural(n, k)}`, text: `Ganas <b>${v} rupias</b>${got.length < n ? " (se acabaron las fichas)" : ""}${bonusTxt}.` + (S.help && left > 0 ? ` Te quedarías con ${plural(left, k)}.` : "") + (S.help && !bk && n === 2 && !B.PRECIOUS[k] ? " Si juntas 3 o más, ganas bonificación." : "") });
+  }
+  if (sm.length === 1) {
+    if (sh.length || cam) return out({ err: "Para cambiar hay que coger al menos 2 cartas del mercado. Si solo quieres una, quita las de tu mano." });
+    const a = { t: "take", i: sm[0] }, err = B.check(st, p, a);
+    if (err) return out({ err });
+    return out({ a, label: `Coger ${N1[mk[sm[0]]]}`, text: S.help ? `Te llevas esta carta a la mano (tendrás ${hand.length + 1} de 7). ¿Quieres más de una? Elige otra y da a cambio cartas tuyas o camellos.` : "" });
+  }
+  const give = sh.length + cam;
+  if (give < sm.length) {
+    const need = sm.length - give;
+    return out({ text: `Coges ${sm.length}. Ahora elige <b>${need} ${need === 1 ? "carta" : "cartas"} más</b> de tu mano${st.herd[p] ? " o camellos de tu rebaño" : ""} para dejarlas a cambio.`, wait: true });
+  }
+  const a = { t: "swap", take: sm.slice(), give: sh.slice(), camels: cam }, err = B.check(st, p, a);
+  if (err) return out({ err });
+  return out({ a, label: "Cambiar", text: S.help ? `Te llevas ${sm.length} cartas del mercado y dejas ${give} tuyas.` : "" });
+}
+
+function tapMarket(i) {
+  const m = model(); if (!canAct(m)) return notYourTurn(m);
+  const mk = m.st.market, s = S.sel;
+  if (mk[i] === "K") {
+    const all = mk.map((c, j) => c === "K" ? j : -1).filter(j => j >= 0);
+    s.m = s.m.length && s.m.every(j => mk[j] === "K") ? [] : all;
+    if (s.m.length) { s.h = []; s.cam = 0; if (S.help && all.length > 1) toast("Los camellos se cogen todos juntos."); }
+  } else {
+    s.m = s.m.filter(j => mk[j] !== "K");
+    s.m = s.m.includes(i) ? s.m.filter(j => j !== i) : [...s.m, i];
+  }
+  s.cam = Math.min(s.cam, Math.max(0, s.m.length - s.h.length));
+  SFX.tick(); updateGame();
+}
+function tapHand(i) {
+  const m = model(); if (!canAct(m)) return notYourTurn(m);
+  const s = S.sel, mk = m.st.market;
+  if (s.m.length && s.m.every(j => mk[j] === "K")) s.m = [];
+  s.h = s.h.includes(i) ? s.h.filter(j => j !== i) : [...s.h, i];
+  SFX.tick(); updateGame();
+}
+function quickSell(k) {
+  const m = model(); if (!canAct(m)) return notYourTurn(m);
+  const hand = m.st.hands[viewer(m)];
+  S.sel = { m: [], h: hand.map((c, i) => c === k ? i : -1).filter(i => i >= 0), cam: 0 };
+  SFX.tick(); updateGame();
+}
+function stepCam(d) {
+  const m = model(); if (!canAct(m)) return;
+  const s = S.sel, max = Math.min(m.st.herd[viewer(m)], Math.max(0, s.m.length - s.h.length));
+  s.cam = Math.max(0, Math.min(max, s.cam + d)); SFX.tick(); updateGame();
+}
+function notYourTurn(m) {
+  if (m.st.over) return;
+  if (m.me === null) toast("Estás mirando la partida.");
+  else if (m.mode === "ai") toast("La máquina está pensando…");
+  else toast("Espera a que juegue tu rival.");
+}
+function hint() {
+  const m = model(); if (!canAct(m)) return;
+  const p = viewer(m), a = B.bestMove(m.st, p, 2);
+  if (!a) return;
+  const mk = m.st.market;
+  if (a.t === "sell") S.sel = { m: [], h: m.st.hands[p].map((c, i) => c === a.k ? i : -1).filter(i => i >= 0).slice(0, a.n), cam: 0 };
+  else if (a.t === "camels") S.sel = { m: mk.map((c, i) => c === "K" ? i : -1).filter(i => i >= 0), h: [], cam: 0 };
+  else if (a.t === "take") S.sel = { m: [a.i], h: [], cam: 0 };
+  else S.sel = { m: a.take.slice(), h: a.give.slice(), cam: a.camels };
+  const why = a.t === "sell" ? "vender ahora asegura las fichas más altas antes que tu rival" :
+    a.t === "camels" ? "los camellos sirven para cambiar sin gastar cartas y dan 5 rupias a quien tenga más" :
+    a.t === "take" ? "esa carta te ayuda a juntar un grupo para vender" : "así juntas mercancías iguales y te quitas lo que no te sirve";
+  toast(`Pista: ${why}. Ya está seleccionado: pulsa el botón dorado.`, 5000);
+  updateGame();
+}
+
+/* ================= vistas ================= */
+function render() {
+  if (!S.ready) return;
+  if (!S.mode) return renderHome();
+  if (S.mode === "online") {
+    if (!S.g) return view(`<div class="hero"><div class="logo"><small>EL BAZAR DE LOS</small>Mercaderes</div><p class="muted">Entrando en la partida…</p></div>`, "load");
+    if (S.g.status === "lobby" || !S.g.st) return renderLobby();
+  }
+  const m = model();
+  if (m.mode === "local" && S.cover && !m.st.over) return renderCover(m);
+  if (S.lastKey !== "game" || !document.getElementById("mk")) buildGame();
+  updateGame();
+  maybeAI();
+  if (!ls.get("mercaderes.tuto") && m.me !== null) setTimeout(() => startTour(), 400);
+}
+function view(html, key) { if (key && key === S.lastKey) return false; S.lastKey = key; $app.innerHTML = html; return true; }
+
+function renderHome() {
+  const saved = ls.get("mercaderes.partida");
+  const canResume = saved && saved.st && saved.st.match === null;
+  const tab = S.homeTab, lv = S.aiLevel;
+  const seg = (name, val, cur, label) => `<button data-${name}="${val}" aria-pressed="${cur === val}">${label}</button>`;
+  const html = `
+  <div class="hero"><div class="fan" aria-hidden="true">${cardHTML("C", "", "div", 'style="transform:rotate(-14deg) translateY(10px)"')}${cardHTML("D", "", "div", 'style="transform:rotate(-5deg)"')}${cardHTML("K", "", "div", 'style="transform:rotate(5deg)"')}${cardHTML("E", "", "div", 'style="transform:rotate(14deg) translateY(10px)"')}</div>
+    <div class="logo"><small>EL BAZAR DE LOS</small>Mercaderes</div>
+    <p class="muted">Compra barato, vende antes que tu rival y hazte con el mejor rebaño de camellos. Para 2 jugadores.</p></div>
+  <button class="btn ghost wide" id="rules">📜 Cómo se juega (léelo si es tu primera vez)</button>
+  <label class="lbl" for="nm">Tu nombre<input id="nm" class="text" maxlength="16" autocomplete="nickname" value="${esc(S.name)}" placeholder="Tu nombre"></label>
+  ${canResume ? `<button class="btn gold wide" id="resume">Continuar partida en este móvil</button>` : ""}
+  <div class="seg" role="group" aria-label="Modo de juego">${seg("tab", "online", tab, "Online")}${seg("tab", "local", tab, "Mismo móvil")}${seg("tab", "ai", tab, "Máquina")}</div>
+  ${tab === "online" ? (S.offline ? `<div class="card"><p class="muted">No hay conexión con el servidor de partidas. Puedes jugar en este móvil o contra la máquina.</p></div>` : `
+  <div class="card"><h2>Nueva partida</h2><p class="muted small">Cada uno desde su móvil. Pasa el código a tu rival.</p><button class="btn gold wide" id="create"${S.busy ? " disabled" : ""}>Crear partida</button></div>
+  <div class="card"><h2>Unirse</h2>
+    <div class="row"><input id="jc" class="text code" maxlength="4" autocomplete="off" placeholder="ABCD" value="${esc(S.prefill || "")}" aria-label="Código de la partida"><button class="btn" id="join"${S.busy ? " disabled" : ""}>Entrar</button></div>
+    ${S.rejoin ? `<button class="btn ghost" id="rejoin">Volver a la partida ${esc(S.rejoin)}</button>` : ""}</div>`) : ""}
+  ${tab === "local" ? `<div class="card"><h2>Los dos en este móvil</h2><p class="muted small">Tus cartas son secretas: entre turno y turno el móvil tapa la mano para que se lo pases a tu rival.</p>
+    <input id="rv" class="text" maxlength="16" placeholder="Nombre del rival" aria-label="Nombre del rival"><button class="btn gold wide" id="local">Empezar</button></div>` : ""}
+  ${tab === "ai" ? `<div class="card"><h2>Contra la máquina</h2><p class="muted small">Ideal para aprender. Empieza por Aprendiz.</p>
+    <span class="lbl">Nivel</span><div class="seg" role="group" aria-label="Nivel">${[1, 2, 3].map(v => seg("lv", v, lv, LVL[v])).join("")}</div>
+    <button class="btn gold wide" id="ai">Empezar</button></div>` : ""}
+  <p class="msg ${S.homeErr ? "err" : ""}" role="status">${esc(S.homeMsg)}</p>`;
+  view(html, "home|" + S.busy + "|" + S.homeMsg + "|" + tab + "|" + lv);
+  const keepName = () => { const el = document.getElementById("nm"); if (el) S.name = el.value.trim().slice(0, 16); };
+  on("[data-tab]", "click", e => { keepName(); S.homeTab = e.currentTarget.dataset.tab; S.homeMsg = ""; render(); });
+  on("[data-lv]", "click", e => { keepName(); S.aiLevel = +e.currentTarget.dataset.lv; render(); });
+  on("#create", "click", createOnline);
+  on("#join", "click", () => joinOnline(document.getElementById("jc").value));
+  on("#jc", "keydown", e => { if (e.key === "Enter") joinOnline(e.target.value); });
+  on("#rejoin", "click", () => joinOnline(S.rejoin));
+  on("#local", "click", () => startLocal("local"));
+  on("#ai", "click", () => startLocal("ai"));
+  on("#resume", "click", resumeLocal);
+  on("#rules", "click", showRules);
+}
+
+function renderLobby() {
+  const g = S.g, st = g.seats || {}, host = g.host === me(), seat = seatOf(me());
+  const seatH = i => st[i] ? `<div class="seat"><span class="muted small">${i === 0 ? "Anfitrión" : "Rival"}</span><b>${esc(st[i].name)}${st[i].id === me() ? " (tú)" : ""}</b></div>` : `<div class="seat empty"><span class="small">Esperando rival…</span></div>`;
+  const html = `
+  <div class="top"><button class="btn ghost sm" id="out">Salir</button><span class="sp"></span><span class="chip">SALA ${esc(S.code)}</span><button class="icon-btn" id="help" aria-label="Cómo se juega">?</button></div>
+  <div class="hero" style="padding-block:6px 0"><div class="logo" style="font-size:40px"><small>EL BAZAR DE LOS</small>Mercaderes</div></div>
+  <div class="card" style="text-align:center"><p class="muted small">Código de la partida</p><div class="big-code">${esc(S.code)}</div>
+    <button class="btn ghost" id="share">Invitar</button></div>
+  <div class="card"><h2>Jugadores</h2><div class="seats">${seatH(0)}${seatH(1)}</div>
+    ${seat === undefined && !st[1] ? `<button class="btn gold" id="sit">Sentarme</button>` : ""}</div>
+  ${host ? `<button class="btn gold wide" id="start"${st[1] ? "" : " disabled"}>${st[1] ? "Empezar la partida" : "Esperando a tu rival…"}</button>`
+    : `<div class="wait"><p>Esperando a que ${esc((st[0] || {}).name || "el anfitrión")} empiece la partida.</p></div>`}
+  <p class="muted small" style="text-align:center">Mientras esperáis, pulsad <b>?</b> para leer las reglas.</p>`;
+  view(html, "lobby|" + JSON.stringify(st) + host);
+  on("#out", "click", () => leave());
+  on("#share", "click", share);
+  on("#help", "click", showRules);
+  on("#sit", "click", () => joinOnline(S.code));
+  on("#start", "click", () => { if (S.g.seats[1]) put({ status: "play", st: JSON.stringify(B.newMatch(newSeed(), Math.random() < .5 ? 0 : 1)) }); });
+}
+function share() {
+  const url = location.origin + location.pathname + "#" + S.code, text = `Vente al bazar de los Mercaderes. Código: ${S.code}`;
+  if (navigator.share) { navigator.share({ title: "Mercaderes", text, url }).catch(() => {}); return; }
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(() => toast("Enlace copiado."), () => toast(url));
+  else toast(url);
+}
+
+function renderCover(m) {
+  const st = m.st, who = m.names[st.turn], last = st.last;
+  view(`<div class="top"><button class="btn ghost sm" id="out">Salir</button><span class="sp"></span><span class="chip">MISMO MÓVIL</span></div>
+  <div class="cover"><div class="fan" aria-hidden="true">${backHTML("", "width:70px;transform:rotate(-8deg)")}${backHTML("", "width:70px;transform:rotate(8deg)")}</div>
+    <p class="muted">Ronda ${st.round}</p>
+    <h2>Turno de ${esc(who)}</h2>
+    ${last ? `<p>${esc(B.describe(last, m.names[last.p]))}.</p>` : `<p class="muted">Empieza ${esc(who)}.</p>`}
+    <p class="muted small">Pásale el móvil sin mirar sus cartas.</p>
+    <button class="btn gold wide" id="go">Soy ${esc(who)}: ver mis cartas</button></div>`, "cover|" + st.n + "|" + st.round);
+  on("#out", "click", () => leave());
+  on("#go", "click", () => { S.cover = false; S.lastKey = ""; render(); });
+}
+
+function buildGame() {
+  const m = model();
+  const chip = S.mode === "online" ? `SALA ${esc(S.code)}` : m.mode === "ai" ? "CONTRA LA MÁQUINA" : "MISMO MÓVIL";
+  const snd = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4z"/>${SFX.on ? '<path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/>' : '<path d="m22 9-6 6M16 9l6 6"/>'}</svg>`;
+  view(`
+  <div class="top"><button class="btn ghost sm" id="out">Salir</button><span class="sp"></span><span class="chip">${chip}</span>
+    <button class="icon-btn" id="help" aria-label="Cómo se juega">?</button><button class="icon-btn" id="snd" aria-label="${SFX.on ? "Quitar sonido" : "Activar sonido"}">${snd}</button></div>
+  <div class="pl" id="opp"></div>
+  <div class="zone" id="tokz"><div class="zone-h"><span>Fichas del bazar</span><span id="rnd"></span></div><div class="tokens" id="tok"></div><div class="bonusrow" id="bon"></div></div>
+  <div class="zone"><div class="zone-h"><span>Mercado</span><span class="deck" id="deck"></span></div><div class="market" id="mk"></div></div>
+  <div id="lastBox"></div>
+  <div class="zone" id="myz"><div class="zone-h"><span id="myTitle">Tu mano</span><div class="herd" id="herd"></div></div>
+    <div class="hand" id="hand"></div></div>
+  <div class="quick" id="quick"></div>
+  <p class="coach" id="coach" role="status" aria-live="polite"></p>
+  <div class="acts" id="acts"></div>
+  <div class="myscore" id="mys"></div>
+  <details class="log" id="logBox"><summary>Lo que ha pasado</summary><ol id="log"></ol></details>`, "game");
+  on("#out", "click", () => {
+    const m = model();
+    if (S.mode === "online" && m.me !== null && m.st.match === null) confirmSheet("¿Salir de la partida?", "Podrás volver con el mismo código.", "Salir", () => leave());
+    else leave();
+  });
+  on("#help", "click", showRules);
+  on("#snd", "click", () => { SFX.on = !SFX.on; ls.set("mercaderes.sound", SFX.on); SFX.init(); S.lastKey = ""; render(); });
+  document.getElementById("mk").addEventListener("click", e => { const b = e.target.closest("[data-i]"); if (b) tapMarket(+b.dataset.i); });
+  document.getElementById("hand").addEventListener("click", e => { const b = e.target.closest("[data-h]"); if (b) tapHand(+b.dataset.h); });
+  document.getElementById("herd").addEventListener("click", e => {
+    if (e.target.closest("[data-st]")) return stepCam(+e.target.closest("[data-st]").dataset.st);
+    const m = model(); if (!canAct(m)) return;
+    if (S.sel.m.length >= 2 && !S.sel.m.some(i => m.st.market[i] === "K")) stepCam(1);
+    else toast("Tu rebaño: los camellos no ocupan sitio en la mano. Sirven para dar en un cambio y, al final de la ronda, quien tenga más gana 5 rupias.", 5000);
+  });
+  document.getElementById("quick").addEventListener("click", e => { const b = e.target.closest("[data-k]"); if (b) quickSell(b.dataset.k); });
+  document.getElementById("tok").addEventListener("click", e => {
+    const b = e.target.closest("[data-t]"); if (!b) return;
+    const t = b.dataset.t, left = model().st.tok[t];
+    toast(left.length ? `${N[t][0].toUpperCase() + N[t].slice(1)}: quedan ${left.length} fichas (${left.join(", ")}). Se cogen de izquierda a derecha.` : `Ya no quedan fichas de ${N[t]}.`, 4500);
+  });
+}
+
+function updateGame() {
+  if (!document.getElementById("mk")) return;
+  const m = model(), st = m.st, p = viewer(m), o = 1 - p, my = canAct(m);
+  const fresh = st.last && st.last.n !== S.seenN && S.seenN !== -1;
+
+  /* rival */
+  const seals = q => `<span class="seals" aria-label="${st.seals[q]} sellos">${[0, 1].map(i => `<i class="${i < st.seals[q] ? "on" : ""}"></i>`).join("")}</span>`;
+  const oppTok = st.won[o].length;
+  const oppName = m.mode === "local" ? m.names[o] : m.names[o];
+  document.getElementById("opp").innerHTML = `
+    <div class="who"><b>${esc(oppName)}</b><span>${oppTok ? `${oppTok} ${oppTok === 1 ? "ficha" : "fichas"} (puntos ocultos)` : "Aún sin fichas"}</span></div>
+    <div class="mini" aria-label="${st.hands[o].length} cartas en la mano">${st.hands[o].map(() => backHTML()).join("")}</div>
+    <span class="stat" title="Camellos">${icon("K", "")}${st.herd[o]}</span>${seals(o)}`;
+  document.getElementById("opp").classList.toggle("turn", !st.over && st.turn === o);
+
+  /* fichas */
+  document.getElementById("tok").innerHTML = B.GOODS.map(t => {
+    const s = st.tok[t];
+    return `<button class="tk" data-t="${t}" aria-label="${N[t]}: ${s.length ? "siguiente ficha vale " + s[0] : "agotado"}"><span class="coin ${s.length ? "g-" + t : "out"}">${s.length ? s[0] : "✕"}</span><small>${s.length ? "×" + s.length : "agotado"}</small></button>`;
+  }).join("");
+  const empty = B.GOODS.filter(t => !st.tok[t].length).length;
+  document.getElementById("bon").innerHTML = `<span>Bonificaciones: 3 cartas <b>${st.bon[3].length}</b> · 4 <b>${st.bon[4].length}</b> · 5+ <b>${st.bon[5].length}</b></span><span class="${empty >= 2 ? "warn" : ""}">Montones agotados: <b>${empty}/3</b></span>`;
+  document.getElementById("rnd").textContent = `Ronda ${st.round}`;
+
+  /* mercado */
+  const mk = st.market, newIdx = fresh && st.last.newIdx ? st.last.newIdx : [];
+  document.getElementById("mk").innerHTML = mk.map((c, i) => cardHTML(c, (S.sel.m.includes(i) ? "sel " : "") + (newIdx.includes(i) ? "new" : ""), "button", `data-i="${i}" aria-pressed="${S.sel.m.includes(i)}" aria-label="Mercado: ${N1[c]}"${my ? "" : ' aria-disabled="true"'}`)).join("")
+    + Array(Math.max(0, 5 - mk.length)).fill(`<div class="cardx" style="background:transparent;box-shadow:inset 0 0 0 2px var(--line)"></div>`).join("");
+  document.getElementById("deck").innerHTML = `${backHTML()}<span>Mazo: <b>${st.deck.length}</b></span>`;
+
+  /* última jugada */
+  const lb = document.getElementById("lastBox");
+  if (st.last) {
+    const L = st.last, who = L.p === m.me ? "Tú" : m.names[L.p];
+    const txt = B.describe(L, who, L.p === m.me);
+    lb.innerHTML = `<div class="last${fresh && L.p !== m.me ? " fresh" : ""}">${esc(txt)}.</div>`;
+  } else lb.innerHTML = `<div class="last">${esc(st.turn === m.me ? "Empiezas tú." : `Empieza ${m.names[st.turn]}.`)}</div>`;
+
+  /* tu zona */
+  const hand = st.hands[p];
+  document.getElementById("myTitle").textContent = `${m.me === null ? "Mano de " + m.names[p] : "Tu mano"} · ${hand.length}/7`;
+  const giving = S.sel.cam, swapMode = my && S.sel.m.length >= 2 && !S.sel.m.some(i => mk[i] === "K") && st.herd[p] > 0;
+  document.getElementById("herd").innerHTML = (swapMode ? `<span class="give">Das ${giving}</span><span class="stepper"><button data-st="-1" aria-label="Dar un camello menos">−</button></span>` : "")
+    + `<button class="hb" aria-label="Tu rebaño: ${st.herd[p]} camellos">${icon("K", "")}×${st.herd[p]}</button>`
+    + (swapMode ? `<span class="stepper"><button data-st="1" aria-label="Dar un camello más">+</button></span>` : "");
+  document.getElementById("hand").style.setProperty("--cols", Math.max(5, hand.length));
+  if (m.me === null) document.getElementById("hand").innerHTML = hand.map(() => backHTML()).join("") || `<p class="empty">Sin cartas</p>`;
+  else document.getElementById("hand").innerHTML = hand.map((c, i) => cardHTML(c, S.sel.h.includes(i) ? "sel" : "", "button", `data-h="${i}" aria-pressed="${S.sel.h.includes(i)}" aria-label="Tu mano: ${N1[c]}"`)).join("") || `<p class="empty">No tienes cartas. Coge del mercado.</p>`;
+
+  /* ventas rápidas (ayudas) */
+  const q = document.getElementById("quick");
+  if (S.help && my) {
+    const types = B.GOODS.filter(t => hand.includes(t));
+    q.innerHTML = types.map(t => {
+      const n = B.count(hand, t), ok = !(B.PRECIOUS[t] && n < 2);
+      const v = sum(st.tok[t].slice(0, n)), bk = n >= 5 ? 5 : n >= 3 ? n : 0;
+      return `<button data-k="${t}" class="${ok ? "" : "no"}" aria-label="Seleccionar ${plural(n, t)} para vender"><span class="dot g-${t}">${icon(t, "")}</span>${n} → ${ok ? `<b>+${v}</b>${bk && st.bon[bk].length ? " +★" : ""}` : "necesitas 2"}</button>`;
+    }).join("");
+    if (types.length) q.insertAdjacentHTML("afterbegin", `<span class="small muted" style="align-self:center">Vender:</span>`);
+  } else q.innerHTML = "";
+
+  /* texto de ayuda y botones */
+  const it = intent(m);
+  const coach = document.getElementById("coach");
+  let ctext = "";
+  if (st.over) ctext = "Ronda terminada.";
+  else if (!my) ctext = m.me === null ? `Juega ${esc(m.names[st.turn])}.` : m.mode === "ai" ? `La máquina está pensando<span class="dots">…</span>` : `Turno de ${esc(m.names[st.turn])}. Espera a que juegue.`;
+  else ctext = it.err ? esc(it.err) : it.text || "";
+  coach.innerHTML = ctext;
+  coach.className = "coach" + (my && it.err ? " err" : my && it.a ? " ok" : "");
+  const acts = document.getElementById("acts");
+  if (st.over) acts.innerHTML = `<button class="btn gold main" id="seeEnd">Ver resultado de la ronda</button>`;
+  else if (my) acts.innerHTML = `<button class="btn sm ghost" id="clr"${S.sel.m.length || S.sel.h.length || S.sel.cam ? "" : " disabled"}>Limpiar</button><button class="btn gold main" id="go"${it.a ? "" : " disabled"}>${esc(it.label || (it.wait ? "Elige qué das" : "Elige cartas"))}</button><button class="btn sm" id="hi">Pista</button>`;
+  else acts.innerHTML = "";
+  on("#go", "click", () => { const it2 = intent(model()); if (it2.a) act(it2.a); });
+  on("#clr", "click", () => { clearSel(); updateGame(); });
+  on("#hi", "click", hint);
+  on("#seeEnd", "click", () => showSummary(true));
+
+  /* tu marcador */
+  const mine = st.won[p], pts = B.points(st, p), nb = mine.filter(x => x.k[0] === "b").length;
+  document.getElementById("mys").innerHTML = m.me === null ? "" : `<span>Tus rupias: <b>${pts}</b>${nb ? ` · ${nb} bonif.` : ""}</span><span style="display:flex;gap:6px;align-items:center">Sellos ${seals(p)}</span>
+    <button class="btn sm ghost" id="aid" style="min-height:32px;font-size:12px" aria-pressed="${S.help}">Ayudas: ${S.help ? "sí" : "no"}</button>`;
+  on("#aid", "click", () => { S.help = !S.help; ls.set("mercaderes.ayudas", S.help); updateGame(); });
+
+  /* historial */
+  const logEl = document.getElementById("log"), hist = st.hist || [];
+  if (logEl.dataset.k !== st.round + "|" + hist.length) {
+    logEl.dataset.k = st.round + "|" + hist.length;
+    logEl.innerHTML = hist.length ? hist.map(x => `<li>${esc(B.describe(x, x.p === m.me ? "Tú" : m.names[x.p], x.p === m.me))}</li>`).join("") : `<li class="muted">Todavía nada en esta ronda.</li>`;
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+  if (fresh && st.last.p !== m.me && m.me !== null) feedback(st.last, false);
+  S.seenN = st.last ? st.last.n : 0;
+
+  if (!st.over && S.sumOpen) closeSheet();
+  if (st.over && S.summaryShown !== st.seed + "|" + st.round) { S.summaryShown = st.seed + "|" + st.round; setTimeout(() => showSummary(), fresh ? 900 : 100); }
+}
+
+/* ================= final de ronda ================= */
+function showSummary() {
+  const m = model(), st = m.st, ov = st.over; if (!ov) return;
+  const row = (label, f) => `<tr><td>${label}</td><td>${f(0)}</td><td>${f(1)}</td></tr>`;
+  const goods = q => sum(st.won[q].filter(x => B.GOODS.includes(x.k)).map(x => x.v));
+  const bonus = q => { const b = st.won[q].filter(x => x.k[0] === "b"); return b.length ? `${sum(b.map(x => x.v))} <span class="muted small">(${b.length})</span>` : "0"; };
+  const reason = ov.reason === "deck" ? "Se ha acabado el mazo y no se puede rellenar el mercado." : "Se han agotado 3 montones de fichas.";
+  const youWin = ov.win !== null && ov.win === m.me, nm = q => esc(q === m.me ? m.names[q] + " (tú)" : m.names[q]);
+  const title = st.match !== null ? (m.me === null || m.mode === "local" ? `¡${esc(m.names[st.match])} gana la partida!` : st.match === m.me ? "¡Has ganado la partida!" : "Has perdido la partida")
+    : ov.win === null ? "Empate total" : m.me === null || m.mode === "local" ? `${esc(m.names[ov.win])} gana la ronda` : youWin ? "¡Ganas la ronda!" : "Pierdes la ronda";
+  const tieTxt = ov.win !== null && ov.tie === "bonus" ? "Empate a rupias: gana quien tiene más fichas de bonificación." : ov.win !== null && ov.tie === "goods" ? "Empate a rupias y bonificaciones: gana quien tiene más fichas de mercancía." : ov.win === null ? "Nadie se lleva el sello en esta ronda." : "";
+  const canGo = m.me !== null || m.mode !== "online";
+  if (ov.win !== null) SFX.fanfare();
+  openSheet(`<h2 class="end-h">${title}</h2><p class="muted small" style="text-align:center">${reason}</p>
+    <table class="res"><thead><tr><th></th><th>${nm(0)}</th><th>${nm(1)}</th></tr></thead><tbody>
+      ${row("Mercancías", goods)}${row("Bonificaciones", bonus)}
+      ${row("Camellos", q => `${st.herd[q]}${ov.camel === q ? ' <b class="w">+5</b>' : ""}`)}
+      <tr class="tot"><td>Total</td>${[0, 1].map(q => `<td class="${ov.win === q ? "w" : ""}">${ov.pts[q]}</td>`).join("")}</tr>
+      ${row("Sellos", q => "★".repeat(st.seals[q]) || "–")}
+    </tbody></table>
+    ${ov.camel === null ? `<p class="muted small">Empate de camellos: nadie gana las 5 rupias del rebaño.</p>` : ""}
+    ${tieTxt ? `<p class="muted small">${tieTxt}</p>` : ""}
+    <p class="small">${st.match !== null ? "Gana la partida quien consigue 2 sellos." : `Primero en conseguir 2 sellos gana la partida. La siguiente ronda empieza ${esc(m.names[ov.win === null ? st.start : 1 - ov.win])}${ov.win !== null ? " (quien ha perdido esta)" : ""}.`}</p>
+    <div class="row">${canGo ? `<button class="btn gold" id="nx">${st.match !== null ? "Revancha" : "Siguiente ronda"}</button>` : ""}<button class="btn ghost" id="vt">Ver la mesa</button></div>
+    ${st.match !== null ? `<button class="btn ghost wide" id="bye">Salir</button>` : ""}`);
+  on("#nx", "click", nextRound, $sheet);
+  on("#vt", "click", closeSheet, $sheet);
+  on("#bye", "click", () => { closeSheet(); if (S.mode === "local") ls.del("mercaderes.partida"); leave(); }, $sheet);
+  S.sumOpen = true;
+}
+
+/* ================= reglas ================= */
+function showRules() {
+  const ex = (...cs) => `<div class="ex">${cs.map(c => c === "→" ? "<b>→</b>" : cardHTML(c)).join("")}</div>`;
+  const tokRow = t => `<span class="coin g-${t}" style="width:30px;font-size:14px">${B.TOKENS[t][0]}</span><span>${N[t][0].toUpperCase() + N[t].slice(1)}: ${B.TOKENS[t].join(" · ")} <span class="muted">(${B.COUNT[t]} cartas)</span></span>`;
+  openSheet(`<div class="rules">
+    <h2 style="font-size:28px;color:var(--gold)">Cómo se juega</h2>
+    <section><h3>La idea</h3><p>Sois dos mercaderes en un bazar. Cogéis mercancías del <b>mercado</b> y las <b>vendéis</b> para ganar fichas de rupias. Quien tenga más rupias al final de la ronda se lleva un <b>sello</b>. El primero con <b>2 sellos</b> gana la partida.</p></section>
+    <section><h3>En tu turno haces UNA de estas cosas</h3>
+      <p><b>A) Coger cartas</b> del mercado, de una de estas tres formas:</p>
+      <ul><li><b>Una sola carta</b> de mercancía. Se repone con una del mazo.</li>
+        <li><b>Todos los camellos</b> del mercado (no se puede coger solo uno). Van a tu rebaño y se reponen.</li>
+        <li><b>Varias cartas a cambio</b>: coges 2 o más mercancías y dejas el mismo número de cartas de tu mano y/o camellos de tu rebaño. No puedes dejar el mismo tipo que te llevas.</li></ul>
+      ${ex("T", "T", "→", "D", "O")}
+      <p class="muted small">Ejemplo de cambio: dejas 2 telas y te llevas un diamante y un oro.</p>
+      <p><b>B) Vender</b>: eliges un solo tipo de mercancía y vendes las cartas que quieras de ese tipo. Por cada carta coges una ficha de su montón.</p>
+      ${ex("E", "E", "E")}
+      <p class="muted small">Vender 3 especias: coges las 3 primeras fichas de especias y además una de bonificación.</p></section>
+    <section><h3>Las reglas que hay que recordar</h3><ul>
+      <li>Máximo <b>7 cartas en la mano</b> al acabar tu turno. Los camellos no cuentan: van aparte, en tu rebaño.</li>
+      <li><b>Diamantes, oro y plata</b> se venden de 2 en 2 como mínimo.</li>
+      <li>Las fichas se cogen de la más alta a la más baja: <b>quien vende antes, gana más</b>. Pero si esperas a juntar más cartas, ganas bonificación.</li>
+      <li><b>Bonificación</b> al vender 3 cartas (1 a 3 rupias), 4 cartas (4 a 6) o 5 o más (8 a 10).</li></ul></section>
+    <section><h3>Fin de la ronda</h3><ul>
+      <li>Acaba cuando se agotan <b>3 montones</b> de fichas de mercancía o cuando el <b>mazo</b> no puede rellenar el mercado.</li>
+      <li>Quien tenga <b>más camellos</b> gana 5 rupias extra.</li>
+      <li>Gana la ronda quien sume más rupias. Las fichas del rival están ocultas hasta el final: ¡a ver si llevas la cuenta!</li>
+      <li>Si hay empate, gana quien tenga más fichas de bonificación y, si sigue, más fichas de mercancía.</li>
+      <li>La siguiente ronda la empieza quien ha perdido.</li></ul></section>
+    <section><h3>Las fichas</h3><div class="tbl">${B.GOODS.map(tokRow).join("")}</div><p class="muted small">Y 11 camellos.</p></section>
+    <section><h3>Consejos para empezar</h3><ul>
+      <li>Coger camellos parece poca cosa, pero te dan cartas para cambiar y 5 rupias al final. Ojo: al cogerlos salen cartas nuevas para tu rival.</li>
+      <li>Vende pronto las mercancías caras y junta las baratas (telas, especias, cuero) para la bonificación.</li>
+      <li>Fíjate en qué dejas en el mercado: tu rival juega justo después.</li>
+      <li>Si dudas, pulsa <b>Pista</b>: te dejo seleccionada una buena jugada.</li></ul></section>
+    <div class="row"><button class="btn ghost" id="tourGo">Ver la visita guiada</button><button class="btn gold" data-x>Entendido</button></div></div>`);
+  on("[data-x]", "click", closeSheet, $sheet);
+  on("#tourGo", "click", () => { closeSheet(); if (S.mode && document.getElementById("mk")) startTour(true); else toast("La visita guiada empieza al abrir tu primera partida."); }, $sheet);
+}
+
+/* ================= visita guiada (primera partida) ================= */
+const TOUR = [
+  { el: null, h: "Bienvenido al bazar", t: "Te enseño la mesa en un minuto. En cada turno haces <b>una</b> cosa: <b>coger</b> cartas del mercado o <b>vender</b> cartas de tu mano." },
+  { el: "#myz", h: "Tu mano y tu rebaño", t: "Abajo tienes tus mercancías (máximo 7 cartas). Arriba a la derecha, tu rebaño de camellos: no ocupan sitio en la mano." },
+  { el: "#mk", h: "El mercado", t: "Siempre hay 5 cartas. Puedes coger <b>una</b>, <b>todos los camellos</b>, o <b>varias</b> dejando a cambio el mismo número de cartas tuyas o camellos." },
+  { el: "#tokz", h: "Las fichas", t: "Al vender, coges fichas de ese montón: el número es lo que vale la siguiente. Bajan de valor, así que <b>vender antes paga más</b>. Vender 3, 4 o 5 cartas da bonificación ★." },
+  { el: "#quick", h: "Vender", t: "Toca cartas iguales de tu mano (o estos atajos) y pulsa el botón dorado. Diamantes, oro y plata: mínimo 2 a la vez." },
+  { el: "#acts", h: "Botones", t: "El botón dorado te dice lo que vas a hacer. Si algo no vale, el texto de encima te explica por qué. <b>Pista</b> te sugiere una jugada." },
+  { el: "#tokz", h: "Cómo acaba", t: "La ronda termina al agotarse <b>3 montones</b> de fichas o el mazo. Quien tenga más camellos gana 5 rupias. Gana quien más rupias sume; con 2 rondas ganadas, ganas la partida." },
+  { el: "#help", h: "¿Dudas?", t: "Aquí tienes las reglas completas cuando quieras. ¡A comerciar!" }
+];
+let tourI = -1;
+function startTour(force) {
+  if (tourI >= 0 || (!force && ls.get("mercaderes.tuto"))) return;
+  if (!document.getElementById("mk")) return;
+  ls.set("mercaderes.tuto", 1); tourI = 0; showTour();
+}
+function showTour() {
+  document.querySelectorAll(".spot").forEach(e => e.classList.remove("spot"));
+  const s = TOUR[tourI]; if (!s) return endTour();
+  let el = s.el && document.querySelector(s.el);
+  if (el && !el.offsetHeight) el = null;
+  if (el) { el.classList.add("spot"); el.scrollIntoView({ block: "center", behavior: "instant" in document.documentElement.style ? "instant" : "auto" }); }
+  const r = el ? el.getBoundingClientRect() : null, low = r && r.top + r.height / 2 > innerHeight / 2;
+  $tour.innerHTML = `${el ? "" : '<div class="shade"></div>'}<div class="bub" role="dialog" aria-modal="true" style="${low ? "top:calc(12px + env(safe-area-inset-top,0px))" : "bottom:calc(14px + env(safe-area-inset-bottom,0px))"}">
+    <span class="steps">PASO ${tourI + 1} DE ${TOUR.length}</span><h3>${s.h}</h3><p>${s.t}</p>
+    <div class="row"><button class="btn ghost sm" id="tX">Saltar</button><button class="btn gold sm" id="tN">${tourI === TOUR.length - 1 ? "¡A jugar!" : "Siguiente"}</button></div></div>`;
+  $tour.classList.add("on");
+  $tour.querySelector("#tX").addEventListener("click", endTour);
+  $tour.querySelector("#tN").addEventListener("click", () => { tourI++; showTour(); });
+}
+function endTour() { tourI = -1; $tour.classList.remove("on"); $tour.innerHTML = ""; document.querySelectorAll(".spot").forEach(e => e.classList.remove("spot")); }
+
+/* ================= hojas ================= */
+function confirmSheet(title, text, okLabel, fn) {
+  openSheet(`<h2>${esc(title)}</h2>${text ? `<p class="muted">${esc(text)}</p>` : ""}<div class="row"><button class="btn ghost" data-x>Cancelar</button><button class="btn gold" data-ok>${esc(okLabel)}</button></div>`);
+  on("[data-x]", "click", closeSheet, $sheet);
+  on("[data-ok]", "click", () => { closeSheet(); fn(); }, $sheet);
+}
+function openSheet(html) { document.getElementById("toast").classList.remove("on"); $sheet.innerHTML = `<div class="scrim"></div><div class="pane" role="dialog" aria-modal="true">${html}</div>`; $sheet.classList.add("on"); $sheet.querySelector(".scrim").addEventListener("click", closeSheet); $sheet.querySelector(".pane").scrollTop = 0; }
+function closeSheet() { S.sumOpen = false; $sheet.classList.remove("on"); $sheet.innerHTML = ""; }
+addEventListener("keydown", e => { if (e.key === "Escape") { closeSheet(); endTour(); } });
+
+boot();
+})();
+</script>
+</body>
+</html>

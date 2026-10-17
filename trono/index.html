@@ -1,0 +1,937 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Por el Trono</title>
+<meta name="theme-color" content="#10131F">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="../icons/icon-192.png">
+<link rel="apple-touch-icon" href="../icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Manrope:wght@500;700;800&display=swap">
+<script>window.APP_KEY="trono"</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="../firebase-config.js"></script>
+<script src="../shared/claude-shim.js"></script>
+<script src="motor.js"></script>
+<style>
+/* Layout: mesa de bazas a una columna. Rival arriba, carta en juego y baza en el centro, facciones, tus seguidores y tu mano abajo, botón de jugar fijo bajo la mano */
+:root{
+  --bg:#10131F; --bg2:#26193D; --panel:#1B2033; --panel2:#283050; --line:#343C5C;
+  --ink:#F6F1E4; --muted:#A9AEC6; --gold:#E9B949; --gold2:#9C7420; --ok:#7CDB9A; --bad:#FF7A6B;
+  --G:#3E8E3A; --K:#2F5DA8; --U:#6A4FA0; --D:#B5651D; --X:#1E8C8C;
+  --display:"Cinzel",Georgia,serif;
+  --body:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:
+  radial-gradient(70% 45% at 50% -5%,rgba(233,185,73,.14),transparent 70%),
+  radial-gradient(120% 80% at 50% 0%,var(--bg2),var(--bg) 70%) fixed;
+  background-color:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.4;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+#app{max-width:600px;margin:0 auto;min-height:100%;padding-inline:16px;padding-block:calc(12px + env(safe-area-inset-top,0px)) calc(24px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:10px}
+h1,h2,h3{font-family:var(--display);font-weight:700;margin:0;letter-spacing:.02em;text-wrap:balance}
+p{margin:0}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+
+.btn{appearance:none;border:0;border-radius:14px;min-height:50px;padding:0 18px;background:var(--panel2);color:var(--ink);font-weight:800;font-size:16px;box-shadow:0 3px 0 rgba(0,0,0,.45);display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:transform .08s;text-align:center}
+.btn:active{transform:translateY(2px)}
+.btn.gold{background:linear-gradient(180deg,#FFD978,var(--gold));color:#3A2604}
+.btn.ghost{background:transparent;box-shadow:inset 0 0 0 2px var(--line)}
+.btn.sm{min-height:40px;font-size:14px;padding:0 12px;border-radius:11px}
+.btn:disabled{opacity:.42;cursor:default;transform:none}
+.btn.wide{width:100%}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>*{flex:1 1 140px}
+input.text{width:100%;min-height:50px;border-radius:12px;border:2px solid var(--line);background:var(--bg);padding:0 14px;font-size:17px;font-weight:700}
+input.code{text-transform:uppercase;letter-spacing:.3em;font-family:var(--display);font-size:24px;text-align:center}
+label.lbl,.lbl{display:grid;gap:6px;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.card{background:var(--panel);border-radius:18px;padding:16px;display:grid;gap:12px;box-shadow:0 0 0 1px var(--line)}
+.card h2{font-size:21px}
+.msg{min-height:1.4em;color:var(--gold);text-align:center;font-weight:700}
+.msg.err{color:var(--bad)}
+.hero{display:grid;gap:10px;justify-items:center;text-align:center;padding-block:10px 4px}
+.logo{font-family:var(--display);font-weight:900;font-size:clamp(38px,11vw,56px);line-height:.95;color:var(--gold);text-shadow:0 3px 0 #5E420A,0 10px 30px rgba(0,0,0,.6)}
+.logo small{display:block;font-family:var(--body);font-weight:800;font-size:.24em;letter-spacing:.4em;color:var(--ink);text-shadow:none;margin-bottom:8px}
+.logo svg{display:block;width:.9em;height:.9em;margin:0 auto 4px;fill:var(--gold)}
+.fan{display:flex;justify-content:center;height:112px;align-items:flex-end;margin-bottom:14px}
+.fan .cardx{width:62px;margin:0 -9px;box-shadow:0 10px 20px rgba(0,0,0,.5)}
+.seg{display:flex;gap:6px;background:var(--bg);border-radius:12px;padding:4px}
+.seg button{flex:1;appearance:none;border:0;background:transparent;border-radius:9px;min-height:40px;font-weight:800;font-size:14px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--panel2);color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--gold2)}
+
+.top{display:flex;align-items:center;gap:8px}
+.top .sp{flex:1}
+.chip{font-weight:800;font-size:12px;letter-spacing:.1em;background:var(--panel);padding:7px 11px;border-radius:999px;box-shadow:0 0 0 1px var(--line);white-space:nowrap}
+.icon-btn{appearance:none;border:0;width:40px;height:40px;border-radius:11px;background:var(--panel);box-shadow:0 0 0 1px var(--line);display:grid;place-items:center;color:var(--ink);font-weight:800;font-size:18px;flex:none}
+.big-code{font-family:var(--display);font-size:54px;letter-spacing:.16em;line-height:1;text-align:center;color:var(--gold)}
+.seats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.seat{background:var(--bg);border-radius:14px;padding:12px;display:grid;gap:2px;text-align:center;min-width:0}
+.seat b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.seat.empty{color:var(--muted);border:2px dashed var(--line);background:transparent}
+.wait{display:grid;place-items:center;gap:6px;text-align:center;padding:14px;background:var(--panel);border-radius:16px}
+
+/* ---------- cartas ---------- */
+.cardx{position:relative;container-type:inline-size;aspect-ratio:5/7;border-radius:9px;background:var(--g);color:#fff;
+  box-shadow:inset 0 0 0 2px rgba(255,255,255,.2),inset 0 0 0 4px rgba(0,0,0,.18),0 3px 0 rgba(0,0,0,.4);overflow:hidden;user-select:none;-webkit-user-select:none}
+.cardx::before{content:"";position:absolute;inset:4%;border-radius:6px;border:1.5px solid rgba(255,236,190,.5);pointer-events:none}
+.cardx::after{content:"";position:absolute;inset:0;background:linear-gradient(160deg,rgba(255,255,255,.26),transparent 40%,rgba(0,0,0,.24));pointer-events:none}
+.cardx .v{position:absolute;top:5%;left:9%;font-family:var(--display);font-weight:900;font-size:36cqw;line-height:1;text-shadow:0 2px 0 rgba(0,0,0,.45)}
+.cardx svg.ic{position:absolute;left:24%;top:30%;width:66%;height:auto;filter:drop-shadow(0 2px 2px rgba(0,0,0,.35))}
+.cardx .nm{position:absolute;bottom:6%;left:0;right:0;text-align:center;font-weight:800;font-size:10.5cqw;letter-spacing:.04em;text-transform:uppercase;opacity:.92;white-space:nowrap}
+.cardx.back{background:radial-gradient(circle at 50% 50%,#E9B949 0 10%,transparent 11%),repeating-linear-gradient(45deg,#24305A 0 6px,#2D3A6B 6px 12px)}
+.cardx.back::before{border-color:rgba(233,185,73,.7)}
+.f-G{--g:linear-gradient(160deg,#69BA5E,var(--G) 55%,#1C4E1A)}
+.f-K{--g:linear-gradient(160deg,#5C8BD6,var(--K) 55%,#152F5E)}
+.f-U{--g:linear-gradient(160deg,#9479C8,var(--U) 55%,#33235A)}
+.f-D{--g:linear-gradient(160deg,#E08D45,var(--D) 55%,#5E2F08)}
+.f-X{--g:linear-gradient(160deg,#4CC2C2,var(--X) 55%,#0B4545)}
+button.cardx{appearance:none;border:0;padding:0;cursor:pointer;transition:transform .15s,box-shadow .15s,opacity .15s,filter .15s}
+button.cardx.sel{transform:translateY(-10px);box-shadow:inset 0 0 0 2px rgba(255,255,255,.2),0 0 0 3px var(--gold),0 0 18px rgba(233,185,73,.75),0 8px 14px rgba(0,0,0,.5)}
+button.cardx.no{opacity:.38;filter:grayscale(.6)}
+.cardx.new{animation:deal .5s cubic-bezier(.2,.8,.3,1.2) both}
+.cardx.win{box-shadow:inset 0 0 0 2px rgba(255,255,255,.2),0 0 0 3px var(--gold),0 0 22px rgba(233,185,73,.8)}
+.cardx.lose{opacity:.72}
+@keyframes deal{from{transform:translateY(-28px) rotate(-6deg) scale(.7);opacity:0}}
+
+/* ---------- jugadores ---------- */
+.pl{display:flex;align-items:center;gap:10px;min-height:52px;padding:8px 12px;border-radius:14px;background:var(--panel);box-shadow:0 0 0 1px var(--line);transition:box-shadow .2s;appearance:none;border:0;text-align:left;width:100%;color:var(--ink)}
+.pl.turn{box-shadow:0 0 0 2px var(--gold),0 0 22px -6px var(--gold)}
+.pl .who{display:grid;min-width:0;flex:1}
+.pl .who b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pl .who span{font-size:12.5px;color:var(--muted)}
+.mini{display:flex;align-items:center}
+.mini .cardx{width:16px;margin-left:-10px;border-radius:3px;box-shadow:0 1px 0 rgba(0,0,0,.5)}
+.mini .cardx::before{inset:2px;border-radius:2px;border-width:1px}
+.mini .cardx:first-child{margin-left:0}
+.crowns{display:flex;align-items:center;gap:3px;font-weight:800;font-size:14px;color:var(--gold)}
+.crowns svg{width:18px;height:18px;fill:var(--gold)}
+
+/* ---------- fase y mesa ---------- */
+.phase{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.phase b{color:var(--gold)}
+.board{display:grid;grid-template-columns:1fr 1.9fr;gap:10px;background:var(--panel);border-radius:16px;padding:10px;box-shadow:0 0 0 1px var(--line)}
+.board.p2{grid-template-columns:1fr}
+.board .lab{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;display:grid}
+.board .lab b{color:var(--ink);text-transform:none;letter-spacing:0;font-size:12.5px;overflow:hidden;text-overflow:ellipsis}
+.upz{display:grid;gap:6px;justify-items:center;align-content:start;padding-right:10px;border-right:1px dashed var(--line)}
+.upz .cardx{width:min(92px,100%)}
+.upz .drawn{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);font-weight:700}
+.upz .drawn .cardx{width:18px;border-radius:3px}
+.upz .drawn .cardx::before{inset:2px;border-width:1px}
+.trick{display:grid;grid-template-columns:1fr 1fr;gap:10px;justify-items:center}
+.board.p2 .trick{max-width:300px;margin:0 auto;width:100%}
+.slot{display:grid;gap:6px;justify-items:center;width:100%}
+.slot .cardx,.slot .ph{width:min(92px,100%)}
+.slot .ph{aspect-ratio:5/7;border-radius:9px;box-shadow:inset 0 0 0 2px var(--line);display:grid;place-items:center;color:var(--muted);font-size:12px;text-align:center;padding:6px}
+.slot .tag{font-size:11px;font-weight:800;color:#3A2604;background:var(--gold);border-radius:999px;padding:2px 8px}
+.slot .tag.lo{background:var(--panel2);color:var(--muted)}
+.last{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:rgba(233,185,73,.1);border-radius:12px;padding:8px 12px;font-size:14px;font-weight:700;box-shadow:inset 0 0 0 1px rgba(233,185,73,.35);min-height:40px}
+.last .sub{font-weight:500;color:var(--muted);font-size:13px}
+.last.fresh{animation:glow 1.6s ease-out}
+@keyframes glow{0%{background:rgba(233,185,73,.45)}}
+
+/* ---------- facciones ---------- */
+.zone{display:grid;gap:6px}
+.zone-h{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.facs{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.fz{appearance:none;border:0;border-radius:12px;background:var(--panel);box-shadow:0 0 0 1px var(--line);padding:6px 2px 7px;display:grid;justify-items:center;gap:2px;min-width:0;color:var(--ink)}
+.fz .dot{width:30px;height:30px;border-radius:50%;background:var(--g);display:grid;place-items:center;box-shadow:inset 0 0 0 2px rgba(255,255,255,.25)}
+.fz .dot svg{width:22px;height:22px}
+.fz .sc{font-weight:800;font-size:14px;white-space:nowrap}
+.fz .sc i{font-style:normal;color:var(--muted);margin:0 2px}
+.fz small{font-size:9.5px;letter-spacing:-.01em;color:var(--muted);font-weight:700;white-space:nowrap}
+.fz.me{box-shadow:0 0 0 2px var(--ok)}
+.fz.op{box-shadow:0 0 0 2px var(--bad)}
+.fz.me small{color:var(--ok)}
+.fz.op small{color:#FFB2A8}
+
+/* ---------- tu zona ---------- */
+.folrow{display:flex;flex-wrap:wrap;gap:4px;min-height:44px;align-items:center}
+.folrow .cardx{width:31px;border-radius:5px}
+.folrow .cardx::before{inset:2px;border-radius:3px;border-width:1px}
+.folrow .cardx .nm{display:none}
+.folrow .cardx .v{font-size:48cqw;left:12%}
+.folrow .cardx svg.ic{left:22%;top:46%;width:70%}
+.folrow .empty{color:var(--muted);font-size:13px}
+.hand{display:grid;grid-template-columns:repeat(7,1fr);gap:clamp(4px,1.4vw,8px);min-height:60px;align-items:end;padding-top:12px}
+.hand .empty{grid-column:1/-1;color:var(--muted);font-size:14px;text-align:center;padding:16px 0}
+.coach{font-size:14.5px;font-weight:700;text-align:center;min-height:2.8em;color:var(--ink);text-wrap:balance}
+.coach.err{color:#FFB2A8}
+.coach.ok{color:var(--gold)}
+.coach.lo{color:#C9CEE6}
+.acts{display:flex;gap:8px}
+.acts .btn{flex:1 1 0;min-width:0}
+.acts .btn.main{flex:2.6 1 0}
+.myscore{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13.5px;color:var(--muted);font-weight:700}
+.myscore b{color:var(--ink)}
+.log{background:var(--panel);border-radius:14px;padding:10px 12px;box-shadow:0 0 0 1px var(--line);font-size:13.5px}
+.log summary{font-weight:800;cursor:pointer}
+.log ol{margin:8px 0 0;padding-left:20px;display:grid;gap:3px;max-height:180px;overflow:auto}
+.log li.ph{list-style:none;margin-left:-20px;color:var(--gold);font-weight:800}
+
+/* ---------- cubierta para pasar el móvil ---------- */
+.cover{display:grid;gap:16px;justify-items:center;text-align:center;padding:40px 8px}
+.cover h2{font-size:30px;color:var(--gold)}
+
+/* ---------- final ---------- */
+.res{width:100%;border-collapse:collapse;font-size:14.5px}
+.res th,.res td{padding:7px 4px;text-align:center;border-bottom:1px solid var(--line)}
+.res th:first-child,.res td:first-child{text-align:left}
+.res thead th{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.res tr.tot td{font-weight:800;font-size:17px;border-bottom:0}
+.res .w{color:var(--gold);font-weight:800}
+.res .fnm{display:flex;align-items:center;gap:6px;font-weight:700}
+.res .fnm .dot{width:22px;height:22px;border-radius:50%;background:var(--g);display:grid;place-items:center;flex:none}
+.res .fnm .dot svg{width:16px;height:16px}
+.end-h{color:var(--gold);font-size:28px;text-align:center}
+
+/* ---------- hojas, ayuda y tutorial ---------- */
+#sheet{position:fixed;inset:0;z-index:50;display:none}
+#sheet.on{display:block}
+#sheet .scrim{position:absolute;inset:0;background:rgba(0,0,0,.62)}
+#sheet .pane{position:absolute;left:0;right:0;bottom:0;max-width:600px;max-height:92svh;overflow:auto;margin:0 auto;background:var(--panel);border-radius:22px 22px 0 0;padding:18px 16px calc(20px + env(safe-area-inset-bottom,0px));display:grid;gap:12px;box-shadow:0 -10px 40px rgba(0,0,0,.6)}
+.rules{display:grid;gap:14px;font-size:15px}
+.rules h3{font-size:19px;color:var(--gold)}
+.rules section{display:grid;gap:6px}
+.rules ul,.rules ol{margin:0;padding-left:20px;display:grid;gap:4px}
+.rules b{color:var(--gold)}
+.rules .ex{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.rules .ex .cardx{width:46px;border-radius:6px}
+.rules .ex .cardx .nm{display:none}
+.rules .ex .cardx .v{font-size:44cqw}
+.rules .ex .cardx svg.ic{top:40%}
+.facrow{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start}
+.facrow .dot{width:34px;height:34px;border-radius:50%;background:var(--g);display:grid;place-items:center}
+.facrow .dot svg{width:25px;height:25px}
+#tour{position:fixed;inset:0;z-index:70;display:none}
+#tour.on{display:block}
+#tour .bub{position:fixed;left:50%;transform:translateX(-50%);width:min(560px,calc(100% - 24px));background:#FFF7E6;color:#21180A;border-radius:18px;padding:16px;display:grid;gap:10px;box-shadow:0 20px 50px rgba(0,0,0,.6)}
+#tour .bub h3{font-size:20px;color:#7A5208}
+#tour .bub .row .btn{flex:1 1 0}
+#tour .bub .btn.ghost{color:#21180A;box-shadow:inset 0 0 0 2px #D8C4A0}
+#tour .steps{font-size:12px;font-weight:800;color:#8A6A3A;letter-spacing:.08em}
+#tour .shade{position:fixed;inset:0;background:rgba(0,0,0,.55)}
+.spot{position:relative;z-index:65;box-shadow:0 0 0 4px var(--gold),0 0 0 9999px rgba(0,0,0,.6)!important;border-radius:14px}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,12px);opacity:0;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:700;font-size:14px;transition:opacity .2s,transform .2s;pointer-events:none;max-width:calc(100% - 32px);z-index:80;text-align:center}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+@media (max-width:380px){.board{grid-template-columns:1fr 1.7fr}.fz small{display:none}}
+@media (prefers-reduced-motion:reduce){.cardx.new,.last.fresh{animation:none}button.cardx{transition:none}#toast{transition:none}}
+</style>
+</head>
+<body>
+<div id="app"><div class="hero"><div class="logo"><small>DOS HEREDEROS</small>Por el Trono</div><p class="muted">Preparando la corte…</p></div></div>
+<div id="sheet"></div>
+<div id="tour"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+"use strict";
+const B = window.Trono;
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const ls = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }, del(k) { try { localStorage.removeItem(k); } catch {} } };
+const $app = document.getElementById("app"), $sheet = document.getElementById("sheet"), $tour = document.getElementById("tour");
+let toastT;
+function toast(m, ms) { const t = document.getElementById("toast"); t.textContent = m; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), ms || 3000); }
+function on(sel, ev, fn, root) { (root || $app).querySelectorAll(sel).forEach(el => el.addEventListener(ev, fn)); }
+const buzz = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch {} };
+const LVL = { 1: "Aprendiz", 2: "Noble", 3: "Rey" };
+const F = B.FAC, NM = B.NAME, NM1 = B.NAME1, fac = B.fac, val = B.val;
+const cn = c => B.cardName(c);
+const low = f => NM[f].toLowerCase();
+
+/* ================= dibujos (SVG propios) ================= */
+const ICON = {
+  G: `<path d="M50 26c13 0 23 9 25 22l20-13c-2 16-9 26-20 30-4 11-13 18-25 18s-21-7-25-18C14 61 7 51 5 35l20 13c2-13 12-22 25-22z" fill="#E4F7CF"/><path d="M33 50l12 4M67 50l-12 4" stroke="#1C3A10" stroke-width="3" stroke-linecap="round"/><circle cx="40" cy="58" r="4.2" fill="#1C3A10"/><circle cx="60" cy="58" r="4.2" fill="#1C3A10"/><path d="M38 73q12 7 24 0" fill="none" stroke="#1C3A10" stroke-width="3" stroke-linecap="round"/><path d="M42 74l3 6 3-5M53 74l3 5 3-6" fill="#fff" stroke="#1C3A10" stroke-width="1.2"/>`,
+  K: `<path d="M50 10l33 11v25c0 23-15 37-33 45C32 83 17 69 17 46V21z" fill="#E8EFFC" stroke="#132D5C" stroke-width="3"/><path d="M50 20v62M27 44h46" stroke="#2F5DA8" stroke-width="9"/><path d="M50 20v62M27 44h46" stroke="#E9B949" stroke-width="3"/>`,
+  U: `<path d="M50 12c-21 0-35 14-35 33 0 12 6 21 14 25v13h42V70c8-4 14-13 14-25 0-19-14-33-35-33z" fill="#EFEAF8"/><ellipse cx="36" cy="47" rx="9" ry="10" fill="#271C44"/><ellipse cx="64" cy="47" rx="9" ry="10" fill="#271C44"/><circle cx="36" cy="48" r="2.4" fill="#B9A3FF"/><circle cx="64" cy="48" r="2.4" fill="#B9A3FF"/><path d="M50 58l-5 9h10z" fill="#271C44"/><path d="M39 83v-8M50 83v-8M61 83v-8" stroke="#271C44" stroke-width="3"/>`,
+  D: `<path d="M14 24l11 15M86 24L75 39" stroke="#F6E7C9" stroke-width="7" stroke-linecap="round"/><path d="M22 46c0-18 12-31 28-31s28 13 28 31z" fill="#DADDE3" stroke="#4E2C0C" stroke-width="3"/><path d="M50 15v31" stroke="#4E2C0C" stroke-width="3"/><path d="M15 46h70" stroke="#4E2C0C" stroke-width="6" stroke-linecap="round"/><circle cx="39" cy="55" r="3.6" fill="#2E1806"/><circle cx="61" cy="55" r="3.6" fill="#2E1806"/><path d="M24 58c4 22 15 33 26 35 11-2 22-13 26-35-7 6-15 7-26 7s-19-1-26-7z" fill="#F2A65A" stroke="#4E2C0C" stroke-width="2.5" stroke-linejoin="round"/><path d="M41 67q9 4 18 0M50 72v16M42 74l3 11M58 74l-3 11" fill="none" stroke="#4E2C0C" stroke-width="2.2" stroke-linecap="round"/>`,
+  X: `<path d="M50 12c-19 0-31 15-31 35 0 21 12 39 31 41z" fill="#E6FAFA"/><path d="M50 12c19 0 31 15 31 35 0 21-12 39-31 41z" fill="#0B3E3E"/><path d="M50 12v76" stroke="#E9B949" stroke-width="2.5"/><path d="M31 44q6-6 12 0" fill="none" stroke="#0B3E3E" stroke-width="3.5" stroke-linecap="round"/><path d="M57 44q6 6 12 0" fill="none" stroke="#E6FAFA" stroke-width="3.5" stroke-linecap="round"/><path d="M35 68q7 5 15 0" fill="none" stroke="#0B3E3E" stroke-width="3" stroke-linecap="round"/><path d="M50 68q7-5 15 0" fill="none" stroke="#E6FAFA" stroke-width="3" stroke-linecap="round"/>`,
+  crown: `<path d="M10 72 15 28l21 22 14-32 14 32 21-22 5 44z"/><rect x="10" y="76" width="80" height="11" rx="3"/>`
+};
+const icon = (t, cls) => `<svg class="${cls === undefined ? "ic" : cls}" viewBox="0 0 100 100" aria-hidden="true">${ICON[t]}</svg>`;
+const crown = () => `<svg viewBox="0 0 100 100" aria-hidden="true">${ICON.crown}</svg>`;
+const cardHTML = (c, extra = "", tag = "div", attrs = "") => { const f = fac(c); return `<${tag} class="cardx f-${f} ${extra}" ${attrs}><span class="v">${val(c)}</span>${icon(f)}<span class="nm">${NM1[f]}</span></${tag}>`; };
+const backHTML = (extra = "", style = "") => `<div class="cardx back ${extra}"${style ? ` style="${style}"` : ""} aria-hidden="true"></div>`;
+const SHORT = { G: "Trasgos", K: "Caballeros", U: "No muertos", D: "Enanos", X: "Cambiaf." };
+const POWER = {
+  G: "Hay 14 (cinco valen 0). No tienen poder y los caballeros siempre les ganan.",
+  K: "Un caballero siempre gana a un trasgo, aunque el trasgo sea más alto.",
+  U: "En la fase 1 no se descartan: quien gana la baza se los guarda para puntuar.",
+  D: "En la fase 2 se los queda quien PIERDE la baza.",
+  X: "Al responder puedes jugarlo aunque tengas la facción que ha salido: copia esa facción."
+};
+
+/* ================= sonido sintetizado ================= */
+const SFX = {
+  ctx: null, noise: null, on: ls.get("trono.sound") !== false,
+  init() {
+    if (this.ctx) { if (this.ctx.state === "suspended") this.ctx.resume().catch(() => {}); return; }
+    try { const A = window.AudioContext || window.webkitAudioContext; if (!A) return; this.ctx = new A();
+      const n = this.ctx.createBuffer(1, this.ctx.sampleRate, this.ctx.sampleRate), d = n.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; this.noise = n; } catch {}
+  },
+  ok() { return this.on && this.ctx && this.ctx.state === "running"; },
+  hiss(freq, dur, g, at = 0, q = 1) {
+    const c = this.ctx, t = c.currentTime + at, s = c.createBufferSource(), f = c.createBiquadFilter(), v = c.createGain();
+    s.buffer = this.noise; f.type = "bandpass"; f.frequency.value = freq; f.Q.value = q;
+    v.gain.setValueAtTime(g, t); v.gain.exponentialRampToValueAtTime(.001, t + dur);
+    s.connect(f).connect(v).connect(c.destination); s.start(t, Math.random() * .5); s.stop(t + dur + .02);
+  },
+  bell(f, dur, g, at = 0) {
+    const c = this.ctx, t = c.currentTime + at;
+    [[1, 1], [2.76, .35], [5.4, .12]].forEach(([m, k]) => { const o = c.createOscillator(), v = c.createGain(); o.frequency.value = f * m;
+      v.gain.setValueAtTime(.0001, t); v.gain.exponentialRampToValueAtTime(g * k, t + .01); v.gain.exponentialRampToValueAtTime(.0001, t + dur / m ** .3);
+      o.connect(v).connect(c.destination); o.start(t); o.stop(t + dur + .05); });
+  },
+  card() { if (this.ok()) { this.hiss(2400, .12, .25, 0, .7); this.hiss(1600, .1, .15, .05, .7); } },
+  win() { if (this.ok()) [660, 880].forEach((f, i) => this.bell(f, .5, .08, i * .1)); },
+  lose() { if (this.ok()) this.bell(330, .5, .06); },
+  fanfare() { if (this.ok()) [523, 659, 784, 1047].forEach((f, i) => this.bell(f, .9, .1, i * .13)); },
+  tick() { if (this.ok()) this.hiss(3000, .03, .08); }
+};
+addEventListener("pointerdown", () => SFX.init(), { capture: true });
+
+/* ================= estado ================= */
+const S = {
+  db: null, uid: null, ready: false, offline: false,
+  name: (localStorage.getItem("sala.nick") || "").slice(0, 16),
+  mode: null, code: null, g: null, unsub: null, L: null,
+  sel: null, cover: false, seenN: -1, summaryShown: "", p2Shown: "",
+  homeTab: "online", aiLevel: ls.get("trono.lvl") || 2, homeMsg: "", homeErr: false, busy: false, lastKey: "",
+  help: ls.get("trono.ayudas") !== false, aiTimer: null, cache: { k: null, v: null }
+};
+const me = () => S.uid;
+window.__tro = { S, B };
+
+async function boot() {
+  try {
+    const [db, user] = await Promise.all(["db", "user"].map(n => window.claude ? claude.use(n).catch(() => null) : null));
+    S.db = db; if (user) S.uid = await user.id();
+  } catch {}
+  if (!S.db || !S.uid) S.offline = true;
+  S.ready = true;
+  const h = (location.hash || "").replace("#", "").toUpperCase(), last = ls.get("trono.last");
+  if (!S.offline && /^[A-Z]{4}$/.test(h)) S.prefill = h;
+  else if (!S.offline && last && last.code && Date.now() - last.t < 12 * 3600e3) S.rejoin = last.code;
+  render();
+}
+
+/* ================= modelo común ================= */
+const seatOf = id => { const st = (S.g && S.g.seats) || {}; return [0, 1].find(i => st[i] && st[i].id === id); };
+function parseSt(str) { if (S.cache.k === str) return S.cache.v; let v = null; try { v = JSON.parse(str); } catch {} S.cache = { k: str, v }; return v; }
+function model() {
+  if (S.mode === "online") {
+    const g = S.g, st = parseSt(g.st), seats = g.seats || {}, seat = seatOf(me());
+    return { mode: "online", st, names: [(seats[0] || {}).name || "Jugador 1", (seats[1] || {}).name || "Jugador 2"], me: seat === undefined ? null : seat };
+  }
+  const L = S.L;
+  return { mode: L.mode, st: L.st, names: L.names, me: L.mode === "ai" ? 0 : L.st.over ? (L.view ?? 0) : L.st.turn, level: L.level };
+}
+const viewer = m => m.me === null ? 0 : m.me;
+const canAct = m => !m.st.over && m.me !== null && m.st.turn === m.me && !(m.mode === "local" && S.cover);
+const youName = (m, p) => p === m.me && m.mode !== "local" ? "Tú" : m.names[p];
+
+/* ================= online ================= */
+function watch(code) {
+  unwatch(); S.mode = "online"; S.code = code; ls.set("trono.last", { code, t: Date.now() });
+  S.unsub = S.db.doc("games/" + code).onSnapshot(snap => {
+    if (!snap.exists) { leave("Esa partida ya no existe."); return; }
+    const prev = S.g; S.g = snap.data(); onRemote(prev); render();
+  }, () => leave("Se ha perdido la conexión con la partida."));
+}
+function unwatch() { if (S.unsub) try { S.unsub(); } catch {} S.unsub = null; S.g = null; S.sel = null; closeSheet(); }
+function leave(msg) {
+  unwatch(); clearTimeout(S.aiTimer); S.aiTimer = null;
+  S.mode = null; S.code = null; S.L = null; S.cover = false; S.seenN = -1; S.summaryShown = ""; S.p2Shown = "";
+  S.homeMsg = msg || ""; S.homeErr = !!msg; history.replaceState(null, "", location.pathname); endTour(); render();
+}
+function onRemote(prev) {
+  if (!prev || !S.g || !S.g.st || prev.st === S.g.st) return;
+  const m = model(), a = parseSt(prev.st), b = m.st;
+  if (!a || !b || m.me === null) return;
+  if (b.n !== a.n || b.gn !== a.gn) S.sel = null;
+  if (b.n > a.n && b.turn === m.me && !b.over) buzz(40);
+}
+function saveName() {
+  const el = document.getElementById("nm"), v = ((el && el.value) || S.name || "").trim().slice(0, 16);
+  if (!v) { S.homeMsg = "Escribe tu nombre."; S.homeErr = true; render(); return false; }
+  S.name = v; try { localStorage.setItem("sala.nick", v); } catch {} return true;
+}
+const genCode = () => { const A = "ABCDEFGHJKLMNPQRSTUVWXYZ"; let c = ""; for (let i = 0; i < 4; i++) c += A[Math.floor(Math.random() * A.length)]; return c; };
+async function freeCode() { let code; for (let i = 0; i < 6; i++) { code = genCode(); if (!(await S.db.doc("games/" + code).get()).exists) break; } return code; }
+const newSeed = () => Math.floor(Math.random() * 2 ** 31);
+async function createOnline() {
+  if (!saveName()) return;
+  S.busy = true; render();
+  try {
+    const code = await freeCode();
+    await S.db.doc("games/" + code).set({ v: 1, status: "lobby", host: me(), createdAt: Date.now(), seats: { 0: { id: me(), name: S.name } }, st: "" });
+    location.hash = code; watch(code);
+  } catch { S.homeMsg = "No se pudo crear la partida. Revisa la conexión."; S.homeErr = true; }
+  S.busy = false; render();
+}
+async function joinOnline(code) {
+  if (!saveName()) return;
+  code = String(code || "").toUpperCase().replace(/[^A-Z]/g, "");
+  if (code.length !== 4) { S.homeMsg = "El código tiene 4 letras."; S.homeErr = true; render(); return; }
+  S.busy = true; render();
+  try {
+    const ref = S.db.doc("games/" + code), snap = await ref.get();
+    if (!snap.exists) { S.homeMsg = "No hay ninguna partida con ese código."; S.homeErr = true; }
+    else {
+      const g = snap.data(), seats = g.seats || {};
+      const mine = [0, 1].find(i => seats[i] && seats[i].id === me());
+      if (mine !== undefined) { if (seats[mine].name !== S.name) await ref.update({ seats: { [mine]: { id: me(), name: S.name } } }); }
+      else if (!seats[1] && g.status === "lobby") await ref.update({ seats: { 1: { id: me(), name: S.name } } });
+      else toast("La partida está completa: entras como público.");
+      location.hash = code; watch(code);
+    }
+  } catch { S.homeMsg = "No se pudo entrar. Revisa la conexión."; S.homeErr = true; }
+  S.busy = false; render();
+}
+async function put(patch) {
+  S.g = { ...S.g, ...patch }; render();
+  try { await S.db.doc("games/" + S.code).update(patch); }
+  catch { toast("No se pudo guardar. Reintentando…"); setTimeout(() => S.db.doc("games/" + S.code).update(patch).catch(() => toast("Sin conexión con la partida.")), 1500); }
+}
+
+/* ================= mismo móvil y máquina ================= */
+function startLocal(kind) {
+  if (!saveName()) return;
+  let L;
+  if (kind === "local") {
+    const rv = (document.getElementById("rv").value || "").trim().slice(0, 16);
+    if (!rv) { S.homeMsg = "Escribe el nombre del rival."; S.homeErr = true; render(); return; }
+    L = { mode: "local", names: [S.name, rv], st: B.newGame(newSeed(), Math.random() < .5 ? 0 : 1) };
+    S.cover = true;
+  } else {
+    ls.set("trono.lvl", S.aiLevel);
+    L = { mode: "ai", level: S.aiLevel, names: [S.name, `La máquina · ${LVL[S.aiLevel]}`], st: B.newGame(newSeed(), Math.random() < .5 ? 0 : 1) };
+  }
+  S.mode = "local"; S.L = L; S.seenN = -1; S.summaryShown = ""; S.p2Shown = ""; S.sel = null; saveLocal(); render();
+}
+function saveLocal() { if (S.L) ls.set("trono.partida", S.L); }
+function resumeLocal() { const L = ls.get("trono.partida"); if (!L) return; S.mode = "local"; S.L = L; S.cover = L.mode === "local" && !L.st.over; S.seenN = L.st.n; S.summaryShown = ""; S.p2Shown = L.st.phase === 2 ? L.st.seed + "|" + L.st.gn : ""; S.sel = null; render(); }
+
+/* ================= jugar ================= */
+function commit(st, actor) {
+  if (S.mode === "online") put({ st: JSON.stringify(st), status: "play" });
+  else {
+    S.L.st = st;
+    if (S.L.mode === "local") { if (st.over) S.L.view = actor; else if (st.turn !== actor) S.cover = true; }
+    saveLocal(); render();
+  }
+}
+function play(c) {
+  const m = model(), p = m.me;
+  const err = B.check(m.st, p, c);
+  if (err) { toast(err); return; }
+  const st = B.apply(m.st, p, c);
+  feedback(st.last, p);
+  S.sel = null; commit(st, p);
+}
+function feedback(last, p) {
+  if (!last) return;
+  SFX.card();
+  if (last.t === "trick" && p !== null && p !== undefined) setTimeout(() => last.w === p ? SFX.win() : SFX.lose(), 180);
+}
+function maybeAI() {
+  if (S.mode !== "local" || !S.L || S.L.mode !== "ai" || S.aiTimer) return;
+  const st = S.L.st;
+  if (st.over || st.turn !== 1) return;
+  S.aiTimer = setTimeout(() => {
+    S.aiTimer = null;
+    if (!S.L || S.L.mode !== "ai" || S.L.st !== st) return;
+    const c = B.bestMove(st, 1, S.L.level);
+    if (c === null || c === undefined) return;
+    const ns = B.apply(st, 1, c);
+    feedback(ns.last, 0);
+    S.L.st = ns; saveLocal(); render();
+  }, st.table.length ? 1100 : 1700);
+}
+function rematch() {
+  const m = model(); if (!m.st.over) return;
+  const st = B.rematch(m.st, B.mix(m.st.seed, 7777 + (m.st.gn || 1)));
+  closeSheet(); S.sel = null; S.summaryShown = ""; S.p2Shown = "";
+  if (S.mode === "online") put({ st: JSON.stringify(st) });
+  else { S.L.st = st; S.L.view = undefined; S.cover = S.L.mode === "local"; saveLocal(); render(); }
+}
+
+/* Qué pasaría si juego esta carta (para las ayudas) */
+function outcome(m, c) {
+  const st = m.st, p = viewer(m);
+  if (!st.table.length) return null;
+  const a = st.table[0].c, fw = B.followerWins(a, c);
+  return { win: fw, a };
+}
+function coachText(m) {
+  const st = m.st, p = viewer(m), o = 1 - p, opp = m.names[o], c = S.sel, H = S.help;
+  if (!st.table.length) {
+    if (c === null) {
+      if (st.phase === 1) return { text: H ? `Se disputa el <b>${esc(cn(st.up))}</b>. Sales tú: juega la carta que quieras. Si ganas la baza te lo llevas; si pierdes, robas una carta oculta del mazo.${val(st.up) <= 3 ? " Es flojo: a veces compensa perder a propósito con una carta baja." : ""}` : "Sales tú: elige una carta." };
+      return { text: H ? `Sales tú. Las dos cartas de la baza van a la puntuación de quien gane, salvo los <b>enanos</b>, que se los queda quien pierde.` : "Sales tú: elige una carta." };
+    }
+    const f = fac(c);
+    let t = `Sales con el <b>${esc(cn(c))}</b>. ${esc(opp)} tendrá que responder con ${low(f)} si tiene${f === "X" ? "" : " (o con un cambiaformas)"}.`;
+    if (H && f === "G") t += " Cuidado: cualquier caballero le gana.";
+    if (H && f === "K") t += " Si no tiene caballeros, ganas seguro: ni un trasgo te gana.";
+    if (H && st.phase === 1 && f === "U") t += " Este no muerto irá a la puntuación de quien gane la baza.";
+    return { text: t, ok: true };
+  }
+  const a = st.table[0].c, lf = fac(a), must = st.hands[p].some(x => fac(x) === lf);
+  if (c === null) {
+    let t = `${esc(opp)} sale con el <b>${esc(cn(a))}</b>. `;
+    t += must ? (lf === "X" ? "Tienes que responder con un cambiaformas." : `Tienes que responder con ${low(lf)}${st.hands[p].some(x => fac(x) === "X") ? " o con un cambiaformas (copia la facción)" : ""}.`)
+      : `No tienes ${low(lf)}: puedes jugar cualquier carta, pero así pierdes la baza${lf === "G" ? " (salvo con un caballero, que gana a los trasgos)" : st.hands[p].some(x => fac(x) === "X") ? " (salvo con un cambiaformas, que copia la facción)" : ""}.`;
+    if (H && st.phase === 1) t += ` Se disputa el <b>${esc(cn(st.up))}</b>.`;
+    return { text: t };
+  }
+  const oc = outcome(m, c);
+  const cf = fac(c);
+  let t = `Con el <b>${esc(cn(c))}</b> `;
+  t += oc.win ? "<b>ganas</b> la baza" : "pierdes la baza";
+  if (cf === "X" && lf !== "X") t += ` (cuenta como ${NM1[lf]})`;
+  else if (oc.win && cf === "K" && lf === "G") t += " (los caballeros ganan a los trasgos)";
+  else if (!oc.win && cf === lf && val(c) === val(a)) t += " (empate: gana quien sale)";
+  else if (!oc.win && cf !== lf && cf !== "X") t += ` (no es ${NM1[lf]})`;
+  if (st.phase === 1) t += oc.win ? ` y te llevas el ${esc(cn(st.up))}.` : `: ${esc(opp)} se lleva el ${esc(cn(st.up))} y tú robas una carta oculta.`;
+  else {
+    const both = [a, c], dw = both.filter(x => fac(x) === "D").length;
+    t += oc.win ? `: te apuntas ${both.length - dw === 2 ? "las dos cartas" : both.length - dw === 1 ? "una carta" : "nada"}` : `: ${esc(opp)} se apunta ${both.length - dw === 2 ? "las dos cartas" : both.length - dw === 1 ? "una carta" : "nada"}`;
+    t += dw ? ` y ${oc.win ? esc(opp) : "tú"} se queda${oc.win ? "" : "s"} ${dw === 1 ? "el enano" : "los enanos"}.` : ".";
+  }
+  if (H && st.phase === 1 && (cf === "U" || lf === "U")) t += ` Los no muertos van a la puntuación de ${oc.win ? "ti" : esc(opp)}.`;
+  return { text: t, ok: oc.win, lo: !oc.win };
+}
+
+function tapHand(c) {
+  const m = model(); if (!canAct(m)) return notYourTurn(m);
+  const err = B.check(m.st, m.me, c);
+  if (err) { toast(err, 4000); return; }
+  if (S.sel === c) { play(c); return; }
+  S.sel = c; SFX.tick(); updateGame();
+}
+function notYourTurn(m) {
+  if (m.st.over) return;
+  if (m.me === null) toast("Estás mirando la partida.");
+  else if (m.mode === "ai") toast("La máquina está pensando…");
+  else toast("Espera a que juegue tu rival.");
+}
+function hint() {
+  const m = model(); if (!canAct(m)) return;
+  const st = m.st, p = viewer(m), c = B.bestMove(st, p, 3);
+  if (c === null || c === undefined) return;
+  S.sel = c;
+  let why;
+  if (st.table.length) {
+    const win = B.followerWins(st.table[0].c, c);
+    why = win ? "ganas la baza sin gastar más de lo necesario" : st.phase === 1 ? "esta baza no te compensa o no puedes ganarla: te quitas una carta que no te hace falta" : "perder aquí te conviene o no puedes ganar: guardas tus cartas buenas";
+  } else if (st.phase === 1) why = val(st.up) >= 6 || fac(st.up) === "K" ? `sales fuerte para llevarte el ${cn(st.up)}` : `el ${cn(st.up)} no vale mucho: sales con poco y guardas lo bueno`;
+  else why = "es la salida que mejor te deja de cara a ganar facciones";
+  toast(`Pista: ${why}. Ya está seleccionada: pulsa el botón dorado.`, 5000);
+  updateGame();
+}
+
+/* ================= vistas ================= */
+function render() {
+  if (!S.ready) return;
+  if (!S.mode) return renderHome();
+  if (S.mode === "online") {
+    if (!S.g) return view(`<div class="hero"><div class="logo"><small>DOS HEREDEROS</small>Por el Trono</div><p class="muted">Entrando en la partida…</p></div>`, "load");
+    if (S.g.status === "lobby" || !S.g.st) return renderLobby();
+  }
+  const m = model();
+  if (m.mode === "local" && S.cover && !m.st.over) return renderCover(m);
+  if (S.lastKey !== "game" || !document.getElementById("hand")) buildGame();
+  updateGame();
+  maybeAI();
+  if (!ls.get("trono.tuto") && m.me !== null && m.st.phase === 1) setTimeout(() => startTour(), 400);
+}
+function view(html, key) { if (key && key === S.lastKey) return false; S.lastKey = key; $app.innerHTML = html; return true; }
+
+function renderHome() {
+  const saved = ls.get("trono.partida");
+  const canResume = saved && saved.st && !saved.st.over;
+  const tab = S.homeTab, lv = S.aiLevel;
+  const seg = (name, val, cur, label) => `<button data-${name}="${val}" aria-pressed="${cur === val}">${label}</button>`;
+  const fan = [[13, "-14deg", "10px"], [21, "-5deg", "0"], [31, "5deg", "0"], [51, "14deg", "10px"]];
+  const html = `
+  <div class="hero"><div class="fan" aria-hidden="true">${fan.map(([c, r, y]) => cardHTML(c, "", "div", `style="transform:rotate(${r}) translateY(${y})"`)).join("")}</div>
+    <div class="logo"><small>DOS HEREDEROS</small>Por el Trono</div>
+    <p class="muted">El rey ha muerto. Reúne seguidores y gánate a las cinco facciones del reino. Para 2 jugadores.</p></div>
+  <button class="btn ghost wide" id="rules">📜 Cómo se juega (léelo si es tu primera vez)</button>
+  <label class="lbl" for="nm">Tu nombre<input id="nm" class="text" maxlength="16" autocomplete="nickname" value="${esc(S.name)}" placeholder="Tu nombre"></label>
+  ${canResume ? `<button class="btn gold wide" id="resume">Continuar partida en este móvil</button>` : ""}
+  <div class="seg" role="group" aria-label="Modo de juego">${seg("tab", "online", tab, "Online")}${seg("tab", "local", tab, "Mismo móvil")}${seg("tab", "ai", tab, "Máquina")}</div>
+  ${tab === "online" ? (S.offline ? `<div class="card"><p class="muted">No hay conexión con el servidor de partidas. Puedes jugar en este móvil o contra la máquina.</p></div>` : `
+  <div class="card"><h2>Nueva partida</h2><p class="muted small">Cada uno desde su móvil. Pasa el código a tu rival.</p><button class="btn gold wide" id="create"${S.busy ? " disabled" : ""}>Crear partida</button></div>
+  <div class="card"><h2>Unirse</h2>
+    <div class="row"><input id="jc" class="text code" maxlength="4" autocomplete="off" placeholder="ABCD" value="${esc(S.prefill || "")}" aria-label="Código de la partida"><button class="btn" id="join"${S.busy ? " disabled" : ""}>Entrar</button></div>
+    ${S.rejoin ? `<button class="btn ghost" id="rejoin">Volver a la partida ${esc(S.rejoin)}</button>` : ""}</div>`) : ""}
+  ${tab === "local" ? `<div class="card"><h2>Los dos en este móvil</h2><p class="muted small">Tus cartas son secretas: cada vez que cambia el turno, el móvil tapa la mano para que se lo pases a tu rival.</p>
+    <input id="rv" class="text" maxlength="16" placeholder="Nombre del rival" aria-label="Nombre del rival"><button class="btn gold wide" id="local">Empezar</button></div>` : ""}
+  ${tab === "ai" ? `<div class="card"><h2>Contra la máquina</h2><p class="muted small">Ideal para aprender. Empieza por Aprendiz; el Rey cuenta cartas.</p>
+    <span class="lbl">Nivel</span><div class="seg" role="group" aria-label="Nivel">${[1, 2, 3].map(v => seg("lv", v, lv, LVL[v])).join("")}</div>
+    <button class="btn gold wide" id="ai">Empezar</button></div>` : ""}
+  <p class="msg ${S.homeErr ? "err" : ""}" role="status">${esc(S.homeMsg)}</p>`;
+  view(html, "home|" + S.busy + "|" + S.homeMsg + "|" + tab + "|" + lv);
+  const keepName = () => { const el = document.getElementById("nm"); if (el) S.name = el.value.trim().slice(0, 16); };
+  on("[data-tab]", "click", e => { keepName(); S.homeTab = e.currentTarget.dataset.tab; S.homeMsg = ""; render(); });
+  on("[data-lv]", "click", e => { keepName(); S.aiLevel = +e.currentTarget.dataset.lv; render(); });
+  on("#create", "click", createOnline);
+  on("#join", "click", () => joinOnline(document.getElementById("jc").value));
+  on("#jc", "keydown", e => { if (e.key === "Enter") joinOnline(e.target.value); });
+  on("#rejoin", "click", () => joinOnline(S.rejoin));
+  on("#local", "click", () => startLocal("local"));
+  on("#ai", "click", () => startLocal("ai"));
+  on("#resume", "click", resumeLocal);
+  on("#rules", "click", showRules);
+}
+
+function renderLobby() {
+  const g = S.g, st = g.seats || {}, host = g.host === me(), seat = seatOf(me());
+  const seatH = i => st[i] ? `<div class="seat"><span class="muted small">${i === 0 ? "Anfitrión" : "Rival"}</span><b>${esc(st[i].name)}${st[i].id === me() ? " (tú)" : ""}</b></div>` : `<div class="seat empty"><span class="small">Esperando rival…</span></div>`;
+  const html = `
+  <div class="top"><button class="btn ghost sm" id="out">Salir</button><span class="sp"></span><span class="chip">SALA ${esc(S.code)}</span><button class="icon-btn" id="help" aria-label="Cómo se juega">?</button></div>
+  <div class="hero" style="padding-block:6px 0"><div class="logo" style="font-size:36px"><small>DOS HEREDEROS</small>Por el Trono</div></div>
+  <div class="card" style="text-align:center"><p class="muted small">Código de la partida</p><div class="big-code">${esc(S.code)}</div>
+    <button class="btn ghost" id="share">Invitar</button></div>
+  <div class="card"><h2>Jugadores</h2><div class="seats">${seatH(0)}${seatH(1)}</div>
+    ${seat === undefined && !st[1] ? `<button class="btn gold" id="sit">Sentarme</button>` : ""}</div>
+  ${host ? `<button class="btn gold wide" id="start"${st[1] ? "" : " disabled"}>${st[1] ? "Empezar la partida" : "Esperando a tu rival…"}</button>`
+    : `<div class="wait"><p>Esperando a que ${esc((st[0] || {}).name || "el anfitrión")} empiece la partida.</p></div>`}
+  <p class="muted small" style="text-align:center">Mientras esperáis, pulsad <b>?</b> para leer las reglas.</p>`;
+  view(html, "lobby|" + JSON.stringify(st) + host);
+  on("#out", "click", () => leave());
+  on("#share", "click", share);
+  on("#help", "click", showRules);
+  on("#sit", "click", () => joinOnline(S.code));
+  on("#start", "click", () => { if (S.g.seats[1]) put({ status: "play", st: JSON.stringify(B.newGame(newSeed(), Math.random() < .5 ? 0 : 1)) }); });
+}
+function share() {
+  const url = location.origin + location.pathname + "#" + S.code, text = `Vente a luchar por el trono. Código: ${S.code}`;
+  if (navigator.share) { navigator.share({ title: "Por el Trono", text, url }).catch(() => {}); return; }
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(() => toast("Enlace copiado."), () => toast(url));
+  else toast(url);
+}
+
+function lastLine(m, rec) {
+  const st = m.st, nm = p => esc(youName(m, p));
+  if (!rec) return "";
+  if (rec.t === "lead") return `${nm(rec.p)} ${rec.p === m.me && m.mode !== "local" ? "sales" : "sale"} con el ${esc(cn(rec.c))}.`;
+  const L = rec.lp, Fo = 1 - L, w = rec.w, l = 1 - w, youW = w === m.me && m.mode !== "local";
+  const why = { high: "carta más alta", tie: "empate: gana quien sale", knight: "un caballero siempre gana a un trasgo", offsuit: `${esc(m.names[Fo])} no tenía ${low(fac(rec.a))}` }[rec.why];
+  let t = `${nm(w)} ${youW ? "ganas" : "gana"} la baza${rec.phase === 1 ? ` y ${youW ? "te llevas" : "se lleva"} el ${esc(cn(rec.up))}` : ""}`;
+  let sub = why + (rec.copy ? ` (el cambiaformas copió a los ${low(fac(rec.a))})` : "") + ".";
+  if (rec.phase === 1) sub += rec.drew === m.me ? ` Robas el ${esc(cn(rec.d))} (solo lo ves tú).` : ` ${esc(m.names[l])} roba una carta oculta.`;
+  const mine = q => q === m.me && m.mode !== "local";
+  if (rec.phase === 1 && rec.und && rec.und.length) sub += ` ${rec.und.length === 1 ? "El no muerto va" : "Los no muertos van"} a ${mine(w) ? "tu puntuación" : "la puntuación de " + esc(m.names[w])}.`;
+  if (rec.phase === 2 && rec.dw && rec.dw.length) sub += mine(l) ? ` ${rec.dw.length === 1 ? "El enano te lo quedas" : "Los enanos te los quedas"} tú, que pierdes.` : ` ${rec.dw.length === 1 ? "El enano se lo queda" : "Los enanos se los queda"} ${esc(m.names[l])}, que pierde.`;
+  return `${t}. <span class="sub">${sub}</span>`;
+}
+
+function renderCover(m) {
+  const st = m.st, who = m.names[st.turn];
+  const rec = st.table.length ? { t: "lead", p: st.table[0].p, c: st.table[0].c } : st.last;
+  const txt = rec ? lastLine({ ...m, me: -1 }, rec) : `Empieza ${esc(who)}.`;
+  view(`<div class="top"><button class="btn ghost sm" id="out">Salir</button><span class="sp"></span><span class="chip">MISMO MÓVIL</span></div>
+  <div class="cover"><div class="fan" aria-hidden="true">${backHTML("", "width:66px;transform:rotate(-8deg)")}${backHTML("", "width:66px;transform:rotate(8deg)")}</div>
+    <p class="muted">Fase ${st.phase} · Baza ${Math.min(st.trick, 13)} de 13</p>
+    <h2>Turno de ${esc(who)}</h2>
+    <p>${txt}</p>
+    ${st.table.length ? `<p class="muted small">Te toca responder.</p>` : ""}
+    <p class="muted small">Pásale el móvil sin mirar sus cartas.</p>
+    <button class="btn gold wide" id="go">Soy ${esc(who)}: ver mis cartas</button></div>`, "cover|" + st.n + "|" + st.gn);
+  on("#out", "click", () => leave());
+  on("#go", "click", () => { S.cover = false; S.lastKey = ""; render(); });
+}
+
+function buildGame() {
+  const m = model();
+  const chip = S.mode === "online" ? `SALA ${esc(S.code)}` : m.mode === "ai" ? "CONTRA LA MÁQUINA" : "MISMO MÓVIL";
+  const snd = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4z"/>${SFX.on ? '<path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/>' : '<path d="m22 9-6 6M16 9l6 6"/>'}</svg>`;
+  view(`
+  <div class="top"><button class="btn ghost sm" id="out">Salir</button><span class="sp"></span><span class="chip">${chip}</span>
+    <button class="icon-btn" id="help" aria-label="Cómo se juega">?</button><button class="icon-btn" id="snd" aria-label="${SFX.on ? "Quitar sonido" : "Activar sonido"}">${snd}</button></div>
+  <button class="pl" id="opp"></button>
+  <div class="phase" id="phase"></div>
+  <div class="board" id="board"><div class="upz" id="upz"></div><div class="trick" id="trick"></div></div>
+  <div id="lastBox"></div>
+  <div class="zone" id="facz"><div class="zone-h"><span>Facciones · tú – rival</span><span id="facw"></span></div><div class="facs" id="facs"></div></div>
+  <div class="zone" id="folz"><div class="zone-h"><span id="folT">Tus seguidores</span><span class="muted" style="text-transform:none;letter-spacing:0;font-weight:700">tu mano en la fase 2</span></div><div class="folrow" id="fol"></div></div>
+  <div class="zone" id="myz"><div class="zone-h"><span id="myTitle">Tu mano</span></div><div class="hand" id="hand"></div></div>
+  <p class="coach" id="coach" role="status" aria-live="polite"></p>
+  <div class="acts" id="acts"></div>
+  <div class="myscore" id="mys"></div>
+  <details class="log" id="logBox"><summary>Lo que ha pasado</summary><ol id="log"></ol></details>`, "game");
+  on("#out", "click", () => {
+    const m = model();
+    if (S.mode === "online" && m.me !== null && !m.st.over) confirmSheet("¿Salir de la partida?", "Podrás volver con el mismo código.", "Salir", () => leave());
+    else leave();
+  });
+  on("#help", "click", showRules);
+  on("#snd", "click", () => { SFX.on = !SFX.on; ls.set("trono.sound", SFX.on); SFX.init(); S.lastKey = ""; render(); });
+  document.getElementById("hand").addEventListener("click", e => { const b = e.target.closest("[data-c]"); if (b) tapHand(+b.dataset.c); });
+  document.getElementById("facs").addEventListener("click", e => {
+    const b = e.target.closest("[data-f]"); if (!b) return;
+    const f = b.dataset.f, st = model().st, gone = st.score[0].concat(st.score[1], st.disc).filter(c => fac(c) === f).length;
+    toast(`${NM[f]} (${B.TOTAL[f]} cartas, valores ${f === "K" ? "2 a 9" : "0 a 9"}): ${POWER[f]} Ya han salido ${gone}.`, 6000);
+  });
+  document.getElementById("opp").addEventListener("click", () => {
+    const m = model(), st = m.st, o = 1 - viewer(m), pub = st.pub[o];
+    if (st.phase === 1) toast(pub.length ? `${m.names[o]} ha ganado estos seguidores a la vista: ${pub.map(cn).join(", ")}. El resto los robó en secreto.` : `${m.names[o]} aún no ha ganado ningún seguidor a la vista.`, 6000);
+    else toast(`${m.names[o]} tiene ${st.hands[o].length} cartas: son sus seguidores de la fase 1.`, 4000);
+  });
+  document.getElementById("upz").addEventListener("click", () => { const st = model().st; if (st.phase === 1 && st.up !== null) toast(`Se disputa el ${cn(st.up)}. ${POWER[fac(st.up)]}`, 5000); });
+}
+
+function slotHTML(m, p, c, label, state) {
+  const nm = youName(m, p);
+  return `<div class="slot"><span class="lab">${esc(label)}<b>${esc(nm)}</b></span>${c === null ? `<div class="ph">${state === "wait" ? "Esperando…" : ""}</div>` : cardHTML(c, state || "")}${state === "win" ? `<span class="tag">Gana</span>` : state === "lose" ? `<span class="tag lo">Pierde</span>` : ""}</div>`;
+}
+
+function updateGame() {
+  if (!document.getElementById("hand")) return;
+  const m = model(), st = m.st, p = viewer(m), o = 1 - p, my = canAct(m);
+  const fresh = st.last && st.last.n !== S.seenN && S.seenN !== -1;
+  const leg = my ? B.legal(st, p) : [];
+  if (S.sel !== null && !leg.includes(S.sel)) S.sel = null;
+
+  /* rival */
+  const oppEl = document.getElementById("opp");
+  const fo = st.fol[o].length;
+  oppEl.innerHTML = `<div class="who"><b>${esc(m.names[o])}</b><span>${st.phase === 1 ? `${fo} ${fo === 1 ? "seguidor" : "seguidores"} (${st.pub[o].length} a la vista)` : "Jugando con sus seguidores"}</span></div>
+    <div class="mini" aria-label="${st.hands[o].length} cartas en la mano">${st.hands[o].map(() => backHTML()).join("")}</div>
+    <span class="crowns" title="Partidas ganadas">${crown()}${st.wins[o]}</span>`;
+  oppEl.setAttribute("aria-label", `${m.names[o]}: ${st.hands[o].length} cartas`);
+  oppEl.classList.toggle("turn", !st.over && st.turn === o);
+
+  /* fase */
+  document.getElementById("phase").innerHTML = st.over ? `<span><b>Partida terminada</b></span>` : st.phase === 1
+    ? `<span><b>Fase 1</b> · Recluta seguidores</span><span>Baza ${st.trick} de 13</span>`
+    : `<span><b>Fase 2</b> · Gana las facciones</span><span>Baza ${st.trick} de 13</span>`;
+
+  /* mesa */
+  const board = document.getElementById("board"), p1 = st.phase === 1 && !st.over;
+  board.classList.toggle("p2", !p1);
+  const upz = document.getElementById("upz");
+  upz.style.display = p1 ? "" : "none";
+  if (p1) upz.innerHTML = `<span class="lab">Se disputa<b>&nbsp;</b></span>${st.up !== null ? cardHTML(st.up, fresh && st.last.t === "trick" ? "new" : "") : ""}<span class="drawn">${backHTML()}Mazo: ${st.deck.length}</span>`;
+  const tb = st.table, lr = st.last && st.last.t === "trick" ? st.last : null;
+  let slots;
+  if (tb.length) slots = slotHTML(m, tb[0].p, tb[0].c, "Sale", "") + slotHTML(m, 1 - tb[0].p, null, "Responde", "wait");
+  else if (lr) slots = slotHTML(m, lr.lp, lr.a, "Salió", lr.w === lr.lp ? "win" : "lose") + slotHTML(m, 1 - lr.lp, lr.b, "Respondió", lr.w !== lr.lp ? "win" : "lose");
+  else slots = slotHTML(m, st.turn, null, "Sale", "wait") + slotHTML(m, 1 - st.turn, null, "Responde", "");
+  document.getElementById("trick").innerHTML = slots;
+
+  /* última jugada */
+  const lb = document.getElementById("lastBox");
+  if (st.over) lb.innerHTML = `<div class="last">${lastLine(m, st.last)}</div>`;
+  else if (tb.length) lb.innerHTML = `<div class="last${fresh && tb[0].p !== m.me ? " fresh" : ""}">${lastLine(m, { t: "lead", p: tb[0].p, c: tb[0].c })}</div>`;
+  else if (lr) lb.innerHTML = `<div class="last${fresh ? " fresh" : ""}">${lastLine(m, lr)}${lr.phaseEnd ? ` <b>¡Empieza la fase 2!</b>` : ""}</div>`;
+  else lb.innerHTML = `<div class="last">${st.turn === m.me && m.mode !== "local" ? "Empiezas tú." : `Empieza ${esc(m.names[st.turn])}.`}</div>`;
+
+  /* facciones */
+  const tal = B.tally(st);
+  let mineF = 0, oppF = 0;
+  document.getElementById("facs").innerHTML = tal.map(r => {
+    const a = r.n[p], b = r.n[o], cls = a > b ? "me" : b > a ? "op" : "";
+    if (st.over) { if (r.w === p) mineF++; else if (r.w === o) oppF++; }
+    const lab = st.over ? (r.w === p ? "tuya" : r.w === o ? "rival" : "nadie") : SHORT[r.f];
+    return `<button class="fz ${st.over ? (r.w === p ? "me" : r.w === o ? "op" : "") : cls}" data-f="${r.f}" aria-label="${NM[r.f]}: tú ${a}, rival ${b}"><span class="dot f-${r.f}">${icon(r.f, "")}</span><span class="sc">${a}<i>–</i>${b}</span><small>${lab}</small></button>`;
+  }).join("");
+  document.getElementById("facw").textContent = st.phase === 1 && !st.over ? "puntúan en la fase 2" : "";
+
+  /* seguidores */
+  const folz = document.getElementById("folz");
+  folz.style.display = st.phase === 1 && !st.over ? "" : "none";
+  if (st.phase === 1) {
+    const fl = st.fol[p];
+    document.getElementById("folT").textContent = `${m.me === null ? "Seguidores de " + m.names[p] : "Tus seguidores"} · ${fl.length}`;
+    document.getElementById("fol").innerHTML = m.me === null ? fl.map(c => st.pub[p].includes(c) ? cardHTML(c) : backHTML()).join("") || `<span class="empty">Ninguno</span>`
+      : B.sortHand(fl.slice()).map(c => cardHTML(c)).join("") || `<span class="empty">Gana bazas para reclutar seguidores.</span>`;
+  }
+
+  /* mano */
+  const hand = st.hands[p];
+  document.getElementById("myTitle").textContent = `${m.me === null ? "Mano de " + m.names[p] : "Tu mano"} · ${hand.length}`;
+  if (m.me === null) document.getElementById("hand").innerHTML = hand.map(() => backHTML()).join("") || `<p class="empty">Sin cartas</p>`;
+  else document.getElementById("hand").innerHTML = hand.map(c => cardHTML(c, (S.sel === c ? "sel " : "") + (my && !leg.includes(c) ? "no" : ""), "button", `data-c="${c}" aria-pressed="${S.sel === c}" aria-label="${cn(c)}${my && !leg.includes(c) ? " (no se puede jugar ahora)" : ""}"`)).join("") || `<p class="empty">Sin cartas.</p>`;
+
+  /* ayuda y botones */
+  const coach = document.getElementById("coach");
+  let ct = { text: "" };
+  if (st.over) ct = { text: "Partida terminada." };
+  else if (!my) ct = { text: m.me === null ? `Juega ${esc(m.names[st.turn])}.` : m.mode === "ai" ? "La máquina está pensando…" : `Turno de ${esc(m.names[st.turn])}. Espera a que juegue.` };
+  else ct = coachText(m);
+  coach.innerHTML = ct.text;
+  coach.className = "coach" + (ct.ok ? " ok" : ct.lo ? " lo" : "");
+  const acts = document.getElementById("acts");
+  if (st.over) acts.innerHTML = `<button class="btn gold main" id="seeEnd">Ver el resultado</button>`;
+  else if (my) acts.innerHTML = `<button class="btn gold main" id="go"${S.sel === null ? " disabled" : ""}>${S.sel === null ? (st.table.length ? "Elige con qué respondes" : "Elige con qué sales") : "Jugar el " + esc(cn(S.sel))}</button><button class="btn sm" id="hi">Pista</button>`;
+  else acts.innerHTML = "";
+  on("#go", "click", () => { if (S.sel !== null) play(S.sel); });
+  on("#hi", "click", hint);
+  on("#seeEnd", "click", () => showSummary());
+
+  /* marcador */
+  document.getElementById("mys").innerHTML = m.me === null ? "" : `<span class="crowns" title="Partidas ganadas">${crown()}<span style="color:var(--ink)">Partidas: <b>${st.wins[p]}</b> – ${st.wins[o]}</span></span>
+    <button class="btn sm ghost" id="aid" style="min-height:32px;font-size:12px" aria-pressed="${S.help}">Ayudas: ${S.help ? "sí" : "no"}</button>`;
+  on("#aid", "click", () => { S.help = !S.help; ls.set("trono.ayudas", S.help); updateGame(); });
+
+  /* historial */
+  const logEl = document.getElementById("log"), hist = st.hist || [];
+  const lk = st.gn + "|" + hist.length + "|" + m.me;
+  if (logEl.dataset.k !== lk) {
+    logEl.dataset.k = lk;
+    logEl.innerHTML = hist.length ? hist.map((x, i) => (i === 0 || hist[i - 1].phase !== x.phase ? `<li class="ph">Fase ${x.phase}</li>` : "") + `<li>${esc(cn(x.a))} contra ${esc(cn(x.b))}: ${lastLine(m, x).replace(/<[^>]+>/g, "")}</li>`).join("") : `<li class="muted">Todavía nada.</li>`;
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+  if (fresh && S.mode === "online" && m.me !== null && (st.last.t === "lead" ? st.last.p : 1 - st.last.lp) !== m.me) feedback(st.last, m.me);
+  S.seenN = st.last ? st.last.n : 0;
+
+  if (!st.over && S.sumOpen) closeSheet();
+  const gk = st.seed + "|" + st.gn;
+  if (st.phase === 2 && !st.over && S.p2Shown !== gk && m.me !== null) { S.p2Shown = gk; setTimeout(() => showPhase2(), fresh ? 900 : 100); }
+  if (st.over && S.summaryShown !== gk) { S.summaryShown = gk; setTimeout(() => showSummary(), fresh ? 1100 : 100); }
+}
+
+/* ================= fase 2 ================= */
+function showPhase2() {
+  const m = model(), st = m.st; if (st.phase !== 2 || st.over) return;
+  openSheet(`<h2 class="end-h">¡Empieza la fase 2!</h2>
+    <p>Tus <b>${st.hands[viewer(m)].length} seguidores</b> son ahora tu mano. Se juega igual (hay que seguir la facción), pero ahora <b>las cartas de cada baza cuentan</b>: se las queda quien gana.</p>
+    <ul style="margin:0;padding-left:20px;display:grid;gap:4px">
+      <li>Gana cada facción quien tenga <b>más cartas</b> de ella al final (si empatan, quien tenga la carta más alta).</li>
+      <li>Ganas la partida con <b>3 de las 5 facciones</b>.</li>
+      <li>Ojo con los <b>enanos</b>: se los queda quien <b>pierde</b> la baza.</li></ul>
+    <p class="muted small">Arriba, en Facciones, ves cómo vais en cada una. Tócalas para recordar sus poderes.</p>
+    <button class="btn gold wide" data-x>Entendido</button>`);
+  on("[data-x]", "click", closeSheet, $sheet);
+}
+
+/* ================= final ================= */
+function showSummary() {
+  const m = model(), st = m.st, ov = st.over; if (!ov) return;
+  const nm = q => esc(m.mode !== "local" && q === m.me ? m.names[q] + " (tú)" : m.names[q]);
+  const title = ov.win === null ? "¡Empate! El trono sigue vacío" : m.me === null || m.mode === "local" ? `¡${esc(m.names[ov.win])} se sienta en el trono!` : ov.win === m.me ? "¡Te sientas en el trono!" : "Pierdes el trono";
+  if (ov.win !== null) SFX.fanfare();
+  const rows = ov.res.map(r => `<tr><td><span class="fnm"><span class="dot f-${r.f}">${icon(r.f, "")}</span>${NM[r.f]}</span></td>${[0, 1].map(q => `<td class="${r.w === q ? "w" : ""}">${r.n[q]}${r.tie && r.n[q] ? ` <span class="muted small">(máx. ${r.max[q]})</span>` : ""}${r.w === q ? " ★" : ""}</td>`).join("")}</tr>`).join("");
+  const ties = ov.res.filter(r => r.tie);
+  const canGo = m.me !== null || m.mode !== "online";
+  openSheet(`<h2 class="end-h">${title}</h2>
+    <table class="res"><thead><tr><th>Facción</th><th>${nm(0)}</th><th>${nm(1)}</th></tr></thead><tbody>
+      ${rows}
+      <tr class="tot"><td>Facciones</td>${[0, 1].map(q => `<td class="${ov.win === q ? "w" : ""}">${ov.cnt[q]}</td>`).join("")}</tr>
+    </tbody></table>
+    ${ties.length ? `<p class="muted small">Empate de cartas en ${ties.map(r => low(r.f)).join(", ")}: se la lleva quien tiene la carta más alta.</p>` : ""}
+    ${ov.res.some(r => r.w === null) ? `<p class="muted small">Alguna facción ha quedado sin dueño.</p>` : ""}
+    <p class="small">Gana quien consigue la mayoría en más facciones. Partidas ganadas: ${nm(0)} <b>${st.wins[0]}</b> – <b>${st.wins[1]}</b> ${nm(1)}.</p>
+    <div class="row">${canGo ? `<button class="btn gold" id="nx">Revancha</button>` : ""}<button class="btn ghost" id="vt">Ver la mesa</button></div>
+    <button class="btn ghost wide" id="bye">Salir</button>`);
+  on("#nx", "click", rematch, $sheet);
+  on("#vt", "click", closeSheet, $sheet);
+  on("#bye", "click", () => { closeSheet(); if (S.mode === "local") ls.del("trono.partida"); leave(); }, $sheet);
+  S.sumOpen = true;
+}
+
+/* ================= reglas ================= */
+function showRules() {
+  const ex = (...cs) => `<div class="ex">${cs.map(c => typeof c === "string" ? `<b>${c}</b>` : cardHTML(c)).join("")}</div>`;
+  const facRow = f => `<div class="facrow"><span class="dot f-${f}">${icon(f, "")}</span><div><b>${NM[f]}</b> <span class="muted small">(${B.TOTAL[f]} cartas, ${f === "K" ? "del 2 al 9" : f === "G" ? "cinco 0 y del 1 al 9" : "del 0 al 9"})</span><br>${POWER[f]}</div></div>`;
+  openSheet(`<div class="rules">
+    <h2 style="font-size:26px;color:var(--gold)">Cómo se juega</h2>
+    <section><h3>La idea</h3><p>El rey ha muerto y sois dos aspirantes al trono. El reino tiene <b>5 facciones</b>. Gana quien consiga la <b>mayoría en 3 de ellas</b>. La partida tiene dos fases de 13 bazas cada una.</p></section>
+    <section><h3>Cómo es una baza</h3>
+      <ol><li>Quien <b>sale</b> juega la carta que quiera.</li>
+        <li>El otro <b>responde</b>: si tiene cartas de esa misma facción, está obligado a jugar una (o un cambiaformas). Si no tiene, puede jugar cualquiera.</li>
+        <li>Si las dos son de la misma facción, <b>gana la más alta</b>. Si empatan, gana quien salió.</li>
+        <li>Si quien responde juega otra facción, <b>gana quien salió</b> (excepción: un caballero gana a un trasgo).</li>
+        <li>Quien gana la baza sale en la siguiente.</li></ol>
+      ${ex(19, "contra", 21, "→ gana el 9 de Caballeros")}${ex(13, "contra", 14, "→ gana el caballero")}</section>
+    <section><h3>Fase 1: recluta seguidores</h3>
+      <p>Empiezas con 13 cartas. En cada baza hay una carta boca arriba del mazo: <b>se disputa</b>.</p>
+      <ul><li>Quien gana la baza se lleva la carta que se disputa.</li>
+        <li>Quien pierde roba la siguiente del mazo <b>sin enseñarla</b>. ¡Puede salir buena!</li>
+        <li>Las dos cartas jugadas se descartan (menos los no muertos, mira abajo).</li>
+        <li>Lo que consigues son tus <b>seguidores</b>: al acabar la fase 1 serán tu nueva mano.</li></ul>
+      <p class="muted small">Truco: si la carta que se disputa es mala, pierde a propósito con tu carta más baja y guarda las buenas.</p></section>
+    <section><h3>Fase 2: gánate las facciones</h3>
+      <ul><li>Juegas 13 bazas con tus seguidores, igual que antes.</li>
+        <li>Ahora las <b>dos cartas</b> de cada baza se las queda quien gana, para puntuar (menos los enanos).</li>
+        <li>Al final, cada facción es de quien tenga más cartas de ella. Si empatan, de quien tenga la carta más alta de esa facción.</li>
+        <li>Quien gana <b>3 o más facciones</b> se sienta en el trono.</li></ul></section>
+    <section><h3>Las facciones y sus poderes</h3>${F.map(facRow).join("")}</section>
+    <section><h3>Consejos para empezar</h3><ul>
+      <li>En la fase 1 no ganes todas: lo importante es <b>qué seguidores</b> te llevas, porque luego jugarás con ellos.</li>
+      <li>Cartas altas, caballeros y cambiaformas son buenos seguidores para la fase 2.</li>
+      <li>No regales no muertos en la fase 1: van directos a la puntuación de quien gane.</li>
+      <li>En la fase 2 no hace falta ganar todo: céntrate en 3 facciones.</li>
+      <li>Si dudas, pulsa <b>Pista</b>: te dejo seleccionada una buena carta.</li></ul></section>
+    <div class="row"><button class="btn ghost" id="tourGo">Ver la visita guiada</button><button class="btn gold" data-x>Entendido</button></div></div>`);
+  on("[data-x]", "click", closeSheet, $sheet);
+  on("#tourGo", "click", () => { closeSheet(); if (S.mode && document.getElementById("hand")) startTour(true); else toast("La visita guiada empieza al abrir tu primera partida."); }, $sheet);
+}
+
+/* ================= visita guiada (primera partida) ================= */
+const TOUR = [
+  { el: null, h: "Bienvenido a la corte", t: "Te enseño la mesa en un minuto. Sois dos aspirantes al trono: gana quien consiga la mayoría en <b>3 de las 5 facciones</b>. Hay dos fases de 13 bazas." },
+  { el: "#upz", h: "Lo que se disputa", t: "En la fase 1 cada baza se juega por esta carta. Quien gana la baza se la lleva; quien pierde roba una carta oculta del mazo." },
+  { el: "#trick", h: "La baza", t: "Uno sale con una carta y el otro responde. Si tienes la facción que ha salido, tienes que jugarla. Gana la carta más alta; en empate, quien salió." },
+  { el: "#myz", h: "Tu mano", t: "Las cartas que no puedes jugar salen apagadas. Toca una para elegirla y verás abajo si con ella ganas o pierdes." },
+  { el: "#folz", h: "Tus seguidores", t: "Aquí se guarda lo que consigues en la fase 1. Al acabarla, <b>estos seguidores serán tu mano</b> para la fase 2." },
+  { el: "#facz", h: "Las facciones", t: "En la fase 2 las cartas que ganas puntúan aquí: verde si vas ganando, rojo si va ganando tu rival. Toca una para ver su poder especial." },
+  { el: "#acts", h: "Jugar y Pista", t: "El botón dorado juega la carta elegida (también puedes tocarla dos veces). <b>Pista</b> te sugiere una buena jugada." },
+  { el: "#help", h: "¿Dudas?", t: "Aquí tienes las reglas completas y los poderes de cada facción cuando quieras. ¡Que empiece la lucha por el trono!" }
+];
+let tourI = -1;
+function startTour(force) {
+  if (tourI >= 0 || (!force && ls.get("trono.tuto"))) return;
+  if (!document.getElementById("hand")) return;
+  ls.set("trono.tuto", 1); tourI = 0; showTour();
+}
+function showTour() {
+  document.querySelectorAll(".spot").forEach(e => e.classList.remove("spot"));
+  const s = TOUR[tourI]; if (!s) return endTour();
+  let el = s.el && document.querySelector(s.el);
+  if (el && !el.offsetHeight) el = null;
+  if (el) { el.classList.add("spot"); el.scrollIntoView({ block: "center", behavior: "instant" in document.documentElement.style ? "instant" : "auto" }); }
+  const r = el ? el.getBoundingClientRect() : null, lowPos = r && r.top + r.height / 2 > innerHeight / 2;
+  $tour.innerHTML = `${el ? "" : '<div class="shade"></div>'}<div class="bub" role="dialog" aria-modal="true" style="${lowPos ? "top:calc(12px + env(safe-area-inset-top,0px))" : "bottom:calc(14px + env(safe-area-inset-bottom,0px))"}">
+    <span class="steps">PASO ${tourI + 1} DE ${TOUR.length}</span><h3>${s.h}</h3><p>${s.t}</p>
+    <div class="row"><button class="btn ghost sm" id="tX">Saltar</button><button class="btn gold sm" id="tN">${tourI === TOUR.length - 1 ? "¡A jugar!" : "Siguiente"}</button></div></div>`;
+  $tour.classList.add("on");
+  $tour.querySelector("#tX").addEventListener("click", endTour);
+  $tour.querySelector("#tN").addEventListener("click", () => { tourI++; showTour(); });
+}
+function endTour() { tourI = -1; $tour.classList.remove("on"); $tour.innerHTML = ""; document.querySelectorAll(".spot").forEach(e => e.classList.remove("spot")); }
+
+/* ================= hojas ================= */
+function confirmSheet(title, text, okLabel, fn) {
+  openSheet(`<h2>${esc(title)}</h2>${text ? `<p class="muted">${esc(text)}</p>` : ""}<div class="row"><button class="btn ghost" data-x>Cancelar</button><button class="btn gold" data-ok>${esc(okLabel)}</button></div>`);
+  on("[data-x]", "click", closeSheet, $sheet);
+  on("[data-ok]", "click", () => { closeSheet(); fn(); }, $sheet);
+}
+function openSheet(html) { document.getElementById("toast").classList.remove("on"); $sheet.innerHTML = `<div class="scrim"></div><div class="pane" role="dialog" aria-modal="true">${html}</div>`; $sheet.classList.add("on"); $sheet.querySelector(".scrim").addEventListener("click", closeSheet); $sheet.querySelector(".pane").scrollTop = 0; }
+function closeSheet() { S.sumOpen = false; $sheet.classList.remove("on"); $sheet.innerHTML = ""; }
+addEventListener("keydown", e => { if (e.key === "Escape") { closeSheet(); endTour(); } });
+
+boot();
+})();
+</script>
+</body>
+</html>
