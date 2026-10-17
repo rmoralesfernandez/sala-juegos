@@ -164,6 +164,7 @@ const ART={
   crown:'<svg class="art" viewBox="0 0 100 100" aria-hidden="true" fill="currentColor"><path d="M10 72 15 28l21 22 14-32 14 32 21-22 5 44z"/><rect x="10" y="76" width="80" height="11" rx="3"/></svg>',
   pencil:'<svg class="art" viewBox="0 0 100 100" aria-hidden="true" fill="currentColor"><path d="M66 10l24 24-46 46-30 8 8-30z"/><path d="M22 66l12 12-14 4z" fill="rgba(0,0,0,.35)"/><path d="M8 94c18-8 30 4 46-6" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" opacity=".6"/></svg>',
   machine:'<svg class="art" viewBox="0 0 100 100" aria-hidden="true"><g fill="currentColor"><rect x="4" y="28" width="28" height="44" rx="6"/><rect x="36" y="28" width="28" height="44" rx="6"/><rect x="68" y="28" width="28" height="44" rx="6"/></g><g fill="rgba(0,0,0,.35)"><path d="M18 40 27 58H9z"/><rect x="42" y="41" width="16" height="16" rx="2"/><circle cx="82" cy="49" r="9"/></g></svg>',
+  lupa:'<svg class="art" viewBox="0 0 100 100" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="9"><circle cx="42" cy="42" r="26"/><path d="M62 62 88 88" stroke-linecap="round" stroke-width="13"/></svg>',
   dice:'<svg class="art" viewBox="0 0 100 100" aria-hidden="true"><rect x="10" y="10" width="80" height="80" rx="16" fill="currentColor"/><g fill="rgba(0,0,0,.35)"><circle cx="30" cy="30" r="8"/><circle cx="70" cy="30" r="8"/><circle cx="50" cy="50" r="8"/><circle cx="30" cy="70" r="8"/><circle cx="70" cy="70" r="8"/></g></svg>'
 };
 const CATS=[
@@ -179,6 +180,8 @@ const GAMES=[
    desc:"Sale una letra y a rellenar categorías antes que nadie. El primero que acaba grita ¡Stop!",meta:["2 o más jugadores"]},
   {name:"Trivial",sub:"Quesito Show",url:"./trivial/",cat:"fiesta",kw:"preguntas quiz cultura",tone:"var(--c7)",art:"pie",tag:"Concurso",
    desc:"Ruleta, rondas locas y el Doble o nada final. Gana quien más quesitos se lleve.",meta:["2 o más jugadores","Cada uno su móvil"]},
+  {name:"Caso Abierto",sub:"Detectives a dúo",url:"./detective/",cat:"roles",kw:"detective crimen misterio cluedo asesinato pistas investigar cooperativo pareja",tone:"#8C2F39",art:"lupa",tag:"Cooperativo",
+   desc:"Resolved juntos un crimen: leed pistas, interrogad a los sospechosos y señalad al culpable, el motivo y el método. Casos escritos y casos nuevos con IA.",meta:["2 jugadores","Online o 1 móvil","Casos con IA"]},
   {name:"El Impostor",sub:"Una palabra, un traidor",url:"./impostor/",cat:"roles",kw:"palabras traidor votar",tone:"var(--c10)",art:"mask",tag:"Fiesta",
    desc:"Todos tienen la misma palabra secreta menos el impostor. Pistas, debate y votación para pillarlo.",meta:["3 a 16 jugadores","Cada uno su móvil"]},
   {name:"El Pueblo Duerme",sub:"Hombres lobo",url:"./pueblo/",cat:"roles",kw:"lobo hombres lobo mafia narrador",tone:"var(--c11)",art:"moon",tag:"Roles ocultos",

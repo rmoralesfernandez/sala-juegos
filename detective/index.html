@@ -1,0 +1,753 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Caso Abierto</title>
+<meta name="theme-color" content="#15110E">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="../icons/icon-192.png">
+<link rel="apple-touch-icon" href="../icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Special+Elite&family=DM+Sans:opsz,wght@9..40,400;9..40,600;9..40,800&display=swap">
+<script>window.APP_KEY="detective"</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="../firebase-config.js"></script>
+<script src="../shared/claude-shim.js"></script>
+<script src="casos.js"></script>
+<style>
+/* Layout: expediente policial — cabecera con horas, pestañas (Caso, Investigar, Pistas, Acusar) y fichas de papel sobre fondo oscuro */
+:root{
+  --bg:#15110E; --bg-2:#1F1A15; --panel:#28211B; --panel-2:#342B23; --line:#463A2E;
+  --ink:#F4ECDD; --muted:#B9AC95; --paper:#F1E7D0; --paper-2:#E5D7B8; --pink:#2B2219;
+  --red:#C9372C; --red-2:#E25A4C; --gold:#E7B54A; --ok:#62C98F;
+  --type:"Special Elite","Courier New",monospace;
+  --body:"DM Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:radial-gradient(120% 70% at 50% -10%,#3A2A1C,var(--bg) 60%) fixed;background-color:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+#app{max-width:600px;margin:0 auto;min-height:100%;padding-inline:16px;padding-block:14px calc(36px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px}
+h1,h2,h3{font-family:var(--type);font-weight:400;margin:0;text-wrap:balance}
+p{margin:0}
+.muted{color:var(--muted)}
+.small{font-size:13.5px}
+.center{text-align:center}
+
+.btn{appearance:none;border:0;border-radius:12px;min-height:50px;padding:0 18px;background:var(--panel-2);color:var(--ink);font-weight:800;font-size:16px;box-shadow:0 4px 0 rgba(0,0,0,.45);transition:transform .08s,box-shadow .08s;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-align:center}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.45)}
+.btn.red{background:var(--red);color:#fff}
+.btn.gold{background:var(--gold);color:#2A1C00}
+.btn.ghost{background:transparent;box-shadow:inset 0 0 0 2px var(--line)}
+.btn.sm{min-height:38px;font-size:14px;padding:0 12px}
+.btn:disabled{opacity:.45;cursor:default;transform:none}
+.btn.wide{width:100%}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>*{flex:1 1 130px}
+input.text{width:100%;min-height:50px;border-radius:12px;border:2px solid var(--line);background:var(--bg-2);padding:0 14px;font-size:17px;font-weight:600}
+input.code{text-transform:uppercase;letter-spacing:.3em;font-family:var(--type);font-size:24px;text-align:center}
+label.lbl,.lbl{display:grid;gap:6px;font-size:12.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+
+.hero{display:grid;gap:10px;justify-items:center;text-align:center;padding-block:14px 4px}
+.logo{font-family:var(--type);font-size:clamp(40px,12vw,64px);line-height:.95;color:var(--paper)}
+.logo small{display:block;font-size:.28em;letter-spacing:.4em;color:var(--red-2);margin-bottom:8px}
+.stamp{display:inline-block;font-family:var(--type);color:var(--red-2);border:3px solid currentColor;border-radius:6px;padding:2px 10px;transform:rotate(-4deg);letter-spacing:.12em;font-size:14px}
+.card{background:var(--panel);border-radius:16px;padding:16px;display:grid;gap:12px;box-shadow:0 6px 0 rgba(0,0,0,.3)}
+.card h2{font-size:19px}
+.msg{min-height:1.4em;color:var(--gold);text-align:center;font-weight:700}
+.msg.err{color:var(--red-2)}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{appearance:none;border:0;border-radius:10px;min-height:44px;padding:0 14px;background:var(--bg-2);font-weight:800;flex:1}
+.seg button[aria-pressed="true"]{background:var(--gold);color:#2A1C00}
+
+/* papel */
+.paper{background:var(--paper);color:var(--pink);border-radius:6px 6px 14px 6px;padding:16px;box-shadow:0 6px 0 rgba(0,0,0,.35);position:relative}
+.paper h3{font-size:18px;color:#3A2A1C}
+.paper .tx{font-size:15.5px}
+.paper .lb{font-family:var(--type);font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;color:#8A6A48}
+.paper + .paper{margin-top:-2px}
+.clip{position:absolute;top:-8px;right:18px;width:18px;height:34px;border:3px solid #9AA0A6;border-radius:9px;border-bottom:0}
+
+/* cabecera de partida */
+.top{display:flex;align-items:center;gap:8px}
+.top .sp{flex:1}
+.top h1{font-size:17px;line-height:1.2;flex:1;min-width:0}
+.chip{font-family:var(--type);font-size:14px;letter-spacing:.12em;background:var(--panel);padding:6px 12px;border-radius:999px}
+.icon-btn{appearance:none;border:0;width:42px;height:42px;border-radius:12px;background:var(--panel);font-size:19px;font-weight:800;display:grid;place-items:center;flex:0 0 auto}
+.hours{display:flex;gap:10px;flex-wrap:wrap;align-items:center;background:var(--bg-2);border-radius:12px;padding:8px 12px;font-size:14px}
+.hours b{font-weight:800}
+.dots{display:inline-flex;gap:4px;vertical-align:middle}
+.dots i{width:11px;height:11px;border-radius:50%;background:var(--gold)}
+.dots i.u{background:transparent;box-shadow:inset 0 0 0 2px var(--line)}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;background:var(--bg-2);padding:4px;border-radius:14px;position:sticky;top:6px;z-index:5;box-shadow:0 6px 16px rgba(0,0,0,.4)}
+.tabs button{appearance:none;border:0;border-radius:10px;min-height:44px;background:transparent;font-weight:800;font-size:14px;padding:0 4px;position:relative}
+.tabs button[aria-selected="true"]{background:var(--paper);color:var(--pink)}
+.tabs .n{display:inline-block;min-width:20px;padding:0 5px;border-radius:999px;background:var(--red);color:#fff;font-size:11.5px;margin-left:3px}
+
+/* investigar */
+.sec-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-top:4px}
+.sec-h h2{font-size:18px}
+.places{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.place{appearance:none;border:0;border-radius:12px;min-height:64px;padding:10px 12px;background:var(--panel);text-align:left;display:grid;gap:2px;box-shadow:0 4px 0 rgba(0,0,0,.35)}
+.place b{font-weight:800;line-height:1.2}
+.place span{font-size:12.5px;color:var(--muted)}
+.place.seen{background:var(--paper-2);color:var(--pink)}
+.place.seen span{color:#7A5C3E}
+.place.other{box-shadow:inset 0 0 0 2px var(--line);background:transparent}
+.sus{background:var(--panel);border-radius:14px;padding:12px;display:grid;gap:10px;box-shadow:0 4px 0 rgba(0,0,0,.35)}
+.sus.out{opacity:.55}
+.sus.out .nm{text-decoration:line-through;text-decoration-color:var(--red-2);text-decoration-thickness:3px}
+.sus .hd{display:flex;gap:10px;align-items:center}
+.av{flex:0 0 auto;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-family:var(--type);font-size:16px;color:#1A140F;background:var(--c,#ddd)}
+.sus .nm{font-weight:800;line-height:1.2}
+.sus .rl{font-size:13px;color:var(--muted)}
+.sus .ds{font-size:14px;color:var(--muted)}
+.sus .acts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.q{appearance:none;border:0;border-radius:10px;min-height:46px;padding:6px 10px;background:var(--bg-2);font-weight:800;font-size:14px;display:grid;line-height:1.15}
+.q small{font-weight:600;font-size:11.5px;color:var(--muted)}
+.q.seen{background:var(--paper-2);color:var(--pink)}
+.q.seen small{color:#7A5C3E}
+.q.other{background:transparent;box-shadow:inset 0 0 0 2px var(--line)}
+.xbtn{appearance:none;border:0;background:transparent;color:var(--muted);font-size:13px;font-weight:700;margin-left:auto;padding:6px;border-radius:8px}
+
+/* pistas */
+.fact{display:grid;gap:6px}
+.fact .who{font-size:12.5px;color:#7A5C3E;font-weight:700}
+.fact .acts{display:flex;gap:8px;flex-wrap:wrap}
+.btn.paperbtn{background:#3A2A1C;color:var(--paper);min-height:40px;font-size:14px;box-shadow:none}
+.empty{border:2px dashed var(--line);border-radius:14px;padding:18px;text-align:center;color:var(--muted)}
+.banner{background:var(--gold);color:#2A1C00;border-radius:14px;padding:12px 14px;display:grid;gap:10px;font-weight:600}
+.banner .row .btn{min-height:44px}
+.banner .btn.ghost{color:#2A1C00;box-shadow:inset 0 0 0 2px rgba(42,28,0,.5)}
+
+/* acusar */
+.opts{display:grid;gap:8px}
+.opt{appearance:none;border:0;border-radius:12px;min-height:48px;padding:10px 14px;background:var(--panel);text-align:left;font-weight:600;display:flex;align-items:center;gap:10px}
+.opt[aria-pressed="true"]{background:var(--red);color:#fff}
+.opt.dim{opacity:.55}
+.sus-pick{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+
+/* resultado */
+.verdict{text-align:center;display:grid;gap:10px;justify-items:center;padding:10px 0}
+.verdict .big{font-family:var(--type);font-size:clamp(30px,9vw,42px);line-height:1.05}
+.verdict.good .big{color:var(--ok)}
+.verdict.bad .big{color:var(--red-2)}
+.stars{font-size:30px;letter-spacing:6px;color:var(--gold)}
+.checks{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.checks li{background:var(--panel);border-radius:12px;padding:10px 12px;display:grid;gap:2px}
+.checks li b{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.checks .ok{color:var(--ok);font-weight:800}
+.checks .ko{color:var(--red-2);font-weight:800}
+
+/* elegir caso */
+.cases{display:grid;gap:8px}
+.case{appearance:none;border:0;border-radius:14px;padding:12px 14px;background:var(--panel);text-align:left;display:grid;gap:2px;box-shadow:0 4px 0 rgba(0,0,0,.35)}
+.case b{font-family:var(--type);font-weight:400;font-size:17px}
+.case span{font-size:13.5px;color:var(--muted)}
+.case[aria-pressed="true"]{background:var(--paper);color:var(--pink)}
+.case[aria-pressed="true"] span{color:#7A5C3E}
+.case .ok{color:var(--ok);font-weight:800;font-size:12.5px}
+.seats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.seat{background:var(--bg-2);border-radius:12px;padding:10px 12px;display:grid;gap:2px;min-width:0}
+.seat b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.seat.empty{border:2px dashed var(--line);background:transparent;color:var(--muted);place-items:center}
+.big-code{font-family:var(--type);font-size:52px;letter-spacing:.18em;line-height:1;text-align:center;color:var(--gold)}
+.spin{width:22px;height:22px;border-radius:50%;border:3px solid currentColor;border-right-color:transparent;animation:sp 1s linear infinite;display:inline-block}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* hoja inferior */
+#sheet{position:fixed;inset:0;z-index:50;display:none}
+#sheet.on{display:block}
+#sheet .scrim{position:absolute;inset:0;background:rgba(0,0,0,.6)}
+#sheet .pane{position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:min(600px,100%);max-height:88vh;overflow:auto;background:var(--bg-2);border-radius:20px 20px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px));display:grid;gap:12px;animation:up .2s ease-out}
+@keyframes up{from{transform:translate(-50%,30px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
+.rules{display:grid;gap:10px;font-size:15px}
+.rules h3{font-size:17px;color:var(--gold);margin-top:4px}
+.rules b{color:var(--paper)}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,16px);opacity:0;background:var(--paper);color:var(--pink);padding:10px 16px;border-radius:12px;font-weight:800;transition:.2s;pointer-events:none;max-width:calc(100% - 32px);z-index:60;text-align:center}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+@keyframes pop{from{transform:scale(.95);opacity:0}to{transform:none;opacity:1}}
+.pop{animation:pop .25s ease-out}
+@media (prefers-reduced-motion:reduce){.pop,#sheet .pane{animation:none}}
+</style>
+</head>
+<body>
+<div id="app"><div class="hero"><div class="logo"><small>DETECTIVES A DÚO</small>Caso Abierto</div><p class="muted">Cargando…</p></div></div>
+<div id="sheet"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+"use strict";
+const CASOS = window.DETECTIVE_CASOS || [];
+const DIF = { normal: { h: 10, name: "Normal", d: "10 horas" }, dificil: { h: 8, name: "Difícil", d: "8 horas" } };
+const SCOL = ["#E8A87C", "#9CC5E8", "#C9B6E4", "#A8D8A0"];
+const AMBIENTES = ["un pueblo de montaña nevado en Navidad", "un crucero por el Mediterráneo", "una startup tecnológica en Barcelona", "un rodaje de cine en Almería", "un hotel balneario de lujo", "un club de pádel exclusivo", "un festival de música en verano", "una mansión victoriana en una noche de tormenta", "un museo de ciencias naturales", "un restaurante con estrella Michelin", "una boda en un cortijo andaluz", "un campamento de verano", "un observatorio astronómico en Canarias", "una partida de caza en un coto", "un concurso de talentos de la tele", "una feria medieval"];
+
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const ls = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }, del(k) { try { localStorage.removeItem(k); } catch {} } };
+const $app = document.getElementById("app"), $sheet = document.getElementById("sheet");
+let toastT;
+function toast(m, ms) { const t = document.getElementById("toast"); t.textContent = m; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), ms || 3200); }
+const rnd = () => Math.floor(Math.random() * 2 ** 31);
+function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function order(n, seed, salt) { const r = rng(seed * 31 + salt), a = [...Array(n).keys()]; for (let i = n - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+const initials = n => String(n || "?").split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase();
+
+/* ================= estado ================= */
+const S = {
+  db: null, uid: null, sample: null, ready: false, offline: false,
+  name: (localStorage.getItem("sala.nick") || "").slice(0, 16),
+  tab: "online", view: "home", code: null, g: null, unsub: null, L: null,
+  gtab: "caso", acc: {}, pick: null, aiCase: null, aiBusy: false, aiMsg: "", theme: "", dif: ls.get("det.dif") || "normal",
+  busy: false, homeMsg: "", homeErr: false, prefill: "", rejoin: "", lastKey: "", cross: {}, crossKey: "", seenGid: "", lastFound: 0
+};
+const me = () => S.uid;
+
+async function boot() {
+  try {
+    const [db, user, sample] = await Promise.all(["db", "user", "sample"].map(n => window.claude ? claude.use(n).catch(() => null) : null));
+    S.db = db; S.sample = sample; if (user) S.uid = await user.id();
+  } catch {}
+  if (!S.db || !S.uid) { S.offline = true; S.tab = "local"; }
+  S.ready = true;
+  const h = (location.hash || "").replace("#", "").toUpperCase(), last = ls.get("det.last");
+  if (!S.offline && /^[A-Z]{4}$/.test(h)) S.prefill = h;
+  else if (!S.offline && last && last.code && Date.now() - last.t < 24 * 3600e3) S.rejoin = last.code;
+  render();
+}
+
+/* ================= el caso: hechos que se pueden descubrir ================= */
+function factOf(caso, k) {
+  const [t, id] = k.split(":");
+  if (t === "I") return { k, tag: "Informe", title: "Informe inicial", text: caso.informes[+id] };
+  if (t === "L") { const l = caso.lugares.find(x => x.id === id); return l && { k, tag: "Lugar", title: l.nombre, text: l.pista }; }
+  const s = caso.sospechosos.find(x => x.id === id); if (!s) return null;
+  return t === "C" ? { k, tag: "Coartada", title: s.nombre, sub: s.rol, text: s.coartada } : { k, tag: "Testimonio", title: s.nombre, sub: s.rol, text: s.sabe };
+}
+function model() {
+  if (S.L) {
+    const L = S.L;
+    return { mode: "local", caso: L.caso, found: L.found, shared: {}, per: L.hrs, total: L.hrs, seat: 0, names: ["Vosotros", ""], prop: null, res: L.res, status: L.res ? "done" : "play", seed: L.seed, gid: L.gid, dif: L.dif };
+  }
+  const g = S.g, st = g.seats || {};
+  const seat = st[0] && st[0].id === me() ? 0 : st[1] && st[1].id === me() ? 1 : null;
+  return { mode: "online", caso: g.caso, found: g.found || {}, shared: g.shared || {}, per: (g.hrs || 10) / 2, total: g.hrs || 10, seat, names: [(st[0] || {}).name || "Detective 1", (st[1] || {}).name || "Detective 2"], prop: g.prop || null, res: g.res || null, status: g.status, seed: g.seed || 1, gid: g.gid, dif: g.dif };
+}
+const used = (m, p) => Object.keys(m.found).filter(k => m.found[k].p === p).length;
+const left = (m, p) => Math.max(0, m.per - used(m, p));
+const leftAll = m => m.mode === "local" ? left(m, 0) : left(m, 0) + left(m, 1);
+const partner = m => m.seat === null ? 0 : 1 - m.seat;
+function canSee(m, k) {
+  if (m.mode === "local") return k[0] === "I" || !!m.found[k];
+  if (m.seat === null) return !!m.shared[k];
+  if (k === "I:" + m.seat) return true;
+  return !!m.shared[k] || !!(m.found[k] && m.found[k].p === m.seat);
+}
+const mine = (m, k) => m.mode === "online" && (k === "I:" + m.seat || (m.found[k] && m.found[k].p === m.seat));
+function visibleFacts(m) {
+  const keys = ["I:0", "I:1"].filter(k => canSee(m, k));
+  Object.keys(m.found).sort((a, b) => m.found[a].t - m.found[b].t).forEach(k => { if (canSee(m, k)) keys.push(k); });
+  return keys.map(k => factOf(m.caso, k)).filter(Boolean);
+}
+function judge(m, a) {
+  const s = m.caso.sol, ok = { c: a.c === s.culpable, m: +a.m === +s.motivo, x: +a.x === +s.metodo };
+  return { c: a.c, m: +a.m, x: +a.x, ok, left: leftAll(m), t: Date.now() };
+}
+
+/* ================= online ================= */
+const genCode = () => { const A = "ABCDEFGHJKLMNPQRSTUVWXYZ"; let c = ""; for (let i = 0; i < 4; i++) c += A[Math.floor(Math.random() * A.length)]; return c; };
+function saveName() {
+  const el = document.getElementById("nm"); const v = ((el && el.value) || S.name || "").trim().slice(0, 16);
+  if (!v) { S.homeMsg = "Escribe tu nombre para que tu compañero sepa quién eres."; S.homeErr = true; render(true); return false; }
+  S.name = v; try { localStorage.setItem("sala.nick", v); } catch {} return true;
+}
+function watch(code) {
+  unwatch(); S.code = code; ls.set("det.last", { code, t: Date.now() });
+  S.unsub = S.db.doc("games/" + code).onSnapshot(snap => {
+    if (!snap.exists) { leave("Esa partida ya no existe."); return; }
+    const prev = S.g; S.g = snap.data(); onRemote(prev); render();
+  }, () => leave("Se ha perdido la conexión con la partida."));
+}
+function unwatch() { if (S.unsub) try { S.unsub(); } catch {} S.unsub = null; S.g = null; }
+function leave(msg) { unwatch(); S.code = null; S.L = null; S.view = "home"; S.homeMsg = msg || ""; S.homeErr = !!msg; closeSheet(); history.replaceState(null, "", location.pathname); render(true); }
+function onRemote(prev) {
+  const g = S.g;
+  if (!prev || prev.gid !== g.gid) { S.gtab = "caso"; S.acc = {}; closeSheet(); }
+  if (prev && g.status === "play" && prev.gid === g.gid) {
+    const m = model(), p = partner(m);
+    const newShared = Object.keys(g.shared || {}).filter(k => !(prev.shared || {})[k] && !mine(m, k));
+    if (newShared.length && m.seat !== null) toast(`${m.names[p]} te ha pasado ${newShared.length === 1 ? "una pista" : newShared.length + " pistas"}.`);
+    if (g.prop && (!prev.prop || prev.prop.t !== g.prop.t) && g.prop.by !== m.seat) toast(`${m.names[g.prop.by]} quiere acusar. Mira la propuesta.`);
+    if (!g.prop && prev.prop && prev.prop.by === m.seat && g.status === "play") toast(`${m.names[p]} prefiere seguir investigando.`);
+  }
+}
+async function createOnline() {
+  if (!saveName()) return;
+  S.busy = true; render(true);
+  try {
+    let code;
+    for (let i = 0; i < 6; i++) { code = genCode(); if (!(await S.db.doc("games/" + code).get()).exists) break; }
+    await S.db.doc("games/" + code).set({ v: 1, status: "lobby", host: me(), createdAt: Date.now(), seats: { 0: { id: me(), name: S.name } }, dif: S.dif });
+    location.hash = code; watch(code);
+  } catch { S.homeMsg = "No se pudo crear la partida. Revisa la conexión."; S.homeErr = true; }
+  S.busy = false; render(true);
+}
+async function joinOnline(code) {
+  if (!saveName()) return;
+  code = String(code || "").toUpperCase().replace(/[^A-Z]/g, "");
+  if (code.length !== 4) { S.homeMsg = "El código tiene 4 letras."; S.homeErr = true; render(true); return; }
+  S.busy = true; render(true);
+  try {
+    const ref = S.db.doc("games/" + code), snap = await ref.get();
+    if (!snap.exists) { S.homeMsg = "No hay ninguna partida con ese código."; S.homeErr = true; }
+    else {
+      const g = snap.data(), st = g.seats || {};
+      if (st[0] && st[0].id === me()) await ref.update({ seats: { 0: { id: me(), name: S.name } } });
+      else if (st[1] && st[1].id === me()) await ref.update({ seats: { 1: { id: me(), name: S.name } } });
+      else if (!st[1]) await ref.update({ seats: { 1: { id: me(), name: S.name } } });
+      else toast("Ya hay dos detectives en este caso: entras solo a mirar.");
+      location.hash = code; watch(code);
+    }
+  } catch { S.homeMsg = "No se pudo entrar. Revisa la conexión."; S.homeErr = true; }
+  S.busy = false; render(true);
+}
+async function put(patch) {
+  try { await S.db.doc("games/" + S.code).update(patch); return true; }
+  catch { toast("No se pudo guardar. Revisa la conexión."); return false; }
+}
+function share() {
+  const url = location.origin + location.pathname + "#" + S.code, text = `Tenemos un caso que resolver. Código: ${S.code}`;
+  if (navigator.share) { navigator.share({ title: "Caso Abierto", text, url }).catch(() => {}); return; }
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(() => toast("Enlace copiado."), () => toast(url));
+  else toast(url);
+}
+
+/* ================= arrancar un caso ================= */
+function chosenCase() { if (S.pick === "ia") return S.aiCase; return CASOS.find(c => c.id === S.pick) || null; }
+function freshState(caso) { return { caso, found: {}, shared: {}, hrs: DIF[S.dif].h, dif: S.dif, seed: rnd(), gid: Date.now().toString(36) + rnd().toString(36).slice(0, 3), prop: null, res: null }; }
+async function openCase() {
+  const caso = chosenCase(); if (!caso) { toast("Elige un caso primero."); return; }
+  ls.set("det.dif", S.dif);
+  if (S.view === "pick") {
+    S.L = freshState(caso); S.L.mode = "local"; S.gtab = "caso"; S.acc = {}; saveLocal(); S.lastKey = ""; render(); window.scrollTo(0, 0); return;
+  }
+  const g = S.g; if (!g || !(g.seats || {})[1]) { toast("Espera a que entre tu compañero."); return; }
+  S.busy = true; render(true);
+  try { await S.db.doc("games/" + S.code).set({ ...g, ...freshState(caso), status: "play" }); }
+  catch { toast("No se pudo abrir el caso. Revisa la conexión."); }
+  S.busy = false; render(true); window.scrollTo(0, 0);
+}
+function saveLocal() { if (S.L) ls.set("det.partida", S.L); }
+function resumeLocal() { const L = ls.get("det.partida"); if (!L || !L.caso) return; S.L = L; S.gtab = "caso"; S.acc = {}; render(true); }
+async function anotherCase() {
+  closeSheet(); S.acc = {}; S.pick = null; S.aiCase = null;
+  if (S.L) { S.L = null; ls.del("det.partida"); S.view = "pick"; render(true); window.scrollTo(0, 0); return; }
+  const g = S.g; if (!g || g.host !== me()) return;
+  const { caso, found, shared, prop, res, ...rest } = g;
+  try { await S.db.doc("games/" + S.code).set({ ...rest, status: "lobby", gid: "" }); } catch { toast("No se pudo volver. Revisa la conexión."); }
+}
+
+/* ================= caso con IA ================= */
+function aiPrompt(theme) {
+  return `Eres guionista de juegos de misterio. Inventa un caso policiaco ORIGINAL, en español de España, para que dos personas lo resuelvan cooperando como detectives.
+Ambientación: ${theme}.
+
+Devuelve SOLO un objeto JSON con esta forma exacta:
+{"titulo":"título corto y sugerente","sub":"tipo de caso en 3-6 palabras","intro":"3-4 frases que plantean el caso","victima":"quién es la víctima o qué se ha robado",
+"informes":["Informe ...: un dato objetivo clave (hora, forma de la muerte o del robo)","Informe ...: otro dato objetivo clave distinto"],
+"sospechosos":[{"id":"s1","nombre":"Nombre Apellido","rol":"relación con el caso","desc":"una frase de personalidad","coartada":"\\"lo que dice, en primera persona\\"","sabe":"\\"algo que cuenta sobre otro o sobre el caso, en primera persona\\""}, ...hasta s4],
+"lugares":[{"id":"l1","nombre":"nombre corto del sitio","pista":"lo que se encuentra allí"}, ...hasta l6],
+"motivos":["motivo correcto o falso", "...", "...", "..."],
+"metodos":["método correcto o falso", "...", "...", "..."],
+"sol":{"culpable":"s1-s4","motivo":0,"metodo":0},
+"explicacion":"4-6 frases que explican cómo se deduce la solución a partir de las pistas"}
+
+Reglas de lógica, obligatorias:
+- Exactamente 4 sospechosos, 6 lugares, 4 motivos, 4 métodos y 2 informes. Un único culpable.
+- La coartada del culpable es falsa y al menos DOS pistas (de lugares, informes o de lo que saben otros sospechosos) la contradicen con claridad.
+- Cada inocente tiene una coartada que alguna pista confirma, o una razón clara para descartarle.
+- El motivo correcto aparece en alguna pista. El método correcto se deduce de los informes y las pistas.
+- Los otros motivos y métodos son creíbles: encajan con otros sospechosos o con pistas falsas.
+- Incluye al menos una pista falsa que apunte a un inocente.
+- Ninguna pista dice directamente quién es el culpable.
+- "sol.motivo" y "sol.metodo" son el índice (0-3) del motivo y el método correctos. Pon el correcto en una posición al azar.
+- Cada pista, coartada o testimonio: máximo 2 frases. Nombres españoles variados.
+- Tono de novela de misterio clásica, entretenido. Nada de sangre ni violencia explícita.`;
+}
+function cleanCase(c) {
+  const s = (v, n = 500) => typeof v === "string" ? v.trim().slice(0, n) : "";
+  if (!c || typeof c !== "object") throw new Error("vacío");
+  const rawS = Array.isArray(c.sospechosos) ? c.sospechosos.slice(0, 4) : [];
+  const sos = rawS.map((x, i) => ({ id: "s" + (i + 1), nombre: s(x && x.nombre, 40), rol: s(x && x.rol, 60), desc: s(x && x.desc, 160), coartada: s(x && x.coartada), sabe: s(x && x.sabe) }));
+  const lug = (Array.isArray(c.lugares) ? c.lugares.slice(0, 6) : []).map((x, i) => ({ id: "l" + (i + 1), nombre: s(x && x.nombre, 40), pista: s(x && x.pista) }));
+  const mot = (Array.isArray(c.motivos) ? c.motivos.slice(0, 4) : []).map(x => s(x, 140));
+  const met = (Array.isArray(c.metodos) ? c.metodos.slice(0, 4) : []).map(x => s(x, 160));
+  const inf = (Array.isArray(c.informes) ? c.informes.slice(0, 2) : []).map(x => s(x));
+  const sol = c.sol || {};
+  const ci = rawS.findIndex(x => x && String(x.id) === String(sol.culpable));
+  const mi = Number(sol.motivo), xi = Number(sol.metodo);
+  const ok = sos.length === 4 && sos.every(x => x.nombre && x.coartada && x.sabe) && lug.length >= 5 && lug.every(x => x.nombre && x.pista)
+    && mot.length === 4 && mot.every(Boolean) && met.length === 4 && met.every(Boolean) && inf.length === 2 && inf.every(Boolean)
+    && ci >= 0 && mi >= 0 && mi < 4 && xi >= 0 && xi < 4 && s(c.titulo) && s(c.intro);
+  if (!ok) throw new Error("incompleto");
+  return { id: "ia-" + Date.now().toString(36), ia: true, titulo: s(c.titulo, 80), sub: s(c.sub, 80) || "Caso inventado por la IA", intro: s(c.intro, 900), victima: s(c.victima, 120),
+    informes: inf, sospechosos: sos, lugares: lug, motivos: mot, metodos: met, sol: { culpable: "s" + (ci + 1), motivo: mi, metodo: xi }, explicacion: s(c.explicacion, 1500) };
+}
+async function makeAiCase() {
+  if (!S.sample || S.aiBusy) return;
+  const el = document.getElementById("theme"); S.theme = el ? el.value.trim().slice(0, 80) : S.theme;
+  const theme = S.theme || AMBIENTES[Math.floor(Math.random() * AMBIENTES.length)];
+  S.aiBusy = true; S.aiMsg = ""; render(true);
+  let err = "";
+  for (let i = 0; i < 2 && !S.aiCase; i++) {
+    try { S.aiCase = cleanCase(await S.sample.json(aiPrompt(theme))); S.pick = "ia"; }
+    catch (e) { err = e && e.code === "rate_limited" ? "La IA está saturada. Prueba en un minuto." : e && e.code === "not_granted" ? "La IA no está activada en esta Sala." : "La IA no ha escrito un caso válido."; if (e && (e.code === "rate_limited" || e.code === "not_granted")) break; }
+  }
+  if (!S.aiCase) S.aiMsg = err + " Mientras, tenéis los casos de la lista.";
+  S.aiBusy = false; render(true);
+}
+
+/* ================= acciones de partida ================= */
+async function investigate(k) {
+  const m = model();
+  if (m.status !== "play") return;
+  if (canSee(m, k)) { openFact(k); return; }
+  if (m.seat === null) { toast("Estás mirando: solo los dos detectives investigan."); return; }
+  const f = m.found[k];
+  if (f) { toast(`Eso ya lo investigó ${m.names[f.p]}. Pídele que te lo cuente o que te lo pase.`, 4000); return; }
+  if (left(m, m.seat) <= 0) { toast(m.mode === "local" ? "No os quedan horas: toca acusar." : "No te quedan horas. Habla con tu compañero o id a acusar.", 4000); return; }
+  if (S.busy) return;
+  const rec = { p: m.seat, t: Date.now() };
+  if (m.mode === "local") { S.L.found[k] = rec; saveLocal(); render(); openFact(k, true); return; }
+  S.busy = true;
+  const ok = await put({ found: { [k]: rec } });
+  S.busy = false;
+  if (ok) { if (S.g) S.g.found = { ...(S.g.found || {}), [k]: rec }; render(); openFact(k, true); }
+}
+async function shareFacts(keys) {
+  const m = model(); if (m.mode !== "online" || m.seat === null) return;
+  const patch = {}; keys.forEach(k => { if (mine(m, k) && !m.shared[k]) patch[k] = true; });
+  if (!Object.keys(patch).length) return;
+  if (await put({ shared: patch })) { toast(Object.keys(patch).length === 1 ? `Pista enviada a ${m.names[partner(m)]}.` : `Pistas enviadas a ${m.names[partner(m)]}.`); closeSheet(); }
+}
+function toggleCross(id) {
+  S.cross[id] = !S.cross[id]; ls.set(S.crossKey, S.cross); render(true);
+}
+async function accuse() {
+  const m = model(), a = S.acc;
+  if (!a.c || a.m === undefined || a.x === undefined) { toast("Elegid culpable, motivo y método."); return; }
+  if (m.mode === "local") {
+    S.L.res = judge(m, a); saveLocal(); render(true); window.scrollTo(0, 0); return;
+  }
+  if (m.seat === null) return;
+  await put({ prop: { by: m.seat, c: a.c, m: +a.m, x: +a.x, t: Date.now() } });
+}
+async function answerProp(yes) {
+  const m = model(); if (!m.prop || m.prop.by === m.seat || m.seat === null) return;
+  if (!yes) { await put({ prop: null }); return; }
+  await put({ status: "done", res: judge(m, m.prop), prop: null });
+  window.scrollTo(0, 0);
+}
+
+/* ================= pantallas ================= */
+function view(html, key) { if (key && key === S.lastKey) return false; S.lastKey = key; const y = window.scrollY; $app.innerHTML = html; window.scrollTo(0, y); return true; }
+function render(force) {
+  if (force) S.lastKey = "";
+  if (!S.ready) return;
+  if (S.L) return renderGame(model());
+  if (S.code) {
+    if (!S.g) return view(`<div class="hero"><div class="logo"><small>DETECTIVES A DÚO</small>Caso Abierto</div><p class="muted">Entrando en la partida ${esc(S.code)}…</p></div>`, "loading" + S.code);
+    if (S.g.status === "lobby" || !S.g.caso) return renderLobby();
+    return renderGame(model());
+  }
+  if (S.view === "pick") return renderPick();
+  renderHome();
+}
+
+function renderHome() {
+  const saved = ls.get("det.partida"), canResume = saved && saved.caso && !saved.res;
+  const tab = S.tab;
+  const html = `
+  <div class="hero"><span class="stamp">CONFIDENCIAL</span><div class="logo"><small>DETECTIVES A DÚO</small>Caso Abierto</div>
+    <p class="muted">Leed pistas, interrogad a los sospechosos y señalad al culpable. Un juego de deducción para resolver juntos.</p></div>
+  <button class="btn ghost wide" data-a="rules">🔎 Cómo se juega</button>
+  ${canResume ? `<button class="btn gold wide" data-a="resume">Continuar "${esc(saved.caso.titulo)}"</button>` : ""}
+  <label class="lbl" for="nm">Tu nombre<input id="nm" class="text" maxlength="16" autocomplete="nickname" value="${esc(S.name)}" placeholder="Tu nombre"></label>
+  <div class="seg" role="group" aria-label="Modo de juego"><button data-a="tab" data-v="online" aria-pressed="${tab === "online"}">Cada uno su móvil</button><button data-a="tab" data-v="local" aria-pressed="${tab === "local"}">Un solo móvil</button></div>
+  ${tab === "online" ? (S.offline ? `<div class="card"><p class="muted">No hay conexión con el servidor de partidas. Podéis jugar en un solo móvil.</p></div>` : `
+  <div class="card"><h2>Abrir un caso</h2><p class="muted small">Cada detective empieza con un informe distinto y lo que descubre solo lo ve él. Tendréis que contaros las pistas.</p>
+    <button class="btn gold wide" data-a="create"${S.busy ? " disabled" : ""}>Crear partida</button></div>
+  <div class="card"><h2>Unirse</h2>
+    <div class="row"><input id="jc" class="text code" maxlength="4" autocomplete="off" placeholder="ABCD" value="${esc(S.prefill)}" aria-label="Código de la partida"><button class="btn" data-a="join"${S.busy ? " disabled" : ""}>Entrar</button></div>
+    ${S.rejoin ? `<button class="btn ghost" data-a="rejoin">Volver a la partida ${esc(S.rejoin)}</button>` : ""}</div>`) : `
+  <div class="card"><h2>Los dos en este móvil</h2><p class="muted small">Una sola libreta para los dos: leed juntos cada pista y decidid adónde ir.</p>
+    <button class="btn gold wide" data-a="local">Elegir caso</button></div>`}
+  <p class="msg ${S.homeErr ? "err" : ""}" role="status">${esc(S.homeMsg)}</p>`;
+  view(html, "home|" + tab + S.busy + S.homeMsg + canResume);
+}
+
+function pickerHTML(isOnline, canStart) {
+  const solved = ls.get("det.resueltos") || {};
+  const starsOf = id => solved[id] ? `<span class="ok">${"★".repeat(solved[id])}${"☆".repeat(3 - solved[id])} resuelto</span>` : "";
+  const ai = S.sample ? `
+    <div class="card"><h2>Caso nuevo con IA</h2><p class="muted small">La IA se inventa un crimen distinto cada vez. Elige ambientación o déjalo en blanco para una sorpresa.</p>
+      <input id="theme" class="text" maxlength="80" placeholder="Ej.: un crucero, una boda, la oficina…" value="${esc(S.theme)}" aria-label="Ambientación">
+      <button class="btn wide" data-a="ai"${S.aiBusy ? " disabled" : ""}>${S.aiBusy ? `<span class="spin"></span> Escribiendo el caso…` : "✨ Inventar caso"}</button>
+      ${S.aiMsg ? `<p class="msg err small">${esc(S.aiMsg)}</p>` : ""}
+      ${S.aiCase ? `<button class="case" data-a="pick" data-v="ia" aria-pressed="${S.pick === "ia"}"><b>${esc(S.aiCase.titulo)}</b><span>${esc(S.aiCase.sub)} · inventado por la IA</span></button>` : ""}
+    </div>` : "";
+  return `
+  <div class="card"><h2>Dificultad</h2>
+    <div class="seg" role="group" aria-label="Dificultad">${Object.entries(DIF).map(([k, d]) => `<button data-a="dif" data-v="${k}" aria-pressed="${S.dif === k}">${d.name} · ${d.d}</button>`).join("")}</div>
+    <p class="muted small">Cada pista cuesta 1 hora.${isOnline ? " Las horas se reparten a medias entre los dos." : ""}</p></div>
+  ${ai}
+  <div class="card"><h2>Casos del archivo</h2><div class="cases">
+    ${CASOS.map(c => `<button class="case" data-a="pick" data-v="${c.id}" aria-pressed="${S.pick === c.id}"><b>${esc(c.titulo)}</b><span>${esc(c.sub)}</span>${starsOf(c.id)}</button>`).join("")}
+  </div></div>
+  <button class="btn red wide" data-a="open"${chosenCase() && canStart && !S.busy ? "" : " disabled"}>${!chosenCase() ? "Elige un caso" : canStart ? "Abrir el caso" : "Esperando a tu compañero…"}</button>`;
+}
+function renderPick() {
+  const html = `
+  <div class="top"><button class="btn ghost sm" data-a="home">Volver</button><span class="sp"></span><button class="icon-btn" data-a="rules" aria-label="Cómo se juega">?</button></div>
+  <div class="hero" style="padding-block:4px 0"><div class="logo" style="font-size:34px"><small>UN SOLO MÓVIL</small>Elegid caso</div></div>
+  ${pickerHTML(false, true)}`;
+  view(html, "pick|" + S.pick + S.dif + S.aiBusy + S.aiMsg + (S.aiCase && S.aiCase.id));
+}
+function renderLobby() {
+  const g = S.g, st = g.seats || {}, host = g.host === me();
+  const seatH = i => st[i] ? `<div class="seat"><span class="muted small">${i === 0 ? "Detective 1" : "Detective 2"}</span><b>${esc(st[i].name)}${st[i].id === me() ? " (tú)" : ""}</b></div>` : `<div class="seat empty"><span class="small">Esperando…</span></div>`;
+  const hostName = (st[0] || {}).name || "tu compañero";
+  const html = `
+  <div class="top"><button class="btn ghost sm" data-a="leave">Salir</button><span class="sp"></span><span class="chip">${esc(S.code)}</span><button class="icon-btn" data-a="rules" aria-label="Cómo se juega">?</button></div>
+  ${!st[1] ? `<div class="card center"><p class="muted small">Pasa este código a tu compañero</p><div class="big-code">${esc(S.code)}</div><button class="btn ghost" data-a="share">Invitar</button></div>` : ""}
+  <div class="card"><h2>Detectives</h2><div class="seats">${seatH(0)}${seatH(1)}</div></div>
+  ${host ? pickerHTML(true, !!st[1]) : `<div class="card center"><p>${esc(hostName)} está eligiendo el caso.</p><p class="muted small">Mientras, pulsa <b>?</b> para repasar cómo se juega.</p></div>`}`;
+  view(html, "lobby|" + JSON.stringify(st) + host + S.pick + S.dif + S.aiBusy + S.aiMsg + S.busy + (S.aiCase && S.aiCase.id));
+}
+
+function hoursHTML(m) {
+  const dots = (p) => `<span class="dots" aria-hidden="true">${Array.from({ length: m.per }, (_, i) => `<i class="${i < left(m, p) ? "" : "u"}"></i>`).join("")}</span>`;
+  if (m.mode === "local") return `<div class="hours"><span>Horas</span>${dots(0)}<b>${left(m, 0)} de ${m.per}</b></div>`;
+  const p = partner(m);
+  if (m.seat === null) return `<div class="hours"><span>${esc(m.names[0])}: <b>${left(m, 0)} h</b></span><span>${esc(m.names[1])}: <b>${left(m, 1)} h</b></span></div>`;
+  return `<div class="hours"><span>Tú</span>${dots(m.seat)}<b>${left(m, m.seat)} h</b><span class="muted">·</span><span>${esc(m.names[p])}: <b>${left(m, p)} h</b></span></div>`;
+}
+function propHTML(m) {
+  if (!m.prop) return "";
+  const c = m.caso, s = c.sospechosos.find(x => x.id === m.prop.c);
+  const txt = `<b>${esc(s ? s.nombre : "?")}</b>, por <b>${esc(c.motivos[m.prop.m])}</b>. Método: <b>${esc(c.metodos[m.prop.x])}</b>.`;
+  if (m.prop.by === m.seat) return `<div class="banner"><p>Has propuesto acusar a ${txt} Esperando a que ${esc(m.names[partner(m)])} confirme.</p><div class="row"><button class="btn ghost sm" data-a="unprop">Retirar propuesta</button></div></div>`;
+  if (m.seat === null) return `<div class="banner"><p>${esc(m.names[m.prop.by])} propone acusar a ${txt}</p></div>`;
+  return `<div class="banner"><p>${esc(m.names[m.prop.by])} propone acusar a ${txt} ¿Estáis de acuerdo? Si confirmas, se cierra el caso.</p><div class="row"><button class="btn red" data-a="yes">Sí, acusamos</button><button class="btn ghost" data-a="no">Aún no</button></div></div>`;
+}
+function renderGame(m) {
+  if (m.status === "done" && m.res) return renderResult(m);
+  const key = "cross." + (S.code || "local") + "." + m.gid;
+  if (S.crossKey !== key) { S.crossKey = key; S.cross = ls.get(key) || {}; }
+  const facts = visibleFacts(m);
+  const tabs = [["caso", "Caso"], ["inv", "Investigar"], ["pistas", "Pistas"], ["acusar", "Acusar"]];
+  let body = "";
+  if (S.gtab === "caso") body = caseTab(m);
+  else if (S.gtab === "inv") body = invTab(m);
+  else if (S.gtab === "pistas") body = factsTab(m, facts);
+  else body = accuseTab(m);
+  const html = `
+  <div class="top"><h1>${esc(m.caso.titulo)}</h1>${S.code ? `<span class="chip">${esc(S.code)}</span>` : ""}<button class="icon-btn" data-a="menu" aria-label="Menú">☰</button></div>
+  ${hoursHTML(m)}
+  ${propHTML(m)}
+  <div class="tabs" role="tablist">${tabs.map(([k, n]) => `<button role="tab" data-a="gtab" data-v="${k}" aria-selected="${S.gtab === k}">${n}${k === "pistas" ? `<span class="n">${facts.length}</span>` : ""}</button>`).join("")}</div>
+  ${body}`;
+  view(html, "game|" + S.gtab + JSON.stringify([m.found, m.shared, m.prop, m.names, S.acc, S.cross, m.seat]));
+}
+function caseTab(m) {
+  const c = m.caso;
+  const reps = (m.mode === "local" ? [0, 1] : m.seat === null ? [] : [m.seat]).map(i => `<div class="paper"><p class="lb">${m.mode === "local" ? "Informe " + (i + 1) : "Tu informe"}</p><p class="tx">${esc(c.informes[i])}</p></div>`).join("");
+  return `
+  <div class="paper pop"><span class="clip"></span><p class="lb">Expediente ${esc(c.ia ? "IA" : "nº " + (CASOS.findIndex(x => x.id === c.id) + 1))} · ${esc(c.sub)}</p><h3>${esc(c.titulo)}</h3><p class="tx" style="margin-top:8px">${esc(c.intro)}</p>
+    ${c.victima ? `<p class="tx" style="margin-top:8px"><b>Víctima:</b> ${esc(c.victima)}</p>` : ""}</div>
+  ${reps}
+  ${m.mode === "online" && m.seat !== null ? `<p class="muted small">${esc(m.names[partner(m)])} tiene otro informe distinto. Contáoslos o pasáoslos desde Pistas.</p>` : ""}
+  <div class="card"><h2>Qué tenéis que averiguar</h2><p class="muted">Quién lo hizo, por qué y cómo. Cada pista cuesta 1 hora: elegid bien dónde mirar y a quién preguntar.</p>
+    <button class="btn gold" data-a="gtab" data-v="inv">Empezar a investigar</button></div>`;
+}
+function stateBtn(m, k) {
+  if (canSee(m, k)) return ["seen", "✓ Visto"];
+  const f = m.found[k];
+  if (f) return ["other", `Lo sabe ${m.names[f.p]}`];
+  return ["", "1 hora"];
+}
+function invTab(m) {
+  const c = m.caso;
+  const lo = order(c.lugares.length, m.seed, 1), so = order(c.sospechosos.length, m.seed, 2);
+  const places = lo.map(i => c.lugares[i]).map(l => { const k = "L:" + l.id, [cl, lb] = stateBtn(m, k); return `<button class="place ${cl}" data-a="inv" data-k="${k}"><b>${esc(l.nombre)}</b><span>${esc(lb)}</span></button>`; }).join("");
+  const sus = so.map(i => [c.sospechosos[i], i]).map(([s, i]) => {
+    const kc = "C:" + s.id, ks = "S:" + s.id, [c1, l1] = stateBtn(m, kc), [c2, l2] = stateBtn(m, ks), out = !!S.cross[s.id];
+    return `<div class="sus ${out ? "out" : ""}"><div class="hd"><span class="av" style="--c:${SCOL[i % 4]}">${esc(initials(s.nombre))}</span><div><div class="nm">${esc(s.nombre)}</div><div class="rl">${esc(s.rol)}</div></div>
+      <button class="xbtn" data-a="cross" data-v="${s.id}">${out ? "Recuperar" : "Descartar"}</button></div>
+      ${s.desc ? `<p class="ds">${esc(s.desc)}</p>` : ""}
+      <div class="acts"><button class="q ${c1}" data-a="inv" data-k="${kc}">Coartada<small>${esc(l1)}</small></button><button class="q ${c2}" data-a="inv" data-k="${ks}">¿Qué sabe?<small>${esc(l2)}</small></button></div></div>`;
+  }).join("");
+  const out = m.seat !== null && left(m, m.seat) <= 0;
+  return `
+  ${out ? `<div class="banner"><p>${m.mode === "local" ? "Se os han acabado las horas." : "Se te han acabado las horas."} Repasad las pistas y id a acusar.</p><div class="row"><button class="btn red" data-a="gtab" data-v="acusar">Ir a acusar</button></div></div>` : ""}
+  <div class="sec-h"><h2>Lugares</h2><span class="muted small">Toca para investigar</span></div>
+  <div class="places">${places}</div>
+  <div class="sec-h"><h2>Sospechosos</h2><span class="muted small">Pueden mentir</span></div>
+  ${sus}`;
+}
+function factHTML(m, f, inSheet) {
+  let who = "";
+  if (m.mode === "online") {
+    const fk = m.found[f.k];
+    if (mine(m, f.k)) who = m.shared[f.k] ? `Lo encontraste tú · compartida con ${esc(m.names[partner(m)])}` : "Solo lo sabes tú";
+    else if (fk) who = `Te lo pasó ${esc(m.names[fk.p])}`;
+    else who = `Informe de ${esc(m.names[f.k === "I:0" ? 0 : 1])}`;
+  }
+  const canShare = m.mode === "online" && mine(m, f.k) && !m.shared[f.k] && m.status === "play";
+  return `<div class="paper fact ${inSheet ? "pop" : ""}"><p class="lb">${esc(f.tag)}</p><h3>${esc(f.title)}${f.sub ? ` <span class="small" style="color:#8A6A48;font-family:var(--body)">· ${esc(f.sub)}</span>` : ""}</h3>
+    <p class="tx">${esc(f.text)}</p>${who ? `<p class="who">${who}</p>` : ""}
+    ${canShare ? `<div class="acts"><button class="btn paperbtn" data-a="share1" data-k="${f.k}">Pasársela a ${esc(m.names[partner(m)])}</button></div>` : ""}</div>`;
+}
+function factsTab(m, facts) {
+  const unshared = m.mode === "online" ? facts.filter(f => mine(m, f.k) && !m.shared[f.k]).map(f => f.k) : [];
+  return `
+  ${unshared.length > 1 ? `<button class="btn ghost wide" data-a="shareall">Pasarle a ${esc(m.names[partner(m)])} todas mis pistas (${unshared.length})</button>` : ""}
+  ${facts.length ? facts.map(f => factHTML(m, f)).join("") : `<div class="empty">Aún no tenéis pistas. Id a Investigar.</div>`}`;
+}
+function accuseTab(m) {
+  const c = m.caso, a = S.acc;
+  const so = order(c.sospechosos.length, m.seed, 2), mo = order(4, m.seed, 3), xo = order(4, m.seed, 4);
+  const hl = leftAll(m);
+  const btn = m.mode === "local" ? "Acusar y cerrar el caso" : m.prop && m.prop.by === m.seat ? "Cambiar mi propuesta" : `Proponer a ${esc(m.names[partner(m)])}`;
+  return `
+  ${hl > 0 ? `<p class="muted small center">Aún ${m.mode === "local" ? "os quedan" : "quedan entre los dos"} ${hl} ${hl === 1 ? "hora" : "horas"}. Si acertáis con horas de sobra, mejor rango.</p>` : ""}
+  <div class="card"><h2>¿Quién lo hizo?</h2><div class="sus-pick">${so.map(i => { const s = c.sospechosos[i]; return `<button class="opt ${S.cross[s.id] ? "dim" : ""}" data-a="acc" data-f="c" data-v="${s.id}" aria-pressed="${a.c === s.id}"><span class="av" style="--c:${SCOL[i % 4]};width:30px;height:30px;font-size:13px">${esc(initials(s.nombre))}</span>${esc(s.nombre)}</button>`; }).join("")}</div></div>
+  <div class="card"><h2>¿Por qué?</h2><div class="opts">${mo.map(i => `<button class="opt" data-a="acc" data-f="m" data-v="${i}" aria-pressed="${a.m === i}">${esc(c.motivos[i])}</button>`).join("")}</div></div>
+  <div class="card"><h2>¿Cómo?</h2><div class="opts">${xo.map(i => `<button class="opt" data-a="acc" data-f="x" data-v="${i}" aria-pressed="${a.x === i}">${esc(c.metodos[i])}</button>`).join("")}</div></div>
+  ${m.seat === null ? "" : `<button class="btn red wide" data-a="accuse"${a.c && a.m !== undefined && a.x !== undefined ? "" : " disabled"}>${btn}</button>
+  ${m.mode === "online" ? `<p class="muted small center">${esc(m.names[partner(m)])} tiene que confirmar la acusación.</p>` : ""}`}`;
+}
+function rankOf(r) {
+  const n = +r.ok.c + +r.ok.m + +r.ok.x;
+  if (r.giveup) return ["Caso archivado", "Os habéis rendido. Así fue el crimen.", 0];
+  if (!r.ok.c) return ["Caso cerrado en falso", "El verdadero culpable se ha ido de rositas.", 0];
+  if (n === 3 && r.left >= 2) return ["Detectives de leyenda", "Todo resuelto y con horas de sobra.", 3];
+  if (n === 3) return ["Caso brillante", "Culpable, motivo y método: impecable.", 3];
+  return ["Culpable entre rejas", "Lo habéis pillado, aunque no todo encaja.", n];
+}
+function renderResult(m) {
+  const r = m.res, c = m.caso, [title, sub, stars] = rankOf(r);
+  if (S.seenGid !== m.gid && !c.ia) { S.seenGid = m.gid; const sv = ls.get("det.resueltos") || {}; if (r.ok.c && stars > (sv[c.id] || 0)) { sv[c.id] = stars; ls.set("det.resueltos", sv); } }
+  const nm = id => (c.sospechosos.find(s => s.id === id) || {}).nombre || "?";
+  const row = (lb, ok, yours, right) => `<li><b>${lb}</b><span class="${ok ? "ok" : "ko"}">${ok ? "✓" : "✗"} ${esc(yours)}</span>${ok ? "" : `<span class="muted small">Era: ${esc(right)}</span>`}</li>`;
+  const host = !S.code || (S.g && S.g.host === me());
+  const html = `
+  <div class="top"><h1>${esc(c.titulo)}</h1><button class="icon-btn" data-a="menu" aria-label="Menú">☰</button></div>
+  <div class="verdict ${r.ok.c ? "good" : "bad"} pop"><span class="stamp">${r.ok.c ? "CASO RESUELTO" : "CASO FALLIDO"}</span><div class="big">${esc(title)}</div><div class="stars" aria-label="${stars} de 3 estrellas">${"★".repeat(stars)}${"☆".repeat(3 - stars)}</div><p class="muted">${esc(sub)} ${r.left ? `Os sobraron ${r.left} ${r.left === 1 ? "hora" : "horas"}.` : ""}</p></div>
+  <ul class="checks">${r.giveup ? `<li><b>Culpable</b><span>${esc(nm(c.sol.culpable))}</span></li><li><b>Motivo</b><span>${esc(c.motivos[c.sol.motivo])}</span></li><li><b>Método</b><span>${esc(c.metodos[c.sol.metodo])}</span></li>`
+    : row("Culpable", r.ok.c, nm(r.c), nm(c.sol.culpable)) + row("Motivo", r.ok.m, c.motivos[r.m], c.motivos[c.sol.motivo]) + row("Método", r.ok.x, c.metodos[r.x], c.metodos[c.sol.metodo])}</ul>
+  <div class="paper"><span class="clip"></span><p class="lb">Así fue</p><p class="tx">${esc(c.explicacion)}</p></div>
+  ${host ? `<button class="btn gold wide" data-a="another">Otro caso</button>` : `<p class="muted center">${esc(m.names[0])} elige el siguiente caso.</p>`}
+  <button class="btn ghost wide" data-a="leave">Salir</button>`;
+  view(html, "res|" + m.gid + host);
+}
+
+/* ================= hoja inferior ================= */
+function openSheet(html) { $sheet.innerHTML = `<div class="scrim" data-a="close"></div><div class="pane" role="dialog" aria-modal="true">${html}</div>`; $sheet.classList.add("on"); }
+function closeSheet() { $sheet.classList.remove("on"); $sheet.innerHTML = ""; }
+function openFact(k, fresh) {
+  const m = model(), f = factOf(m.caso, k); if (!f) return;
+  const lh = m.seat !== null ? left(m, m.seat) : 0;
+  openSheet(`${fresh ? `<p class="muted small center">−1 hora · ${m.mode === "local" ? "os quedan" : "te quedan"} ${lh}</p>` : ""}${factHTML(m, f, true)}<button class="btn wide" data-a="close">Cerrar</button>`);
+}
+function showMenu() {
+  const m = S.L || S.g ? model() : null;
+  openSheet(`<h2>Menú</h2>
+    <button class="btn wide" data-a="rules">Cómo se juega</button>
+    ${S.code ? `<button class="btn ghost wide" data-a="share">Invitar con el código ${esc(S.code)}</button>` : ""}
+    ${m && m.mode === "local" && m.status === "play" ? `<button class="btn ghost wide" data-a="giveup">Rendirse y ver la solución</button>` : ""}
+    <button class="btn ghost wide" data-a="leave">Salir del caso</button>
+    <button class="btn ghost wide" data-a="close">Cerrar</button>`);
+}
+function showRules() {
+  openSheet(`<div class="rules">
+  <h2>Cómo se juega</h2>
+  <p>Sois dos detectives y tenéis un caso entre manos. Para cerrarlo hay que averiguar <b>quién lo hizo</b>, <b>por qué</b> y <b>cómo</b>.</p>
+  <h3>1. Leed el expediente</h3>
+  <p>En la pestaña <b>Caso</b> está lo que ha pasado y los informes iniciales, con datos que son verdad: horas, cómo murió la víctima, cómo se robó.</p>
+  <h3>2. Investigad</h3>
+  <p>En <b>Investigar</b> podéis visitar lugares o preguntar a cada sospechoso por su <b>coartada</b> o por <b>lo que sabe</b>. Cada cosa cuesta <b>1 hora</b> y las horas son pocas (${DIF.normal.h} en Normal, ${DIF.dificil.h} en Difícil), así que no podréis verlo todo.</p>
+  <p>Los sospechosos <b>pueden mentir</b>. La clave casi siempre es una coartada que no cuadra con lo que dicen las pistas o los demás.</p>
+  <h3>3. Pensad juntos</h3>
+  <p>Todo lo que descubrís se guarda en <b>Pistas</b>. En cada sospechoso podéis tocar <b>Descartar</b> para tacharlo (solo se ve en tu móvil).</p>
+  <h3>4. Acusad</h3>
+  <p>En <b>Acusar</b> elegid culpable, motivo y método. Acertar el culpable resuelve el caso; motivo y método dan estrellas. Si acertáis todo con 2 horas o más de sobra, sois <b>Detectives de leyenda</b>.</p>
+  <h3>Cada uno su móvil</h3>
+  <p>Las horas se reparten a medias. Cada uno empieza con <b>un informe distinto</b> y lo que investiga <b>solo lo ve él</b>: contádselo al otro o pulsad <b>Pasársela</b> para enviarle la pista. Si tu compañero ya ha mirado un sitio, no gastes horas: pregúntale. Para acusar, uno propone y el otro tiene que confirmar.</p>
+  <h3>Un solo móvil</h3>
+  <p>Una libreta compartida: leed juntos cada pista en voz alta y decidid entre los dos adónde ir.</p>
+  ${S.sample ? `<h3>Casos con IA</h3><p>Además de los casos del archivo, la IA puede inventar un caso nuevo cada vez, con la ambientación que queráis. Como lo escribe una máquina, alguna vez puede tener algún cabo suelto.</p>` : ""}
+  </div><button class="btn gold wide" data-a="close">Entendido</button>`);
+}
+
+/* ================= eventos ================= */
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-a]"); if (!b || b.disabled) return;
+  const a = b.dataset.a, v = b.dataset.v, k = b.dataset.k;
+  const keepName = () => { const el = document.getElementById("nm"); if (el) S.name = el.value.trim().slice(0, 16); };
+  const keepTheme = () => { const el = document.getElementById("theme"); if (el) S.theme = el.value.trim().slice(0, 80); };
+  switch (a) {
+    case "close": closeSheet(); break;
+    case "rules": showRules(); break;
+    case "menu": showMenu(); break;
+    case "tab": keepName(); S.tab = v; S.homeMsg = ""; render(true); break;
+    case "create": createOnline(); break;
+    case "join": joinOnline(document.getElementById("jc").value); break;
+    case "rejoin": joinOnline(S.rejoin); break;
+    case "local": keepName(); S.view = "pick"; S.pick = null; render(true); window.scrollTo(0, 0); break;
+    case "resume": resumeLocal(); break;
+    case "home": S.view = "home"; render(true); break;
+    case "dif": keepTheme(); S.dif = v; render(true); break;
+    case "pick": keepTheme(); S.pick = v; render(true); break;
+    case "ai": makeAiCase(); break;
+    case "open": openCase(); break;
+    case "share": share(); break;
+    case "leave": closeSheet(); if (S.L) { S.L = null; S.view = "home"; render(true); } else leave(); break;
+    case "gtab": S.gtab = v; render(true); window.scrollTo(0, 0); break;
+    case "inv": investigate(k); break;
+    case "share1": shareFacts([k]); break;
+    case "shareall": { const m = model(); shareFacts(visibleFacts(m).map(f => f.k)); break; }
+    case "cross": toggleCross(v); break;
+    case "acc": S.acc = { ...S.acc, [b.dataset.f]: b.dataset.f === "c" ? v : +v }; render(true); break;
+    case "accuse": accuse(); break;
+    case "unprop": put({ prop: null }); break;
+    case "yes": answerProp(true); break;
+    case "no": answerProp(false); break;
+    case "giveup": closeSheet(); if (S.L) { S.L.res = { c: "", m: -1, x: -1, ok: { c: false, m: false, x: false }, left: 0, giveup: true, t: Date.now() }; saveLocal(); render(true); window.scrollTo(0, 0); } break;
+    case "another": anotherCase(); break;
+  }
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && $sheet.classList.contains("on")) closeSheet();
+  if (e.key === "Enter" && e.target.id === "jc") joinOnline(e.target.value);
+  if (e.key === "Enter" && e.target.id === "theme") makeAiCase();
+});
+document.addEventListener("input", e => { if (e.target.id === "theme") S.theme = e.target.value.slice(0, 80); if (e.target.id === "nm") S.name = e.target.value.slice(0, 16); });
+window.__det = { S, model, CASOS };
+boot();
+})();
+</script>
+</body>
+</html>
