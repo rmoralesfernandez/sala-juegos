@@ -21,18 +21,18 @@
 /* Layout: estantería de cajas de juego — cabecera corta, rejilla de "cajas" con portada de color, botón Jugar grande */
 :root{
   --bg:#EEF0F3; --surface:#FFFFFF; --ink:#141821; --muted:#5A6272; --line:#D7DBE2;
-  --c1:#2C7A4D; --c2:#D9480F; --c3:#1D5AA6; --c4:#7B3FB0; --c5:#163B36; --c6:#B8862B; --c7:#C2185B; --c8:#8A5A1F; --c9:#0E6E8C; --c10:#4A2A5C; --c11:#2E3F86;
+  --c1:#2C7A4D; --c2:#D9480F; --c3:#1D5AA6; --c4:#7B3FB0; --c5:#163B36; --c6:#B8862B; --c7:#C2185B; --c8:#8A5A1F; --c9:#0E6E8C; --c10:#4A2A5C; --c11:#2E3F86; --c12:#3B4250;
   --on:#FFFFFF; --focus:#2D52D0;
   --display:"Bricolage Grotesque","Trebuchet MS",system-ui,sans-serif;
   --body:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#0F1218; --surface:#191E27; --ink:#EEF1F5; --muted:#9AA3B2; --line:#2A313D;
-  --c1:#2E8A56; --c2:#D2501A; --c3:#2D6BC0; --c4:#8A4FC2; --c5:#1E5149; --c6:#A87A22; --c7:#D63A78; --c8:#9A6626; --c9:#1680A3; --c10:#5E3A73; --c11:#3D51A3;
+  --c1:#2E8A56; --c2:#D2501A; --c3:#2D6BC0; --c4:#8A4FC2; --c5:#1E5149; --c6:#A87A22; --c7:#D63A78; --c8:#9A6626; --c9:#1680A3; --c10:#5E3A73; --c11:#3D51A3; --c12:#4A5262;
   --focus:#8EA4FF; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0F1218; --surface:#191E27; --ink:#EEF1F5; --muted:#9AA3B2; --line:#2A313D;
-  --c1:#2E8A56; --c2:#D2501A; --c3:#2D6BC0; --c4:#8A4FC2; --c5:#1E5149; --c6:#A87A22; --c7:#D63A78; --c8:#9A6626; --c9:#1680A3; --c10:#5E3A73; --c11:#3D51A3;
+  --c1:#2E8A56; --c2:#D2501A; --c3:#2D6BC0; --c4:#8A4FC2; --c5:#1E5149; --c6:#A87A22; --c7:#D63A78; --c8:#9A6626; --c9:#1680A3; --c10:#5E3A73; --c11:#3D51A3; --c12:#4A5262;
   --focus:#8EA4FF; color-scheme:dark}
 
 *,*::before,*::after{box-sizing:border-box}
@@ -125,6 +125,7 @@ const ART={
   temple:'<svg class="art" viewBox="0 0 100 100" aria-hidden="true" fill="currentColor"><path d="M50 8 92 30H8z"/><rect x="12" y="34" width="76" height="6" rx="2"/>'+[0,1,2,3].map(i=>`<rect x="${18+i*18}" y="44" width="10" height="36" rx="2"/>`).join("")+'<rect x="6" y="84" width="88" height="8" rx="2"/></svg>',
   mask:'<svg class="art" viewBox="0 0 100 100" aria-hidden="true"><path d="M6 30c14-9 30-7 44 2 14-9 30-11 44-2 2 22-6 44-24 48-11 2-17-6-20-15-3 9-9 17-20 15C12 74 4 52 6 30z" fill="currentColor"/><ellipse cx="31" cy="44" rx="10" ry="7" fill="rgba(0,0,0,.35)"/><ellipse cx="69" cy="44" rx="10" ry="7" fill="rgba(0,0,0,.35)"/></svg>',
   moon:'<svg class="art" viewBox="0 0 100 100" aria-hidden="true"><path d="M62 10a36 36 0 1 0 28 54A30 30 0 0 1 62 10z" fill="currentColor"/><path d="M0 100V82l12-10 10 8 12-16 12 12 10-8 14 14 12-12 18 12v18z" fill="currentColor" opacity=".6"/></svg>',
+  knight:'<svg class="art" viewBox="0 0 100 100" aria-hidden="true" fill="currentColor"><path d="M32 78C32 64 36 56 44 49C40 50 34 52 29 51C24 50 21 45 24 40C28 34 34 29 38 25L40 14L46 20C59 20 71 30 72 47C74 60 70 70 68 78Z"/><rect x="22" y="80" width="56" height="10" rx="3"/><circle cx="43" cy="32" r="3" fill="rgba(0,0,0,.35)"/></svg>',
   dice:'<svg class="art" viewBox="0 0 100 100" aria-hidden="true"><rect x="10" y="10" width="80" height="80" rx="16" fill="currentColor"/><g fill="rgba(0,0,0,.35)"><circle cx="30" cy="30" r="8"/><circle cx="70" cy="30" r="8"/><circle cx="50" cy="50" r="8"/><circle cx="30" cy="70" r="8"/><circle cx="70" cy="70" r="8"/></g></svg>'
 };
 const GAMES=[
@@ -140,6 +141,8 @@ const GAMES=[
    desc:"Lobos, vidente, bruja, cazador y Cupido. El móvil hace de narrador y guía la noche y el día.",meta:["4 a 18 jugadores","Cada uno su móvil"]},
   {name:"Duelo de Maravillas",sub:"Estilo 7 Wonders Duel",url:"./duelo/",tone:"var(--c8)",art:"temple",tag:"Estrategia",
    desc:"Tres eras de cartas, maravillas, ciencia y ejército. Gana por puntos, por ciencia o conquistando la capital rival.",meta:["2 jugadores","Cada uno su móvil"]},
+  {name:"Ajedrez Mágico",sub:"Piezas de piedra",url:"./ajedrez/",tone:"var(--c12)",art:"knight",tag:"Clásico",
+   desc:"Ajedrez de toda la vida con piezas de piedra que se hacen añicos al ser capturadas. Online, en el mismo móvil o contra la máquina.",meta:["2 jugadores","Online o 1 móvil","Contra la máquina"]},
   {name:"Survive",sub:"Escapa de la Isla",url:"./survive/",tone:"var(--c9)",art:"isle",tag:"Mesa",
    desc:"La isla se hunde: salva a tus exploradores de tiburones, ballenas y serpientes. Solo tú sabes cuánto vale cada uno.",meta:["2 a 4 jugadores","Cada uno su móvil"]},
   {name:"Hundir la Flota",sub:"Batalla naval",url:"./flota/",tone:"var(--c3)",art:"ship",tag:"Duelo",
