@@ -1,0 +1,827 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Clave Mecánica</title>
+<meta name="theme-color" content="#0E1A1F">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="../icons/icon-192.png">
+<link rel="apple-touch-icon" href="../icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Manrope:wght@500;700;800&display=swap">
+<script>window.APP_KEY="clave"</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="../firebase-config.js"></script>
+<script src="../shared/claude-shim.js"></script>
+<script src="motor.js"></script>
+<style>
+/* Layout: una columna. Estado de la ronda arriba, código de prueba, verificadores (cada uno con su tarjeta de reglas), acciones y hoja de notas abajo */
+:root{
+  --bg:#0E1A1F; --bg2:#173039; --panel:#15262D; --panel2:#213A44; --line:#2D4A55;
+  --ink:#EEF4F1; --muted:#9DB4B5; --brass:#E7B04A; --brass2:#9A6F1E; --ok:#5FD39A; --bad:#FF7B6B;
+  --sA:#4DA8F7; --sB:#F4C64A; --sC:#B87DFF;
+  --display:"Chakra Petch",ui-monospace,monospace;
+  --body:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:
+  radial-gradient(70% 40% at 50% -5%,rgba(231,176,74,.13),transparent 70%),
+  repeating-linear-gradient(0deg,rgba(255,255,255,.018) 0 1px,transparent 1px 22px),
+  radial-gradient(120% 80% at 50% 0%,var(--bg2),var(--bg) 70%) fixed;
+  background-color:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.4;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--brass);outline-offset:2px}
+#app{max-width:600px;margin:0 auto;min-height:100%;padding-inline:16px;padding-block:calc(12px + env(safe-area-inset-top,0px)) calc(28px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px}
+h1,h2,h3{font-family:var(--display);font-weight:700;margin:0;letter-spacing:.02em;text-wrap:balance}
+p{margin:0}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+
+.btn{appearance:none;border:0;border-radius:14px;min-height:50px;padding:0 18px;background:var(--panel2);color:var(--ink);font-weight:800;font-size:16px;box-shadow:0 3px 0 rgba(0,0,0,.45);display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:transform .08s;text-align:center}
+.btn:active{transform:translateY(2px)}
+.btn.gold{background:linear-gradient(180deg,#FFD587,var(--brass));color:#3A2604}
+.btn.ghost{background:transparent;box-shadow:inset 0 0 0 2px var(--line)}
+.btn.sm{min-height:40px;font-size:14px;padding:0 12px;border-radius:11px}
+.btn:disabled{opacity:.4;cursor:default;transform:none}
+.btn.wide{width:100%}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>*{flex:1 1 140px}
+input.text{width:100%;min-height:50px;border-radius:12px;border:2px solid var(--line);background:var(--bg);padding:0 14px;font-size:17px;font-weight:700}
+input.code{text-transform:uppercase;letter-spacing:.3em;font-family:var(--display);font-size:24px;text-align:center}
+.lbl{display:grid;gap:6px;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.card{background:var(--panel);border-radius:18px;padding:16px;display:grid;gap:12px;box-shadow:0 0 0 1px var(--line)}
+.card h2{font-size:21px}
+.msg{min-height:1.4em;color:var(--brass);text-align:center;font-weight:700}
+.msg.err{color:var(--bad)}
+.seg{display:flex;gap:6px;background:var(--bg);border-radius:12px;padding:4px}
+.seg button{flex:1;appearance:none;border:0;background:transparent;border-radius:9px;min-height:40px;font-weight:800;font-size:14px;color:var(--muted);padding:0 6px}
+.seg button[aria-pressed="true"]{background:var(--panel2);color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--brass2)}
+.hint-l{font-size:13px;color:var(--muted);text-align:center}
+
+.hero{display:grid;gap:10px;justify-items:center;text-align:center;padding-block:14px 4px}
+.logo{font-family:var(--display);font-weight:700;font-size:clamp(38px,11vw,54px);line-height:.95;color:var(--brass);text-shadow:0 3px 0 #5E420A,0 10px 30px rgba(0,0,0,.6);text-transform:uppercase}
+.logo small{display:block;font-family:var(--body);font-weight:800;font-size:.25em;letter-spacing:.4em;color:var(--ink);text-shadow:none;margin-bottom:8px}
+.machine{display:flex;gap:10px;justify-content:center;margin-bottom:6px}
+
+/* ---------- formas y cifras ---------- */
+.sh{display:inline-block;width:1em;height:1em;vertical-align:-.14em;flex:none}
+.sh.a{color:var(--sA)}.sh.b{color:var(--sB)}.sh.c{color:var(--sC)}
+.tile{display:grid;justify-items:center;gap:2px;background:#0A1418;border-radius:12px;padding:8px 10px 6px;box-shadow:inset 0 0 0 2px var(--line);min-width:58px}
+.tile .sh{width:22px;height:22px}
+.tile b{font-family:var(--display);font-size:34px;line-height:1}
+.tile.q b{color:var(--muted)}
+.codebig{display:flex;gap:8px;justify-content:center}
+.codemini{display:inline-flex;gap:3px;align-items:center;font-family:var(--display);font-weight:700;font-size:16px;letter-spacing:.02em;white-space:nowrap}
+.codemini span{display:inline-flex;align-items:center;gap:1px}
+.codemini .sh{width:.75em;height:.75em}
+
+/* ---------- barra de estado ---------- */
+.top{display:flex;align-items:center;gap:8px}
+.top .sp{flex:1}
+.chip{font-weight:800;font-size:12px;letter-spacing:.1em;background:var(--panel);padding:7px 11px;border-radius:999px;box-shadow:0 0 0 1px var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:46vw}
+.icon-btn{appearance:none;border:0;width:40px;height:40px;border-radius:11px;background:var(--panel);box-shadow:0 0 0 1px var(--line);display:grid;place-items:center;color:var(--ink);font-weight:800;font-size:18px;flex:none}
+.stat{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat div{background:var(--panel);border-radius:12px;padding:8px 6px;text-align:center;box-shadow:0 0 0 1px var(--line);display:grid;gap:1px}
+.stat small{font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.stat b{font-family:var(--display);font-size:22px;line-height:1.1}
+.dots{display:inline-flex;gap:4px;justify-content:center}
+.dots i{width:12px;height:12px;border-radius:50%;box-shadow:inset 0 0 0 2px var(--brass2)}
+.dots i.on{background:var(--brass);box-shadow:none}
+.rival{display:flex;align-items:center;gap:10px;background:var(--panel);border-radius:14px;padding:8px 12px;box-shadow:0 0 0 1px var(--line);font-size:14px}
+.rival .who{flex:1;min-width:0;display:grid}
+.rival .who b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rival .who span{font-size:12.5px;color:var(--muted)}
+.rival .st{font-size:12px;font-weight:800;padding:4px 9px;border-radius:999px;background:var(--panel2);white-space:nowrap}
+.rival .st.done{background:rgba(95,211,154,.18);color:var(--ok)}
+.rival .st.out{background:rgba(255,123,107,.16);color:var(--bad)}
+.coach{font-size:14.5px;font-weight:700;text-align:center;min-height:2.6em;display:grid;place-items:center;text-wrap:balance;background:rgba(231,176,74,.09);border-radius:12px;padding:8px 12px;box-shadow:inset 0 0 0 1px rgba(231,176,74,.3)}
+.coach.wait{background:rgba(77,168,247,.1);box-shadow:inset 0 0 0 1px rgba(77,168,247,.35)}
+
+/* ---------- código de prueba ---------- */
+.panel{background:var(--panel);border-radius:16px;padding:12px;box-shadow:0 0 0 1px var(--line);display:grid;gap:8px}
+.panel-h{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.panel-h b{color:var(--brass)}
+.pick{display:grid;grid-template-columns:30px repeat(5,1fr);gap:6px;align-items:center}
+.pick .sh{width:24px;height:24px}
+.pick button{appearance:none;border:0;min-height:44px;border-radius:10px;background:#0A1418;box-shadow:inset 0 0 0 2px var(--line);font-family:var(--display);font-size:21px;font-weight:700;color:var(--ink);padding:0}
+.pick button[aria-pressed="true"]{background:var(--k);color:#10181B;box-shadow:0 0 0 2px var(--k),0 0 14px -2px var(--k)}
+.pick button.x{color:#4E6870;text-decoration:line-through}
+.pick button[aria-pressed="true"].x{color:#10181B}
+.locked{display:flex;align-items:center;justify-content:center;gap:12px}
+.locked .lk{font-size:12.5px;color:var(--muted);font-weight:700;max-width:12em}
+
+/* ---------- verificadores ---------- */
+.verifs{display:grid;gap:10px}
+.vc{background:var(--panel);border-radius:16px;box-shadow:0 0 0 1px var(--line);overflow:hidden}
+.vc-h{display:flex;align-items:center;gap:10px;padding:10px 10px 8px 12px}
+.vl{width:36px;height:36px;border-radius:10px;background:linear-gradient(180deg,#FFD587,var(--brass));color:#3A2604;font-family:var(--display);font-weight:700;font-size:22px;display:grid;place-items:center;flex:none;box-shadow:0 2px 0 #6B4A0E}
+.vc-h .tt{flex:1;min-width:0;font-weight:800;font-size:14.5px;line-height:1.25}
+.vbtn{appearance:none;border:0;min-width:88px;min-height:42px;border-radius:11px;background:var(--panel2);color:var(--ink);font-weight:800;font-size:14px;box-shadow:inset 0 0 0 2px var(--brass2);padding:0 10px;flex:none}
+.vbtn:disabled{opacity:.38}
+.res{min-width:88px;min-height:42px;border-radius:11px;display:grid;place-items:center;font-weight:800;font-size:15px;flex:none}
+.res.ok{background:rgba(95,211,154,.18);color:var(--ok);box-shadow:inset 0 0 0 2px var(--ok)}
+.res.no{background:rgba(255,123,107,.15);color:var(--bad);box-shadow:inset 0 0 0 2px var(--bad)}
+.res.pop{animation:pop .5s cubic-bezier(.2,.9,.3,1.4)}
+@keyframes pop{0%{transform:scale(.4);opacity:0}}
+.rules{display:flex;flex-wrap:wrap;gap:6px;padding:0 10px 10px}
+.rl{appearance:none;border:0;border-radius:9px;background:#0A1418;box-shadow:inset 0 0 0 1.5px var(--line);padding:7px 10px;font-size:13.5px;font-weight:700;color:var(--ink);text-align:left;line-height:1.25;display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap}
+.rl.x{color:#5B747B;text-decoration:line-through;box-shadow:inset 0 0 0 1.5px #22363D;background:transparent}
+.rl.x .sh{opacity:.4}
+.rl.m{box-shadow:inset 0 0 0 2px var(--ok);background:rgba(95,211,154,.12)}
+.rl.m::after{content:"✓";color:var(--ok);font-weight:800;margin-left:2px}
+.rl.hinted,.dgrid button.hinted{animation:hl 1.4s ease-out}
+@keyframes hl{0%{box-shadow:inset 0 0 0 3px var(--brass)}}
+.vhist{display:flex;flex-wrap:wrap;gap:6px 10px;padding:7px 12px 9px;border-top:1px dashed var(--line);font-size:13px;color:var(--muted)}
+.vhist .e{display:inline-flex;align-items:center;gap:4px}
+.vhist .e i{font-style:normal;font-weight:800}
+.vhist .e i.ok{color:var(--ok)}.vhist .e i.no{color:var(--bad)}
+
+/* ---------- acciones ---------- */
+.acts{display:flex;gap:8px}
+.acts .btn{flex:1 1 0;min-width:0;padding:0 10px;font-size:15px}
+.acts2{display:flex;gap:8px;justify-content:center}
+
+/* ---------- notas ---------- */
+.dgrid{display:grid;grid-template-columns:30px repeat(5,1fr);gap:6px;align-items:center}
+.dgrid .sh{width:22px;height:22px}
+.dgrid button{appearance:none;border:0;min-height:40px;border-radius:9px;background:#0A1418;box-shadow:inset 0 0 0 1.5px var(--line);font-family:var(--display);font-size:19px;font-weight:700;color:var(--ink);padding:0;position:relative}
+.dgrid button.x{color:#4E6870;background:transparent;box-shadow:inset 0 0 0 1.5px #22363D}
+.dgrid button.x::after{content:"";position:absolute;left:22%;right:22%;top:50%;height:2.5px;background:var(--bad);transform:rotate(-35deg);border-radius:2px}
+.dgrid button.m{box-shadow:inset 0 0 0 2px var(--ok);background:rgba(95,211,154,.14);color:var(--ok)}
+.htab{width:100%;border-collapse:collapse;font-size:14px}
+.htab th,.htab td{padding:6px 3px;text-align:center;border-bottom:1px solid var(--line)}
+.htab th{font-size:11.5px;color:var(--muted);letter-spacing:.06em;font-weight:800}
+.htab td.ok{color:var(--ok);font-weight:800}.htab td.no{color:var(--bad);font-weight:800}
+.htab td.e{color:#3D565E}
+.htab tr.cur td:first-child{color:var(--brass);font-weight:800}
+
+/* ---------- cubierta, espera y final ---------- */
+.cover{display:grid;gap:16px;justify-items:center;text-align:center;padding:40px 8px}
+.cover h2{font-size:30px;color:var(--brass)}
+.seats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.seat{background:var(--bg);border-radius:14px;padding:12px;display:grid;gap:2px;text-align:center;min-width:0}
+.seat b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.seat.empty{color:var(--muted);border:2px dashed var(--line);background:transparent}
+.big-code{font-family:var(--display);font-size:54px;letter-spacing:.16em;line-height:1;text-align:center;color:var(--brass)}
+.end-h{color:var(--brass);font-size:28px;text-align:center}
+.reveal{display:grid;gap:6px}
+.reveal div{display:flex;gap:10px;align-items:center;background:var(--bg);border-radius:10px;padding:7px 10px;font-weight:700;font-size:14px}
+.reveal .vl{width:28px;height:28px;font-size:17px;border-radius:8px}
+.score{width:100%;border-collapse:collapse;font-size:14.5px}
+.score th,.score td{padding:7px 4px;text-align:center;border-bottom:1px solid var(--line)}
+.score th:first-child,.score td:first-child{text-align:left}
+.score thead th{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.score .w{color:var(--brass);font-weight:800}
+
+/* ---------- hojas, reglas y tutorial ---------- */
+#sheet{position:fixed;inset:0;z-index:50;display:none}
+#sheet.on{display:block}
+#sheet .scrim{position:absolute;inset:0;background:rgba(0,0,0,.62)}
+#sheet .pane{position:absolute;left:0;right:0;bottom:0;max-width:600px;max-height:92svh;overflow:auto;margin:0 auto;background:var(--panel);border-radius:22px 22px 0 0;padding:18px 16px calc(20px + env(safe-area-inset-bottom,0px));display:grid;gap:12px;box-shadow:0 -10px 40px rgba(0,0,0,.6)}
+.rulesheet{display:grid;gap:14px;font-size:15px}
+.rulesheet h3{font-size:19px;color:var(--brass)}
+.rulesheet section{display:grid;gap:6px}
+.rulesheet ul,.rulesheet ol{margin:0;padding-left:20px;display:grid;gap:5px}
+.rulesheet b{color:var(--brass)}
+.rulesheet .ex{background:var(--bg);border-radius:12px;padding:10px 12px;display:grid;gap:6px;font-size:14px}
+#tour{position:fixed;inset:0;z-index:70;display:none}
+#tour.on{display:block}
+#tour .bub{position:fixed;left:50%;transform:translateX(-50%);width:min(560px,calc(100% - 24px));background:#FFF6E3;color:#20180A;border-radius:18px;padding:16px;display:grid;gap:10px;box-shadow:0 20px 50px rgba(0,0,0,.6)}
+#tour .bub h3{font-size:20px;color:#7A5208}
+#tour .bub .row .btn{flex:1 1 0}
+#tour .bub .btn.ghost{color:#20180A;box-shadow:inset 0 0 0 2px #D8C4A0}
+#tour .steps{font-size:12px;font-weight:800;color:#8A6A3A;letter-spacing:.08em}
+#tour .sh.b{color:#B88A0E}
+.spot{position:relative;z-index:65;box-shadow:0 0 0 4px var(--brass),0 0 0 9999px rgba(0,0,0,.62)!important;border-radius:14px}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,12px);opacity:0;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:700;font-size:14px;transition:opacity .2s,transform .2s;pointer-events:none;max-width:calc(100% - 32px);z-index:80;text-align:center}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+@media (max-width:370px){.pick,.dgrid{grid-template-columns:24px repeat(5,1fr);gap:4px}.vbtn,.res{min-width:74px}.acts .btn{font-size:14px}}
+@media (prefers-reduced-motion:reduce){.res.pop,.rl.hinted,.dgrid button.hinted{animation:none}#toast{transition:none}}
+</style>
+</head>
+<body>
+<div id="app"><div class="hero"><div class="logo"><small>DESCIFRA EL CÓDIGO</small>Clave Mecánica</div><p class="muted">Engrasando la máquina…</p></div></div>
+<div id="sheet"></div>
+<div id="tour"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+"use strict";
+const K = window.Clave;
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const ls = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }, del(k) { try { localStorage.removeItem(k); } catch {} } };
+const $app = document.getElementById("app"), $sheet = document.getElementById("sheet"), $tour = document.getElementById("tour");
+let toastT;
+function toast(m, ms) { const t = document.getElementById("toast"); t.textContent = m; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), ms || 3200); }
+function on(sel, ev, fn, root) { (root || $app).querySelectorAll(sel).forEach(el => el.addEventListener(ev, fn)); }
+const buzz = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch {} };
+const AILVL = { 1: "Aprendiz", 2: "Ingeniera", 3: "Genio" };
+const LETTER = "ABCDEF";
+const SHN = ["triángulo", "cuadrado", "círculo"];
+
+/* ================= dibujos ================= */
+const SHAPE = [
+  `<svg class="sh a" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5 22.5 21h-21z" fill="currentColor"/></svg>`,
+  `<svg class="sh b" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2.5" fill="currentColor"/></svg>`,
+  `<svg class="sh c" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="currentColor"/></svg>`
+];
+const SHK = ["var(--sA)", "var(--sB)", "var(--sC)"];
+const rt = s => esc(s).replace(/\{A\}/g, SHAPE[0]).replace(/\{B\}/g, SHAPE[1]).replace(/\{C\}/g, SHAPE[2]);
+const codeMini = c => `<span class="codemini">${[0, 1, 2].map(i => `<span>${SHAPE[i]}${c ? esc(c[i]) : "?"}</span>`).join("")}</span>`;
+const codeBig = c => `<div class="codebig">${[0, 1, 2].map(i => `<div class="tile${c && c[i] ? "" : " q"}">${SHAPE[i]}<b>${c && c[i] ? esc(c[i]) : "?"}</b></div>`).join("")}</div>`;
+
+/* ================= sonido ================= */
+const SFX = {
+  ctx: null, on: ls.get("clave.sound") !== false,
+  init() { if (this.ctx) { if (this.ctx.state === "suspended") this.ctx.resume().catch(() => {}); return; } try { const A = window.AudioContext || window.webkitAudioContext; if (A) this.ctx = new A(); } catch {} },
+  ok_() { return this.on && this.ctx && this.ctx.state === "running"; },
+  tone(f, dur, g, at = 0, type = "sine", f2) {
+    const c = this.ctx, t = c.currentTime + at, o = c.createOscillator(), v = c.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+    v.gain.setValueAtTime(.0001, t); v.gain.exponentialRampToValueAtTime(g, t + .01); v.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(v).connect(c.destination); o.start(t); o.stop(t + dur + .05);
+  },
+  click() { if (this.ok_()) this.tone(1800, .04, .05, 0, "square"); },
+  whirr() { if (this.ok_()) { this.tone(140, .32, .05, 0, "sawtooth", 260); this.tone(900, .05, .05, .3, "square"); } },
+  yes() { if (this.ok_()) [784, 1175].forEach((f, i) => this.tone(f, .35, .09, .36 + i * .09)); },
+  no() { if (this.ok_()) this.tone(220, .35, .09, .36, "triangle", 140); },
+  win() { if (this.ok_()) [523, 659, 784, 1047].forEach((f, i) => this.tone(f, .8, .09, i * .13)); },
+  fail() { if (this.ok_()) [392, 330, 262].forEach((f, i) => this.tone(f, .5, .08, i * .16, "triangle")); }
+};
+addEventListener("pointerdown", () => SFX.init(), { capture: true });
+
+/* ================= estado ================= */
+const S = {
+  db: null, uid: null, offline: false, ready: false,
+  name: (localStorage.getItem("sala.nick") || "").slice(0, 16),
+  mode: null, code: null, g: null, unsub: null, L: null,
+  homeTab: ls.get("clave.tab") || "online", localKind: ls.get("clave.kind") || "juntos",
+  level: ls.get("clave.lvl") || 1, aiLevel: ls.get("clave.ai") || 1,
+  homeMsg: "", homeErr: false, busy: false,
+  draft: ["", "", ""], cover: false, lastActive: null, flash: null, hinted: null,
+  seen: {}, endShown: "", showNotes: true
+};
+const me = () => S.uid;
+window.__clave = { S, K };
+
+async function boot() {
+  try {
+    const [db, user] = await Promise.all(["db", "user"].map(n => window.claude ? claude.use(n).catch(() => null) : null));
+    S.db = db; if (user) S.uid = await user.id();
+  } catch {}
+  if (!S.db || !S.uid) S.offline = true;
+  S.ready = true;
+  const h = (location.hash || "").replace("#", "").toUpperCase(), last = ls.get("clave.last");
+  if (!S.offline && /^[A-Z]{4}$/.test(h)) S.prefill = h;
+  else if (!S.offline && last && last.code && Date.now() - last.t < 12 * 3600e3) S.rejoin = last.code;
+  render();
+}
+
+/* ================= modelo común =================
+   m = { kind: online|juntos|turnos|ai, pz, ps:[P,P?], names, me, solo } */
+const seatOf = id => { const st = (S.g && S.g.seats) || {}; return [0, 1].find(i => st[i] && st[i].id === id); };
+function model() {
+  if (S.mode === "online") {
+    const g = S.g, seats = g.seats || {}, cfg = g.cfg || null, seat = seatOf(me());
+    const ps = cfg ? [(g.p || {})[0] || K.newPlayer(), (g.p || {})[1] || K.newPlayer()] : null;
+    return { kind: "online", pz: cfg && cfg.pz, gn: cfg && cfg.gn, ps, names: [(seats[0] || {}).name || "Jugador 1", (seats[1] || {}).name || "Jugador 2"], me: seat === undefined ? null : seat, solo: false };
+  }
+  const L = S.L, ps = L.ps.slice();
+  if (L.kind === "ai") ps[1] = K.aiState(L.trace, K.isOut(L.pz, ps[0]) ? 99 : ps[0].end);
+  let mine = 0;
+  if (L.kind === "turnos") {
+    const can = [0, 1].filter(i => K.canPlay(L.pz, ps, i, false));
+    mine = can.length ? can.sort((a, b) => ps[a].end - ps[b].end || a - b)[0] : (L.view ?? 0);
+  }
+  return { kind: L.kind, pz: L.pz, gn: L.gn, ps, names: L.names, me: mine, solo: L.kind === "juntos", level: L.aiLevel };
+}
+const notesOf = m => {
+  if (S.mode === "online") { const k = "clave.notas." + S.code + "." + m.gn + "." + m.me; return { get: () => ls.get(k) || {}, set: v => ls.set(k, v) }; }
+  const i = m.me; return { get: () => (S.L.notes && S.L.notes[i]) || {}, set: v => { S.L.notes = S.L.notes || {}; S.L.notes[i] = v; saveLocal(); } };
+};
+const draftOf = m => S.mode === "online" ? S.draft : ((S.L.draft = S.L.draft || {})[m.me] = S.L.draft[m.me] || ["", "", ""]);
+
+/* ================= online ================= */
+function watch(code) {
+  unwatch(); S.mode = "online"; S.code = code; ls.set("clave.last", { code, t: Date.now() });
+  S.unsub = S.db.doc("games/" + code).onSnapshot(snap => {
+    if (!snap.exists) { leave("Esa partida ya no existe."); return; }
+    const prev = S.g; S.g = snap.data(); onRemote(prev); render();
+  }, () => leave("Se ha perdido la conexión con la partida."));
+}
+function unwatch() { if (S.unsub) try { S.unsub(); } catch {} S.unsub = null; S.g = null; closeSheet(); }
+function leave(msg) {
+  unwatch(); clearTimeout(S.aiT);
+  S.mode = null; S.code = null; S.L = null; S.cover = false; S.endShown = ""; S.seen = {}; S.draft = ["", "", ""];
+  S.homeMsg = msg || ""; S.homeErr = !!msg; history.replaceState(null, "", location.pathname); endTour(); render();
+}
+function onRemote(prev) {
+  if (!prev || !S.g) return;
+  const pg = prev.cfg && prev.cfg.gn, ng = S.g.cfg && S.g.cfg.gn;
+  if (pg !== ng) { S.draft = ["", "", ""]; S.endShown = ""; S.seen = {}; closeSheet(); }
+  const m = model(); if (!m.ps || m.me === null) return;
+  const o = 1 - m.me, a = prev.p && prev.p[o], b = m.ps[o];
+  if (a && b && b.end > a.end && m.ps[m.me].end >= a.end && !K.result(m.pz, m.ps).over) buzz(30);
+}
+function saveName() {
+  const el = document.getElementById("nm"), v = ((el && el.value) || S.name || "").trim().slice(0, 16);
+  if (!v) { S.homeMsg = "Escribe tu nombre."; S.homeErr = true; render(); return false; }
+  S.name = v; try { localStorage.setItem("sala.nick", v); } catch {} return true;
+}
+const genCode = () => { const A = "ABCDEFGHJKLMNPQRSTUVWXYZ"; let c = ""; for (let i = 0; i < 4; i++) c += A[Math.floor(Math.random() * A.length)]; return c; };
+async function freeCode() { let code; for (let i = 0; i < 6; i++) { code = genCode(); if (!(await S.db.doc("games/" + code).get()).exists) break; } return code; }
+const newSeed = () => Math.floor(Math.random() * 2 ** 31);
+async function createOnline() {
+  if (!saveName()) return;
+  S.busy = true; render();
+  try {
+    const code = await freeCode();
+    await S.db.doc("games/" + code).set({ v: 1, status: "lobby", host: me(), createdAt: Date.now(), level: S.level, seats: { 0: { id: me(), name: S.name } }, cfg: null, p: {} });
+    location.hash = code; watch(code);
+  } catch { S.homeMsg = "No se pudo crear la partida. Revisa la conexión."; S.homeErr = true; }
+  S.busy = false; render();
+}
+async function joinOnline(code) {
+  if (!saveName()) return;
+  code = String(code || "").toUpperCase().replace(/[^A-Z]/g, "");
+  if (code.length !== 4) { S.homeMsg = "El código tiene 4 letras."; S.homeErr = true; render(); return; }
+  S.busy = true; render();
+  try {
+    const ref = S.db.doc("games/" + code), snap = await ref.get();
+    if (!snap.exists) { S.homeMsg = "No hay ninguna partida con ese código."; S.homeErr = true; }
+    else {
+      const g = snap.data(), seats = g.seats || {};
+      const mine = [0, 1].find(i => seats[i] && seats[i].id === me());
+      if (mine !== undefined) { if (seats[mine].name !== S.name) await ref.update({ seats: { [mine]: { id: me(), name: S.name } } }); }
+      else if (!seats[1] && g.status === "lobby") await ref.update({ seats: { 1: { id: me(), name: S.name } } });
+      else toast("La partida está completa: entras como público.");
+      location.hash = code; watch(code);
+    }
+  } catch { S.homeMsg = "No se pudo entrar. Revisa la conexión."; S.homeErr = true; }
+  S.busy = false; render();
+}
+async function put(patch) {
+  const merge = (a, b) => { const o = { ...(a || {}) }; for (const [k, v] of Object.entries(b)) o[k] = v && typeof v === "object" && !Array.isArray(v) && o[k] && typeof o[k] === "object" && !Array.isArray(o[k]) ? merge(o[k], v) : v; return o; };
+  S.g = merge(S.g, patch); render();
+  try { await S.db.doc("games/" + S.code).update(patch); }
+  catch { toast("No se pudo guardar. Reintentando…"); setTimeout(() => S.db.doc("games/" + S.code).update(patch).catch(() => toast("Sin conexión con la partida.")), 1500); }
+}
+function startOnline(level) {
+  const g = S.g, gn = ((g.cfg && g.cfg.gn) || 0) + 1;
+  const seed = g.cfg ? K.mix(g.cfg.pz.seed, 1000 + gn) : newSeed();
+  const pz = K.generate(seed, level);
+  S.draft = ["", "", ""]; S.endShown = ""; S.seen = {};
+  put({ status: "play", level, cfg: { pz, gn }, p: { 0: K.newPlayer(), 1: K.newPlayer() } });
+}
+
+/* ================= un móvil y máquina ================= */
+function startLocal() {
+  if (!saveName()) return;
+  const seed = newSeed(), pz = K.generate(seed, S.level);
+  ls.set("clave.lvl", S.level); ls.set("clave.tab", S.homeTab);
+  let L;
+  if (S.homeTab === "ai") {
+    ls.set("clave.ai", S.aiLevel);
+    L = { kind: "ai", pz, gn: 1, aiLevel: S.aiLevel, names: [S.name, `La máquina · ${AILVL[S.aiLevel]}`], ps: [K.newPlayer()], trace: K.aiPlay(pz, S.aiLevel, seed ^ 0x5bd1) };
+  } else if (S.localKind === "turnos") {
+    const rv = (document.getElementById("rv").value || "").trim().slice(0, 16);
+    if (!rv) { S.homeMsg = "Escribe el nombre de la otra persona."; S.homeErr = true; render(); return; }
+    ls.set("clave.rv", rv);
+    L = { kind: "turnos", pz, gn: 1, names: [S.name, rv], ps: [K.newPlayer(), K.newPlayer()] };
+    S.cover = true;
+  } else {
+    L = { kind: "juntos", pz, gn: 1, names: [S.name], ps: [K.newPlayer()], bench: K.aiPlay(pz, 3, seed ^ 0x77) };
+  }
+  ls.set("clave.kind", S.localKind);
+  S.mode = "local"; S.L = L; S.endShown = ""; S.seen = {}; S.lastActive = null; saveLocal(); render();
+}
+function saveLocal() { if (S.L) ls.set("clave.partida", S.L); }
+function resumeLocal() { const L = ls.get("clave.partida"); if (!L) return; S.mode = "local"; S.L = L; S.cover = L.kind === "turnos"; S.endShown = ""; S.seen = {}; S.lastActive = null; render(); }
+function againLocal() {
+  const L = S.L, seed = newSeed(), pz = K.generate(seed, L.pz.level);
+  L.pz = pz; L.gn = (L.gn || 1) + 1; L.notes = {}; L.draft = {}; L.view = 0;
+  L.ps = L.ps.map(() => K.newPlayer()); if (L.kind === "ai") { L.ps = [K.newPlayer()]; L.trace = K.aiPlay(pz, L.aiLevel, seed ^ 0x5bd1); }
+  if (L.kind === "juntos") L.bench = K.aiPlay(pz, 3, seed ^ 0x77);
+  S.cover = L.kind === "turnos"; S.endShown = ""; S.seen = {}; S.lastActive = null; closeSheet(); saveLocal(); render();
+}
+
+/* ================= jugar ================= */
+function commitP(m, P) {
+  if (S.mode === "online") put({ p: { [m.me]: P } });
+  else { S.L.ps[m.me] = P; if (S.L.kind === "turnos") S.L.view = m.me; saveLocal(); render(); }
+}
+const clone = o => JSON.parse(JSON.stringify(o));
+const curCode = (m, P) => { const t = K.testsIn(P, K.round(P))[0]; return t ? t.c : draftOf(m).join(""); };
+function setDigit(s, n) {
+  const m = model(), P = m.ps[m.me];
+  if (K.testsIn(P, K.round(P)).length) { toast("El código ya está fijado para esta ronda."); return; }
+  const d = draftOf(m); d[s] = d[s] === String(n) ? "" : String(n);
+  if (S.mode === "local") saveLocal();
+  SFX.click(); render();
+}
+function testV(v) {
+  const m = model(), P = clone(m.ps[m.me]), r = K.round(P), done = K.testsIn(P, r);
+  if (!K.canPlay(m.pz, m.ps, m.me, m.solo)) return;
+  const code = curCode(m, P);
+  if (!K.valid(code)) { toast("Primero elige una cifra para cada forma."); return; }
+  if (done.length >= 3) { toast("Ya has usado las 3 pruebas de esta ronda."); return; }
+  if (done.some(t => t.v === v)) { toast("Ese verificador ya lo has probado en esta ronda."); return; }
+  const ok = K.check(m.pz, code, v);
+  P.tests.push({ r, c: code, v, ok: ok ? 1 : 0 });
+  S.flash = r + "-" + v; SFX.whirr(); setTimeout(() => ok ? SFX.yes() : SFX.no(), 0); buzz(ok ? 20 : [20, 60, 20]);
+  commitP(m, P);
+}
+function endRound() {
+  const m = model(), P = clone(m.ps[m.me]), r = K.round(P);
+  if (!K.canPlay(m.pz, m.ps, m.me, m.solo)) return;
+  if (!K.testsIn(P, r).length) { toast("Haz al menos una prueba antes de pasar de ronda."); return; }
+  P.end = r; commitP(m, P);
+  if (S.mode === "local") { S.L.draft[m.me] = ["", "", ""]; saveLocal(); }
+  else S.draft = ["", "", ""];
+  if (m.kind === "turnos") afterLocalTurn();
+  else render();
+}
+function afterLocalTurn() {
+  const n = model();
+  if (!K.result(n.pz, n.ps).over && n.me !== S.lastActive) S.cover = true;
+  render();
+}
+function doGuess(code) {
+  const m = model(), P = clone(m.ps[m.me]), r = K.round(P);
+  closeSheet();
+  if (!K.canPlay(m.pz, m.ps, m.me, m.solo)) return;
+  if (m.solo) {
+    if (code === m.pz.sol) { P.g = { r, c: code }; P.end = r; SFX.win(); }
+    else { P.miss = (P.miss || 0) + 1; SFX.fail(); toast(`${code.split("").join(" ")} no es el código. Seguid investigando.`, 3600); }
+    commitP(m, P); return;
+  }
+  P.g = { r, c: code }; P.end = r;
+  commitP(m, P);
+  if (S.mode === "local") { S.L.draft[m.me] = ["", "", ""]; saveLocal(); }
+  if (m.kind === "turnos") afterLocalTurn();
+  else if (m.kind === "online" && !K.result(model().pz, model().ps).over) toast("Apuesta hecha. Se verá al acabar la ronda.");
+}
+function useHint() {
+  const m = model(), P = clone(m.ps[m.me]), N = notesOf(m), notes = N.get();
+  if (!K.canPlay(m.pz, m.ps, m.me, m.solo)) return;
+  const h = K.hint(m.pz, P.tests, Object.fromEntries(Object.entries(notes).filter(([, v]) => v === 1)));
+  if (h.t === "solved") { toast("Con tus pruebas ya basta: solo queda un código posible. ¡A por él!", 4200); return; }
+  if (h.t === "none") { toast(`Quedan ${h.sols} códigos posibles. Haz más pruebas.`); return; }
+  P.hints = (P.hints || 0) + 1;
+  if (h.t === "rule") { notes["r" + h.v + "-" + h.r] = 1; S.hinted = "r" + h.v + "-" + h.r; toast(`Pista: el verificador ${LETTER[h.v]} no puede ser esa regla (tachada). Quedan ${h.sols} códigos posibles.`, 4600); }
+  else { notes["d" + h.s + "-" + h.n] = 1; S.hinted = "d" + h.s + "-" + h.n; toast(`Pista: el ${SHN[h.s]} no puede ser ${h.n} (tachado). Quedan ${h.sols} códigos posibles.`, 4600); }
+  N.set(notes); commitP(m, P);
+}
+function toggleNote(key) {
+  const m = model(), N = notesOf(m), n = N.get(), v = n[key] || 0;
+  const nx = (v + 1) % 3; if (nx) n[key] = nx; else delete n[key];
+  N.set(n); SFX.click(); render();
+}
+
+/* ================= pintar ================= */
+function render() {
+  if (!S.ready) return;
+  if (!S.mode) { renderHome(); return; }
+  if (S.mode === "online" && (!S.g || S.g.status === "lobby" || !S.g.cfg)) { renderLobby(); return; }
+  const m = model();
+  if (m.kind === "turnos") {
+    const res = K.result(m.pz, m.ps);
+    if (S.lastActive !== null && S.lastActive !== m.me && !res.over) S.cover = true;
+    S.lastActive = m.me;
+    if (S.cover && !res.over) { renderCover(m); return; }
+  }
+  renderGame(m);
+  checkEvents(m);
+  if (tourI >= 0) showTour();
+}
+
+function renderHome() {
+  const saved = ls.get("clave.partida");
+  const savedOk = saved && saved.pz && !K.result(saved.pz, saved.kind === "ai" ? [saved.ps[0], K.aiState(saved.trace, K.isOut(saved.pz, saved.ps[0]) ? 99 : saved.ps[0].end)] : saved.ps, saved.kind === "juntos").over;
+  const lvSeg = `<div class="lbl">Dificultad<div class="seg" id="lvl">${[1, 2, 3].map(l => `<button data-l="${l}" aria-pressed="${S.level === l}">${K.LEVELS[l].name}</button>`).join("")}</div></div>
+    <p class="hint-l">${S.level === 1 ? "4 verificadores con reglas sencillas. Ideal para aprender." : S.level === 2 ? "5 verificadores; algunas tarjetas tienen reglas que se solapan." : "6 verificadores y tarjetas largas. Para cuando ya lo dominéis."}</p>`;
+  let body = "";
+  if (S.homeTab === "online") {
+    body = S.offline ? `<p class="muted">No hay conexión con el servidor. Puedes jugar en un solo móvil o contra la máquina.</p>` : `
+      ${lvSeg}
+      <button class="btn gold wide" id="create" ${S.busy ? "disabled" : ""}>Crear partida</button>
+      <div class="lbl">¿Te han pasado un código?
+        <div class="row"><input class="text code" id="jc" maxlength="4" placeholder="ABCD" value="${esc(S.prefill || "")}" autocomplete="off"><button class="btn" id="join" ${S.busy ? "disabled" : ""}>Entrar</button></div></div>
+      ${S.rejoin ? `<button class="btn ghost wide" id="rejoin">Volver a la sala ${esc(S.rejoin)}</button>` : ""}
+      <p class="hint-l">Cada uno en su móvil, el mismo reto a la vez. Gana quien lo descifre en menos rondas.</p>`;
+  } else if (S.homeTab === "local") {
+    body = `
+      <div class="seg" id="kind"><button data-k="juntos" aria-pressed="${S.localKind === "juntos"}">Juntos</button><button data-k="turnos" aria-pressed="${S.localKind === "turnos"}">Por turnos</button></div>
+      <p class="hint-l">${S.localKind === "juntos" ? "Resolvéis el reto entre los dos mirando la misma pantalla. Al final veréis cómo lo habría hecho la máquina." : "Competís pasándoos el móvil: cada uno hace su ronda a escondidas y gana quien lo saque antes."}</p>
+      ${S.localKind === "turnos" ? `<label class="lbl">La otra persona<input class="text" id="rv" maxlength="16" value="${esc(ls.get("clave.rv") || "")}" placeholder="Nombre"></label>` : ""}
+      ${lvSeg}
+      <button class="btn gold wide" id="go">Empezar</button>`;
+  } else {
+    body = `
+      <div class="lbl">La máquina<div class="seg" id="ai">${[1, 2, 3].map(l => `<button data-l="${l}" aria-pressed="${S.aiLevel === l}">${AILVL[l]}</button>`).join("")}</div></div>
+      <p class="hint-l">${S.aiLevel === 1 ? "Va verificador a verificador, sin grandes trucos." : S.aiLevel === 2 ? "Elige bien sus pruebas y sabe que solo hay un código." : "Razona como un experto. Muy difícil de ganar."}</p>
+      ${lvSeg}
+      <button class="btn gold wide" id="go">Empezar</button>
+      <p class="hint-l">Os enfrentáis a la máquina con el mismo reto, ronda a ronda. Podéis jugar uno solo o los dos juntos.</p>`;
+  }
+  $app.innerHTML = `
+    <div class="top"><a class="btn ghost sm" href="../" style="text-decoration:none">← Sala</a><span class="sp"></span><button class="icon-btn" id="help" aria-label="Cómo se juega">?</button></div>
+    <div class="hero">
+      <div class="machine">${codeBig("")}</div>
+      <div class="logo"><small>DESCIFRA EL CÓDIGO</small>Clave Mecánica</div>
+      <p class="muted">Un código de tres cifras, unas máquinas con reglas secretas y mucha lógica.</p>
+    </div>
+    <div class="card">
+      <label class="lbl">Tu nombre<input class="text" id="nm" maxlength="16" value="${esc(S.name)}" placeholder="Nombre" autocomplete="nickname"></label>
+      <div class="seg" id="tabs"><button data-t="online" aria-pressed="${S.homeTab === "online"}">Online</button><button data-t="local" aria-pressed="${S.homeTab === "local"}">Un móvil</button><button data-t="ai" aria-pressed="${S.homeTab === "ai"}">Máquina</button></div>
+      ${body}
+      <div class="msg${S.homeErr ? " err" : ""}">${esc(S.homeMsg)}</div>
+    </div>
+    ${savedOk ? `<button class="btn wide" id="resume">Seguir la partida de ${saved.kind === "turnos" ? "turnos" : saved.kind === "ai" ? "contra la máquina" : "juntos"}</button>` : ""}
+    <button class="btn ghost wide" id="rules">Cómo se juega</button>`;
+  const keepName = () => { const el = document.getElementById("nm"); if (el) S.name = el.value.trim().slice(0, 16); };
+  on("#tabs button", "click", e => { keepName(); S.homeTab = e.currentTarget.dataset.t; S.homeMsg = ""; ls.set("clave.tab", S.homeTab); render(); });
+  on("#kind button", "click", e => { keepName(); S.localKind = e.currentTarget.dataset.k; ls.set("clave.kind", S.localKind); render(); });
+  on("#lvl button", "click", e => { keepName(); S.level = +e.currentTarget.dataset.l; ls.set("clave.lvl", S.level); render(); });
+  on("#ai button", "click", e => { keepName(); S.aiLevel = +e.currentTarget.dataset.l; ls.set("clave.ai", S.aiLevel); render(); });
+  on("#create", "click", () => { ls.set("clave.lvl", S.level); createOnline(); });
+  on("#join", "click", () => joinOnline(document.getElementById("jc").value));
+  on("#jc", "keydown", e => { if (e.key === "Enter") joinOnline(e.target.value); });
+  on("#rejoin", "click", () => joinOnline(S.rejoin));
+  on("#go", "click", startLocal);
+  on("#resume", "click", resumeLocal);
+  on("#rules", "click", showRules);
+  on("#help", "click", showRules);
+}
+
+function renderLobby() {
+  const g = S.g || {}, seats = g.seats || {}, host = g.host === me(), full = !!seats[1];
+  const lv = g.level || 1;
+  $app.innerHTML = `
+    <div class="top"><button class="btn ghost sm" id="out">Salir</button><span class="sp"></span><span class="chip">SALA ${esc(S.code)}</span><button class="icon-btn" id="help" aria-label="Cómo se juega">?</button></div>
+    <div class="card" style="text-align:center">
+      <p class="muted">Código de la sala</p>
+      <div class="big-code">${esc(S.code)}</div>
+      <button class="btn wide" id="share">Pasar el enlace</button>
+    </div>
+    <div class="seats">${[0, 1].map(i => seats[i] ? `<div class="seat"><b>${esc(seats[i].name)}</b><span class="small muted">${i === 0 ? "Crea la sala" : "Listo"}</span></div>` : `<div class="seat empty"><b>Esperando…</b><span class="small">Pásale el código</span></div>`).join("")}</div>
+    ${host ? `<div class="card">
+      <div class="lbl">Dificultad<div class="seg" id="lvl">${[1, 2, 3].map(l => `<button data-l="${l}" aria-pressed="${lv === l}">${K.LEVELS[l].name}</button>`).join("")}</div></div>
+      <button class="btn gold wide" id="start" ${full ? "" : "disabled"}>${full ? "Empezar" : "Esperando a tu rival…"}</button></div>`
+    : `<div class="card" style="text-align:center"><p class="muted">Dificultad: <b>${K.LEVELS[lv].name}</b>. ${esc((seats[0] || {}).name || "Quien ha creado la sala")} empieza la partida.</p></div>`}
+    <button class="btn ghost wide" id="rules">Cómo se juega</button>`;
+  on("#out", "click", () => leave());
+  on("#share", "click", share);
+  on("#help", "click", showRules); on("#rules", "click", showRules);
+  on("#lvl button", "click", e => put({ level: +e.currentTarget.dataset.l }));
+  on("#start", "click", () => startOnline(g.level || 1));
+}
+function share() {
+  const url = location.origin + location.pathname + "#" + S.code;
+  if (navigator.share) { navigator.share({ title: "Clave Mecánica", text: `Vente a descifrar códigos. Sala ${S.code}`, url }).catch(() => {}); return; }
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(() => toast("Enlace copiado."), () => toast(url));
+  else toast(url);
+}
+
+function renderCover(m) {
+  const P = m.ps[m.me], r = K.round(P), o = 1 - m.me, Q = m.ps[o];
+  let news = "";
+  if (Q && Q.g && K.revealed(m.ps, o) && !K.isRight(m.pz, Q)) news = `<p class="muted">${esc(m.names[o])} se la jugó con ${codeMini(Q.g.c)} y falló. Sigues tú solo: si aciertas, ganas.</p>`;
+  $app.innerHTML = `
+    <div class="top"><button class="btn ghost sm" id="out">Salir</button><span class="sp"></span><span class="chip">POR TURNOS</span></div>
+    <div class="cover">
+      <p class="muted">Ronda ${r}</p>
+      <h2>Turno de ${esc(m.names[m.me])}</h2>
+      <p class="muted">Pásale el móvil. Que ${esc(m.names[o])} no mire: tus pruebas y tus notas son secretas.</p>
+      ${news}
+      <button class="btn gold" id="show">Soy ${esc(m.names[m.me])}, enseñar</button>
+    </div>`;
+  on("#out", "click", () => confirmSheet("¿Salir de la partida?", "Podréis seguirla luego desde el inicio.", "Salir", () => leave()));
+  on("#show", "click", () => { S.cover = false; render(); maybeTour(); });
+}
+
+function coachText(m, P, can, res) {
+  const r = K.round(P), done = K.testsIn(P, r), code = curCode(m, P), o = 1 - m.me;
+  if (res.over) return "Partida terminada.";
+  if (m.me === null) return "Estás viendo la partida.";
+  if (!m.solo && P.g) return "Te la has jugado. Esperando a que se resuelva la ronda…";
+  if (!can) return `Ronda terminada. Esperando a que ${esc(m.names[o])} acabe la suya… Puedes repasar tus notas.`;
+  if (!K.valid(code)) return P.tests.length ? "Monta otro código de prueba: elige una cifra para cada forma." : "Paso 1: monta un código de prueba eligiendo una cifra para cada forma.";
+  if (!done.length) return "Paso 2: pásalo por un verificador. Te dirá ✓ si cumple su regla secreta o ✗ si no.";
+  if (done.length < 3) return `Tacha en las tarjetas las reglas que ya no pueden ser. Te ${3 - done.length === 1 ? "queda 1 prueba" : `quedan ${3 - done.length} pruebas`} en esta ronda.`;
+  return "Ya no quedan pruebas. Termina la ronda o, si lo tienes claro, juégatela.";
+}
+
+function renderGame(m) {
+  const P = m.ps[m.me ?? 0], r = K.round(P), done = K.testsIn(P, r), res = K.result(m.pz, m.ps, m.solo);
+  const can = m.me !== null && K.canPlay(m.pz, m.ps, m.me, m.solo);
+  const code = curCode(m, P), locked = done.length > 0, notes = m.me !== null ? notesOf(m).get() : {};
+  const chip = m.kind === "online" ? `SALA ${esc(S.code)}` : m.kind === "ai" ? "CONTRA LA MÁQUINA" : m.kind === "turnos" ? esc(m.names[m.me]).toUpperCase() : "JUNTOS";
+  const nv = m.pz.fams.length;
+  const o = 1 - m.me, Q = m.ps[o];
+  let rival = "";
+  if (Q && m.me !== null) {
+    let st, cls = "";
+    if (K.isOut(m.pz, Q) && K.revealed(m.ps, o)) { st = "Eliminado"; cls = "out"; }
+    else if (Q.end >= r || Q.g) { st = "Ronda hecha"; cls = "done"; }
+    else st = "Probando…";
+    rival = `<div class="rival"><div class="who"><b>${esc(m.names[o])}</b><span>Ronda ${Math.min(Q.g ? Q.g.r : K.round(Q), r)} · ${Q.tests.length} prueba${Q.tests.length === 1 ? "" : "s"}</span></div><span class="st ${cls}">${st}</span></div>`;
+  }
+  const vcards = m.pz.fams.map((fid, v) => {
+    const F = K.FAMS[fid - 1], t = done.find(x => x.v === v);
+    const action = t ? `<div class="res ${t.ok ? "ok" : "no"}${S.flash === r + "-" + v ? " pop" : ""}">${t.ok ? "✓ Cumple" : "✗ No"}</div>`
+      : `<button class="vbtn" data-v="${v}" ${can && K.valid(code) && done.length < 3 ? "" : "disabled"}>Probar</button>`;
+    const hist = P.tests.filter(x => x.v === v && x.r !== r);
+    return `<div class="vc" id="vc${v}">
+      <div class="vc-h"><span class="vl">${LETTER[v]}</span><span class="tt">${rt(F.title)}</span>${action}</div>
+      <div class="rules">${F.rules.map((txt, i) => { const k = "r" + v + "-" + i, n = notes[k]; return `<button class="rl${n === 1 ? " x" : n === 2 ? " m" : ""}${S.hinted === k ? " hinted" : ""}" data-k="${k}" aria-label="Regla: ${esc(txt.replace(/\{A\}/g, "triángulo").replace(/\{B\}/g, "cuadrado").replace(/\{C\}/g, "círculo"))}">${rt(txt)}</button>`; }).join("")}</div>
+      ${hist.length ? `<div class="vhist">${hist.map(x => `<span class="e">${codeMini(x.c)}<i class="${x.ok ? "ok" : "no"}">${x.ok ? "✓" : "✗"}</i></span>`).join("")}</div>` : ""}
+    </div>`;
+  }).join("");
+  const showCur = !res.over && !(P.g && !m.solo), rounds = Math.max(showCur ? r : 0, ...P.tests.map(t => t.r));
+  const rows = [];
+  for (let k = 1; k <= rounds; k++) { const ts = K.testsIn(P, k); if (!ts.length && !(k === r && showCur)) continue; rows.push(`<tr class="${k === r ? "cur" : ""}"><td>${k}</td><td>${ts.length ? codeMini(ts[0].c) : k === r && K.valid(code) ? codeMini(code) : "–"}</td>${m.pz.fams.map((_, v) => { const t = ts.find(x => x.v === v); return t ? `<td class="${t.ok ? "ok" : "no"}">${t.ok ? "✓" : "✗"}</td>` : `<td class="e">·</td>`; }).join("")}</tr>`); }
+  $app.innerHTML = `
+    <div class="top"><button class="btn ghost sm" id="out">Salir</button><span class="sp"></span><span class="chip">${chip}</span><button class="icon-btn" id="help" aria-label="Cómo se juega">?</button></div>
+    <div class="stat" id="stat">
+      <div><small>Ronda</small><b>${res.over ? res.r || r : r}</b></div>
+      <div><small>Pruebas ronda</small><span class="dots">${[0, 1, 2].map(i => `<i class="${i < done.length ? "on" : ""}"></i>`).join("")}</span></div>
+      <div><small>Total pruebas</small><b>${P.tests.length}</b></div>
+    </div>
+    ${rival}
+    <div class="coach${can || res.over ? "" : " wait"}" id="coach">${coachText(m, P, can, res)}</div>
+    <div class="panel" id="codepanel">
+      <div class="panel-h"><span>Código de prueba</span>${locked ? "<b>Fijado esta ronda</b>" : ""}</div>
+      ${locked ? `<div class="locked">${codeBig(code)}<span class="lk">Queda fijado hasta la ronda siguiente.</span></div>`
+        : [0, 1, 2].map(s => `<div class="pick" style="--k:${SHK[s]}">${SHAPE[s]}${[1, 2, 3, 4, 5].map(n => `<button data-s="${s}" data-n="${n}" aria-pressed="${draftOf(m)[s] === String(n)}" class="${notes["d" + s + "-" + n] === 1 ? "x" : ""}" ${can ? "" : "disabled"} aria-label="${SHN[s]} ${n}">${n}</button>`).join("")}</div>`).join("")}
+    </div>
+    <div class="verifs" id="verifs">${vcards}</div>
+    ${res.over ? `<button class="btn gold wide" id="final">Ver resultado</button>` : `
+    <div class="acts" id="acts">
+      <button class="btn" id="end" ${can && done.length ? "" : "disabled"}>Terminar ronda</button>
+      <button class="btn gold" id="guess" ${can ? "" : "disabled"}>Me la juego</button>
+    </div>
+    <div class="acts2"><button class="btn ghost sm" id="hint" ${can ? "" : "disabled"}>Pista${P.hints ? ` (${P.hints} usada${P.hints > 1 ? "s" : ""})` : ""}</button></div>`}
+    <div class="panel" id="notes">
+      <div class="panel-h"><span>Hoja de notas · cifras</span><span class="small" style="text-transform:none;letter-spacing:0">Toca: tachar · marcar · borrar</span></div>
+      ${[0, 1, 2].map(s => `<div class="dgrid">${SHAPE[s]}${[1, 2, 3, 4, 5].map(n => { const k = "d" + s + "-" + n, v = notes[k]; return `<button data-k="${k}" class="${v === 1 ? "x" : v === 2 ? "m" : ""}${S.hinted === k ? " hinted" : ""}" aria-label="Nota ${SHN[s]} ${n}">${n}</button>`; }).join("")}</div>`).join("")}
+      ${rows.length ? `<table class="htab"><thead><tr><th>R</th><th>Código</th>${m.pz.fams.map((_, v) => `<th>${LETTER[v]}</th>`).join("")}</tr></thead><tbody>${rows.join("")}</tbody></table>` : ""}
+    </div>`;
+  S.flash = null; S.hinted = null;
+  on("#out", "click", () => confirmSheet("¿Salir de la partida?", m.kind === "online" ? "Podrás volver con el código de la sala." : "Podréis seguirla luego desde el inicio.", "Salir", () => leave()));
+  on("#help", "click", showRules);
+  on(".pick button", "click", e => setDigit(+e.currentTarget.dataset.s, +e.currentTarget.dataset.n));
+  on(".vbtn", "click", e => testV(+e.currentTarget.dataset.v));
+  on(".rl[data-k], .dgrid button", "click", e => { if (m.me !== null) toggleNote(e.currentTarget.dataset.k); });
+  on("#end", "click", endRound);
+  on("#guess", "click", () => showGuess(m));
+  on("#hint", "click", useHint);
+  on("#final", "click", () => showEnd(m));
+}
+
+/* avisos: apuestas falladas que se descubren, final */
+function checkEvents(m) {
+  const res = K.result(m.pz, m.ps, m.solo), key = m.pz.seed + "|" + m.gn;
+  m.ps.forEach((Q, j) => {
+    if (!Q || !Q.g || m.solo || !K.revealed(m.ps, j) || K.isRight(m.pz, Q)) return;
+    const k = key + "|out" + j; if (S.seen[k]) return; S.seen[k] = 1;
+    if (res.over) return;
+    if (j === m.me && m.kind !== "turnos") { SFX.fail(); toast(`Fallaste: el código no era ${Q.g.c.split("").join(" ")}. Quedas eliminado.`, 4500); }
+    else if (j !== m.me) toast(`${m.names[j]} se la jugó con ${Q.g.c.split("").join(" ")} y falló. Si lo descifras, ganas.`, 4500);
+  });
+  if (res.over && S.endShown !== key) { S.endShown = key; setTimeout(() => showEnd(model()), 450); if (m.me !== null && res.winners.includes(m.me)) SFX.win(); else if (!m.solo) SFX.fail(); }
+  if (!res.over) maybeTour();
+}
+
+/* ================= hojas ================= */
+function showGuess(m) {
+  const P = m.ps[m.me], g = (curCode(m, P) || "").split("");
+  const d = [g[0] || "", g[1] || "", g[2] || ""];
+  const notes = notesOf(m).get();
+  const draw = () => {
+    openSheet(`<h2>Me la juego</h2>
+      <p class="muted">${m.solo ? "Si fallas, no pasa nada: seguís jugando, pero cuenta como fallo." : "Si aciertas y tu rival no lo saca en esta misma ronda con menos pruebas, ganas. <b>Si fallas, quedas eliminado.</b>"}</p>
+      ${codeBig(d.join(""))}
+      ${[0, 1, 2].map(s => `<div class="pick" style="--k:${SHK[s]}">${SHAPE[s]}${[1, 2, 3, 4, 5].map(n => `<button data-s="${s}" data-n="${n}" aria-pressed="${d[s] === String(n)}" class="${notes["d" + s + "-" + n] === 1 ? "x" : ""}">${n}</button>`).join("")}</div>`).join("")}
+      <div class="row"><button class="btn ghost" id="cx">Cancelar</button><button class="btn gold" id="ok" ${d.every(Boolean) ? "" : "disabled"}>Confirmar</button></div>`);
+    on(".pick button", "click", e => { d[+e.currentTarget.dataset.s] = e.currentTarget.dataset.n; SFX.click(); draw(); }, $sheet);
+    on("#cx", "click", closeSheet, $sheet);
+    on("#ok", "click", () => doGuess(d.join("")), $sheet);
+  };
+  draw();
+}
+
+function showEnd(m) {
+  const res = K.result(m.pz, m.ps, m.solo); if (!res.over) return;
+  const pz = m.pz;
+  let head, sub = "";
+  if (m.solo) {
+    const P = m.ps[0], b = S.L.bench;
+    head = "¡Código descifrado!";
+    sub = `En ${P.end} ronda${P.end > 1 ? "s" : ""} y ${P.tests.length} pruebas${P.hints ? `, con ${P.hints} pista${P.hints > 1 ? "s" : ""}` : ""}${P.miss ? ` y ${P.miss} fallo${P.miss > 1 ? "s" : ""}` : ""}.`;
+    if (b) { const better = P.end < b.guessRound || (P.end === b.guessRound && P.tests.length <= b.tests.length); sub += `<br>La máquina Genio lo habría sacado en ${b.guessRound} ronda${b.guessRound > 1 ? "s" : ""} y ${b.tests.length} pruebas.${better && !P.hints ? " <b>¡Habéis igualado o superado a la máquina!</b>" : ""}`; }
+  } else if (!res.winners.length) head = "Nadie lo ha descifrado";
+  else if (res.winners.length === 2) head = "¡Empate!";
+  else { const w = res.winners[0]; head = m.me === w && m.kind !== "turnos" ? "¡Has ganado!" : m.kind === "ai" && w === 1 ? "Gana la máquina" : `¡Gana ${esc(m.names[w])}!`; }
+  const table = m.solo ? "" : `<table class="score"><thead><tr><th></th><th>Rondas</th><th>Pruebas</th><th>Apuesta</th></tr></thead><tbody>${m.ps.map((P, i) => `<tr><td class="${res.winners.includes(i) ? "w" : ""}">${esc(m.names[i])}</td><td>${P.g ? P.g.r : P.end}</td><td>${P.tests.length}${P.hints ? ` <span class="small muted">+${P.hints} pista${P.hints > 1 ? "s" : ""}</span>` : ""}</td><td>${P.g ? (P.g.c === pz.sol ? "✓" : "✗ " + esc(P.g.c)) : "–"}</td></tr>`).join("")}</tbody></table>
+    <p class="small muted">Gana quien acierta en menos rondas; si coinciden, quien usó menos pruebas.</p>`;
+  openSheet(`<h2 class="end-h">${head}</h2>
+    ${sub ? `<p style="text-align:center">${sub}</p>` : ""}
+    <p class="muted" style="text-align:center">El código era</p>
+    ${codeBig(pz.sol)}
+    ${table}
+    <div class="lbl">Lo que comprobaba cada verificador</div>
+    <div class="reveal">${pz.fams.map((fid, v) => `<div><span class="vl">${LETTER[v]}</span><span>${rt(K.FAMS[fid - 1].rules[pz.rules[v]])}</span></div>`).join("")}</div>
+    ${m.kind === "online" ? `<div class="lbl">Dificultad<div class="seg" id="elvl">${[1, 2, 3].map(l => `<button data-l="${l}" aria-pressed="${(S.g.level || 1) === l}">${K.LEVELS[l].name}</button>`).join("")}</div></div>` : ""}
+    <div class="row"><button class="btn ghost" id="cx">Ver tablero</button><button class="btn gold" id="again">Otra partida</button></div>
+    <button class="btn ghost wide" id="home">Salir al inicio</button>`);
+  on("#cx", "click", closeSheet, $sheet);
+  on("#home", "click", () => leave(), $sheet);
+  on("#elvl button", "click", e => { S.g.level = +e.currentTarget.dataset.l; showEnd(model()); }, $sheet);
+  on("#again", "click", () => { if (m.kind === "online") { if (m.me === null) return; closeSheet(); startOnline(S.g.level || 1); } else againLocal(); }, $sheet);
+}
+
+function showRules() {
+  openSheet(`<div class="rulesheet">
+    <h2>Cómo se juega</h2>
+    <section><h3>El objetivo</h3>
+      <p>Hay un <b>código secreto de tres cifras</b>, una por forma: ${SHAPE[0]} triángulo, ${SHAPE[1]} cuadrado y ${SHAPE[2]} círculo. Cada cifra va del 1 al 5 y se pueden repetir. Tenéis que descubrirlo.</p></section>
+    <section><h3>Los verificadores</h3>
+      <p>Hay entre 4 y 6 máquinas (A, B, C…). Cada una tiene una tarjeta con varias reglas posibles, pero <b>solo comprueba una de ellas</b>, y no sabes cuál. El código secreto cumple la regla de todas las máquinas.</p>
+      <div class="ex"><b>Ejemplo</b><span>La tarjeta de A dice: «${rt("{A} comparado con 3")}»: ${rt("{A} < 3")}, ${rt("{A} = 3")} o ${rt("{A} > 3")}.</span><span>Pruebas ${codeMini("245")} y A dice <b style="color:var(--ok)">✓</b>. Como el ${SHAPE[0]} de tu prueba era 2, la regla de A tiene que ser ${rt("{A} < 3")}: las otras dos se tachan. Ahora sabes que el ${SHAPE[0]} del código secreto es 1 o 2.</span></div></section>
+    <section><h3>Cada ronda</h3>
+      <ol>
+        <li><b>Monta un código de prueba</b> eligiendo una cifra por forma. Queda fijado toda la ronda.</li>
+        <li><b>Pásalo por hasta 3 verificadores.</b> Cada uno responde ✓ si tu código cumple su regla secreta o ✗ si no.</li>
+        <li><b>Apunta lo que descubres:</b> toca las reglas de cada tarjeta para tacharlas o marcarlas, y usa la hoja de cifras de abajo.</li>
+        <li><b>Termina la ronda</b>, o si lo tienes claro, pulsa <b>Me la juego</b> y escribe el código.</li>
+      </ol></section>
+    <section><h3>El truco de los expertos</h3>
+      <ul>
+        <li>Las reglas de todas las máquinas juntas dejan <b>un único código posible</b>.</li>
+        <li><b>Ninguna máquina sobra:</b> si una regla no aportase nada, no estaría. Esto ayuda muchísimo a descartar reglas.</li>
+        <li>No pruebes solo el código que crees que es: a veces conviene probar uno que te ayude a separar dos reglas dudosas.</li>
+      </ul></section>
+    <section><h3>Quién gana</h3>
+      <ul>
+        <li><b>Online, por turnos o contra la máquina:</b> jugáis el mismo reto a la vez, ronda a ronda. Gana quien acierta en menos rondas; si los dos aciertan en la misma, gana quien usó menos pruebas. <b>Si te la juegas y fallas, quedas eliminado.</b></li>
+        <li><b>Juntos:</b> resolvéis el reto entre los dos sin prisa. Si fallas una apuesta, seguís jugando. Al final veréis cuántas pruebas habría necesitado la máquina.</li>
+        <li>El botón <b>Pista</b> tacha una regla o cifra imposible y cuenta cuántos códigos quedan. Cada pista queda apuntada en el resultado.</li>
+      </ul></section>
+    <button class="btn ghost wide" id="tourb">Ver la visita guiada</button>
+    <button class="btn gold wide" id="cx">Entendido</button>
+  </div>`);
+  on("#cx", "click", closeSheet, $sheet);
+  on("#tourb", "click", () => { closeSheet(); if (S.mode && document.getElementById("verifs")) startTour(); else toast("La visita empieza al abrir una partida."); }, $sheet);
+}
+
+/* ================= visita guiada ================= */
+const TOUR = [
+  { sel: "#codepanel", h: "1 · Tu código de prueba", t: "Cada ronda montas un código eligiendo una cifra del 1 al 5 para el triángulo, el cuadrado y el círculo." },
+  { sel: "#vc0", h: "2 · Los verificadores", t: "Cada máquina comprueba UNA de las reglas de su tarjeta. Pulsa Probar y te dirá ✓ si tu código la cumple o ✗ si no. Hasta 3 pruebas por ronda." },
+  { sel: "#vc0 .rules", h: "3 · Tacha reglas", t: "Según lo que responda, toca las reglas que ya no pueden ser para tacharlas. Un segundo toque la marca como buena; el tercero la borra." },
+  { sel: "#acts", h: "4 · Termina o juégatela", t: "Cuando acabes tus pruebas, termina la ronda. Si crees que ya sabes el código, pulsa Me la juego." },
+  { sel: "#notes", h: "5 · Hoja de notas", t: "Tacha aquí las cifras imposibles para cada forma. Abajo verás todas tus pruebas. Si te atascas, el botón Pista te echa una mano." }
+];
+let tourI = -1;
+function maybeTour() { if (tourI < 0 && !ls.get("clave.tuto") && document.getElementById("verifs") && !$sheet.classList.contains("on")) startTour(); }
+function startTour() { ls.set("clave.tuto", 1); tourI = 0; showTour(); }
+function showTour() {
+  document.querySelectorAll(".spot").forEach(e => e.classList.remove("spot"));
+  const s = TOUR[tourI], el = document.querySelector(s.sel);
+  if (!el) { endTour(); return; }
+  el.classList.add("spot"); el.scrollIntoView({ block: "center", behavior: "instant" });
+  const rc = el.getBoundingClientRect(), below = rc.top + rc.height / 2 < innerHeight / 2;
+  $tour.innerHTML = `<div class="bub" style="${below ? `top:${Math.min(rc.bottom + 14, innerHeight - 230)}px` : `bottom:${Math.min(innerHeight - rc.top + 14, innerHeight - 230)}px`}">
+    <span class="steps">PASO ${tourI + 1} DE ${TOUR.length}</span><h3>${s.h}</h3><p>${s.t}</p>
+    <div class="row"><button class="btn ghost sm" id="tskip">Saltar</button><button class="btn gold sm" id="tnext">${tourI === TOUR.length - 1 ? "¡A jugar!" : "Siguiente"}</button></div></div>`;
+  $tour.classList.add("on");
+  document.getElementById("tskip").onclick = endTour;
+  document.getElementById("tnext").onclick = () => { tourI++; if (tourI >= TOUR.length) endTour(); else showTour(); };
+}
+function endTour() { tourI = -1; $tour.classList.remove("on"); $tour.innerHTML = ""; document.querySelectorAll(".spot").forEach(e => e.classList.remove("spot")); }
+
+function confirmSheet(title, text, okLabel, fn) {
+  openSheet(`<h2>${esc(title)}</h2><p class="muted">${esc(text)}</p><div class="row"><button class="btn ghost" id="cx">Cancelar</button><button class="btn gold" id="ok">${esc(okLabel)}</button></div>`);
+  on("#cx", "click", closeSheet, $sheet); on("#ok", "click", () => { closeSheet(); fn(); }, $sheet);
+}
+function openSheet(html) { document.getElementById("toast").classList.remove("on"); $sheet.innerHTML = `<div class="scrim"></div><div class="pane" role="dialog" aria-modal="true">${html}</div>`; $sheet.classList.add("on"); $sheet.querySelector(".scrim").addEventListener("click", closeSheet); }
+function closeSheet() { $sheet.classList.remove("on"); $sheet.innerHTML = ""; }
+
+addEventListener("hashchange", () => { const h = (location.hash || "").replace("#", "").toUpperCase(); if (!S.mode && !S.offline && /^[A-Z]{4}$/.test(h)) { S.prefill = h; S.homeTab = "online"; render(); } });
+boot();
+})();
+</script>
+</body>
+</html>

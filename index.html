@@ -21,18 +21,18 @@
 /* Layout: estantería de cajas de juego — cabecera corta, rejilla de "cajas" con portada de color, botón Jugar grande */
 :root{
   --bg:#EEF0F3; --surface:#FFFFFF; --ink:#141821; --muted:#5A6272; --line:#D7DBE2;
-  --c1:#2C7A4D; --c2:#D9480F; --c3:#1D5AA6; --c4:#7B3FB0; --c5:#163B36; --c6:#B8862B; --c7:#C2185B; --c8:#8A5A1F; --c9:#0E6E8C; --c10:#4A2A5C; --c11:#2E3F86; --c12:#3B4250; --c13:#A8462A; --c14:#3A3F8F; --c15:#B0306A;
+  --c1:#2C7A4D; --c2:#D9480F; --c3:#1D5AA6; --c4:#7B3FB0; --c5:#163B36; --c6:#B8862B; --c7:#C2185B; --c8:#8A5A1F; --c9:#0E6E8C; --c10:#4A2A5C; --c11:#2E3F86; --c12:#3B4250; --c13:#A8462A; --c14:#3A3F8F; --c15:#B0306A; --c16:#1F6F78;
   --on:#FFFFFF; --focus:#2D52D0;
   --display:"Bricolage Grotesque","Trebuchet MS",system-ui,sans-serif;
   --body:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#0F1218; --surface:#191E27; --ink:#EEF1F5; --muted:#9AA3B2; --line:#2A313D;
-  --c1:#2E8A56; --c2:#D2501A; --c3:#2D6BC0; --c4:#8A4FC2; --c5:#1E5149; --c6:#A87A22; --c7:#D63A78; --c8:#9A6626; --c9:#1680A3; --c10:#5E3A73; --c11:#3D51A3; --c12:#4A5262; --c13:#B85434; --c14:#4A50A8; --c15:#C8407E;
+  --c1:#2E8A56; --c2:#D2501A; --c3:#2D6BC0; --c4:#8A4FC2; --c5:#1E5149; --c6:#A87A22; --c7:#D63A78; --c8:#9A6626; --c9:#1680A3; --c10:#5E3A73; --c11:#3D51A3; --c12:#4A5262; --c13:#B85434; --c14:#4A50A8; --c15:#C8407E; --c16:#25838D;
   --focus:#8EA4FF; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0F1218; --surface:#191E27; --ink:#EEF1F5; --muted:#9AA3B2; --line:#2A313D;
-  --c1:#2E8A56; --c2:#D2501A; --c3:#2D6BC0; --c4:#8A4FC2; --c5:#1E5149; --c6:#A87A22; --c7:#D63A78; --c8:#9A6626; --c9:#1680A3; --c10:#5E3A73; --c11:#3D51A3; --c12:#4A5262; --c13:#B85434; --c14:#4A50A8; --c15:#C8407E;
+  --c1:#2E8A56; --c2:#D2501A; --c3:#2D6BC0; --c4:#8A4FC2; --c5:#1E5149; --c6:#A87A22; --c7:#D63A78; --c8:#9A6626; --c9:#1680A3; --c10:#5E3A73; --c11:#3D51A3; --c12:#4A5262; --c13:#B85434; --c14:#4A50A8; --c15:#C8407E; --c16:#25838D;
   --focus:#8EA4FF; color-scheme:dark}
 
 *,*::before,*::after{box-sizing:border-box}
@@ -163,6 +163,7 @@ const ART={
   camel:'<svg class="art" viewBox="0 0 100 100" aria-hidden="true" fill="currentColor"><path d="M12 30c0-5 5-8 10-8l6 1c3 1 4 4 3 7l3 14c2 2 4 0 6-2 4-6 8-12 16-14 8-2 14 6 18 12 4 2 8 4 10 8l2 8h-2l-2-4-2 12v22h-4l-2-20-2 20h-4V64c-8 2-16 2-22 0v22h-4l-2-20-2 20h-4V62c-4-6-6-14-8-22l-2-6h-6c-4 0-6-1-6-4z"/></svg>',
   crown:'<svg class="art" viewBox="0 0 100 100" aria-hidden="true" fill="currentColor"><path d="M10 72 15 28l21 22 14-32 14 32 21-22 5 44z"/><rect x="10" y="76" width="80" height="11" rx="3"/></svg>',
   pencil:'<svg class="art" viewBox="0 0 100 100" aria-hidden="true" fill="currentColor"><path d="M66 10l24 24-46 46-30 8 8-30z"/><path d="M22 66l12 12-14 4z" fill="rgba(0,0,0,.35)"/><path d="M8 94c18-8 30 4 46-6" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" opacity=".6"/></svg>',
+  machine:'<svg class="art" viewBox="0 0 100 100" aria-hidden="true"><g fill="currentColor"><rect x="4" y="28" width="28" height="44" rx="6"/><rect x="36" y="28" width="28" height="44" rx="6"/><rect x="68" y="28" width="28" height="44" rx="6"/></g><g fill="rgba(0,0,0,.35)"><path d="M18 40 27 58H9z"/><rect x="42" y="41" width="16" height="16" rx="2"/><circle cx="82" cy="49" r="9"/></g></svg>',
   dice:'<svg class="art" viewBox="0 0 100 100" aria-hidden="true"><rect x="10" y="10" width="80" height="80" rx="16" fill="currentColor"/><g fill="rgba(0,0,0,.35)"><circle cx="30" cy="30" r="8"/><circle cx="70" cy="30" r="8"/><circle cx="50" cy="50" r="8"/><circle cx="30" cy="70" r="8"/><circle cx="70" cy="70" r="8"/></g></svg>'
 };
 const CATS=[
@@ -194,6 +195,8 @@ const GAMES=[
    desc:"La isla se hunde: salva a tus exploradores de tiburones, ballenas y serpientes. Solo tú sabes cuánto vale cada uno.",meta:["2 a 4 jugadores","Cada uno su móvil"]},
   {name:"Hundir la Flota",sub:"Batalla naval",url:"./flota/",cat:"duelo",kw:"barcos battleship",tone:"var(--c3)",art:"ship",tag:"Duelo",
    desc:"Coloca tus barcos y dispara a ciegas hasta hundir la flota rival.",meta:["2 jugadores"]},
+  {name:"Clave Mecánica",sub:"Estilo Turing Machine",url:"./clave/",cat:"roles",kw:"turing machine codigo deduccion logica descifrar verificadores maquina acertijo",tone:"var(--c16)",art:"machine",tag:"Deducción",
+   desc:"Descubre un código de tres cifras preguntando a máquinas con reglas secretas. Gana quien lo saque con menos rondas. Con reglas, visita guiada y pistas.",meta:["1 o 2 jugadores","Online o 1 móvil","Contra la máquina"]},
   {name:"¿Quién es quién?",sub:"¿Quién Será?",url:"./quien/",cat:"roles",kw:"adivinar caras guess who",tone:"var(--c4)",art:"face",tag:"Duelo",
    desc:"Pregunta, descarta caras y adivina el personaje del otro antes que el otro.",meta:["2 jugadores"]},
   {name:"Rummikub",sub:"Ficha a Ficha",url:"./rummikub/",cat:"mesa",kw:"fichas numeros",tone:"var(--c5)",art:"tiles",tag:"Mesa",
