@@ -1,0 +1,903 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Retales</title>
+<meta name="theme-color" content="#1D1612">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="../icons/icon-192.png">
+<link rel="apple-touch-icon" href="../icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,900&family=Manrope:wght@500;700;800&display=swap">
+<script>window.APP_KEY="retales"</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="../firebase-config.js"></script>
+<script src="../shared/claude-shim.js"></script>
+<script src="../shared/turno.js"></script>
+<script src="motor.js"></script>
+<style>
+/* Mesa a una columna: rival arriba, tablero de tiempo, círculo de retales, tu colcha abajo con los botones */
+:root{
+  --bg:#1D1612; --bg2:#3A2A20; --panel:#2A201A; --panel2:#3B2E25; --line:#54443A;
+  --ink:#FBF3E6; --muted:#CDB9A3; --gold:#EDB548; --gold2:#9C6B1C; --ok:#7CDB9A; --bad:#FF7A6B; --btn:#3F7FCB;
+  --display:"Fraunces",Georgia,serif;
+  --body:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:
+  radial-gradient(70% 40% at 50% -5%,rgba(237,181,72,.14),transparent 70%),
+  radial-gradient(120% 80% at 50% 0%,var(--bg2),var(--bg) 70%) fixed;
+  background-color:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.4;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+#app{max-width:600px;margin:0 auto;min-height:100%;padding-inline:16px;padding-block:calc(12px + env(safe-area-inset-top,0px)) calc(24px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:10px}
+h1,h2,h3{font-family:var(--display);font-weight:700;margin:0;letter-spacing:.01em;text-wrap:balance}
+p{margin:0}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+svg{display:block}
+
+.btn{appearance:none;border:0;border-radius:14px;min-height:50px;padding:0 18px;background:var(--panel2);color:var(--ink);font-weight:800;font-size:16px;box-shadow:0 3px 0 rgba(0,0,0,.45);display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:transform .08s;text-align:center}
+.btn:active{transform:translateY(2px)}
+.btn.gold{background:linear-gradient(180deg,#FFD67E,var(--gold));color:#3A2604}
+.btn.ghost{background:transparent;box-shadow:inset 0 0 0 2px var(--line)}
+.btn.sm{min-height:42px;font-size:14px;padding:0 12px;border-radius:11px}
+.btn:disabled{opacity:.42;cursor:default;transform:none}
+.btn.wide{width:100%}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>*{flex:1 1 140px}
+input.text{width:100%;min-height:50px;border-radius:12px;border:2px solid var(--line);background:var(--bg);padding:0 14px;font-size:17px;font-weight:700}
+input.code{text-transform:uppercase;letter-spacing:.3em;font-family:var(--display);font-size:24px;text-align:center}
+label.lbl,.lbl{display:grid;gap:6px;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.card{background:var(--panel);border-radius:18px;padding:16px;display:grid;gap:12px;box-shadow:0 0 0 1px var(--line)}
+.card h2{font-size:21px}
+.msg{min-height:1.4em;color:var(--gold);text-align:center;font-weight:700}
+.msg.err{color:var(--bad)}
+.hero{display:grid;gap:10px;justify-items:center;text-align:center;padding-block:10px 4px}
+.logo{font-family:var(--display);font-weight:900;font-size:clamp(44px,13vw,64px);line-height:1;color:var(--gold);text-shadow:0 3px 0 #6B4708,0 10px 30px rgba(0,0,0,.6)}
+.logo small{display:block;font-family:var(--body);font-weight:800;font-size:.2em;letter-spacing:.4em;color:var(--ink);text-shadow:none;margin-bottom:8px}
+.heroq{width:min(240px,70vw);transform:rotate(-4deg);filter:drop-shadow(0 12px 22px rgba(0,0,0,.55))}
+.seg{display:flex;gap:6px;background:var(--bg);border-radius:12px;padding:4px}
+.seg button{flex:1;appearance:none;border:0;background:transparent;border-radius:9px;min-height:40px;font-weight:800;font-size:14px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--panel2);color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--gold2)}
+
+.top{display:flex;align-items:center;gap:8px}
+.top .sp{flex:1}
+.chip{font-weight:800;font-size:12px;letter-spacing:.1em;background:var(--panel);padding:7px 11px;border-radius:999px;box-shadow:0 0 0 1px var(--line);white-space:nowrap}
+.icon-btn{appearance:none;border:0;width:40px;height:40px;border-radius:11px;background:var(--panel);box-shadow:0 0 0 1px var(--line);display:grid;place-items:center;color:var(--ink);font-weight:800;font-size:18px;flex:none}
+.big-code{font-family:var(--display);font-size:52px;letter-spacing:.16em;line-height:1;text-align:center;color:var(--gold)}
+.seats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.seat{background:var(--bg);border-radius:14px;padding:12px;display:grid;gap:2px;text-align:center;min-width:0}
+.seat b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.seat.empty{color:var(--muted);border:2px dashed var(--line);background:transparent}
+.wait{display:grid;place-items:center;gap:6px;text-align:center;padding:14px;background:var(--panel);border-radius:16px}
+#turno:empty{display:none}
+#turno .st-franja{margin:0}
+
+/* ---------- iconos de botón y reloj ---------- */
+.ib{display:inline-flex;align-items:center;gap:3px;font-weight:800}
+.ib svg{width:16px;height:16px;flex:none}
+
+/* ---------- jugadores ---------- */
+.pl{background:var(--panel);border-radius:16px;padding:10px 12px;box-shadow:0 0 0 1px var(--line);display:flex;gap:10px;align-items:center;transition:box-shadow .2s}
+.pl.turn{box-shadow:0 0 0 2px var(--pc,var(--gold)),0 0 22px -6px var(--pc,var(--gold))}
+.pl .tokn{width:18px;height:18px;border-radius:50%;flex:none;background:var(--pc);box-shadow:inset 0 -2px 0 rgba(0,0,0,.3),0 0 0 2px rgba(0,0,0,.35)}
+.pl .info{flex:1;min-width:0;display:grid;gap:4px}
+.pl .nm{font-weight:800;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stats{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:13px;color:var(--muted);font-weight:700}
+.stats b{color:var(--ink);font-size:15px}
+.stats .ib svg{width:15px;height:15px}
+.miniq{width:84px;flex:none;border-radius:6px;cursor:pointer;background:none;border:0;padding:0}
+.bonus7{font-size:11px;font-weight:800;letter-spacing:.06em;background:var(--gold);color:#3A2604;border-radius:999px;padding:2px 7px}
+
+/* ---------- tablero de tiempo ---------- */
+.track{background:var(--panel);border-radius:16px;padding:8px;box-shadow:0 0 0 1px var(--line)}
+.track svg{width:100%;height:auto}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;justify-content:center;font-size:11.5px;color:var(--muted);font-weight:700;margin-top:6px}
+.legend span{display:inline-flex;align-items:center;gap:4px}
+.legend svg{width:14px;height:14px}
+
+/* ---------- círculo de retales ---------- */
+.zone-h{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.ring{display:flex;gap:8px;overflow-x:auto;padding:8px 6px 10px;scroll-snap-type:x proximity;align-items:stretch;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+.thim{flex:none;display:grid;place-items:center;width:34px}
+.thim svg{width:30px;height:38px}
+.pc{appearance:none;border:0;flex:none;scroll-snap-align:start;background:var(--panel);border-radius:14px;padding:8px 8px 6px;display:grid;gap:6px;justify-items:center;align-content:space-between;min-width:74px;box-shadow:0 0 0 1px var(--line);color:var(--ink);position:relative;opacity:.62}
+.pc.av{opacity:1;box-shadow:0 0 0 2px var(--line);min-width:84px}
+.pc.av.ok{box-shadow:0 0 0 2px var(--ok)}
+.pc.av.no .pr{opacity:.75}
+.pc.sel{box-shadow:0 0 0 3px var(--gold),0 0 18px rgba(237,181,72,.55);transform:translateY(-3px)}
+.pc .nb{position:absolute;left:-4px;top:-6px;width:22px;height:22px;border-radius:50%;background:var(--gold);color:#3A2604;font-weight:900;font-size:13px;display:grid;place-items:center;box-shadow:0 2px 0 rgba(0,0,0,.4)}
+.pc .pr{display:flex;gap:8px;font-size:14px}
+.pc .why{font-size:10.5px;font-weight:800;color:var(--bad);letter-spacing:.02em;line-height:1.1;max-width:84px;text-align:center}
+.pc .shp{display:grid;place-items:center;min-height:56px}
+.sep{flex:none;width:2px;border-radius:2px;background:var(--line);margin:8px 2px}
+
+/* ---------- colcha ---------- */
+.quiltwrap{background:var(--panel);border-radius:18px;padding:10px;box-shadow:0 0 0 1px var(--line);display:grid;gap:8px}
+.quilt{width:100%;max-width:440px;margin:0 auto;height:auto;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.quilt.placing{touch-action:none;cursor:grab}
+.coach:empty{display:none}
+.coach{font-size:14.5px;font-weight:700;text-align:center;min-height:2.6em;color:var(--ink);text-wrap:balance}
+.coach.err{color:#FFB2A8}
+.coach.ok{color:var(--gold)}
+.acts{display:flex;gap:8px;flex-wrap:wrap}
+.acts .btn{flex:1 1 0;min-width:0}
+.acts .btn.main{flex:2.4 1 0}
+.acts .full{flex-basis:100%}
+.last{display:flex;align-items:center;gap:8px;background:rgba(237,181,72,.1);border-radius:12px;padding:8px 12px;font-size:14px;font-weight:700;box-shadow:inset 0 0 0 1px rgba(237,181,72,.35)}
+.last.fresh{animation:glow 1.6s ease-out}
+@keyframes glow{0%{background:rgba(237,181,72,.45)}}
+.log{background:var(--panel);border-radius:14px;padding:10px 12px;box-shadow:0 0 0 1px var(--line);font-size:13.5px}
+.log summary{font-weight:800;cursor:pointer}
+.log ol{margin:8px 0 0;padding-left:20px;display:grid;gap:3px;max-height:180px;overflow:auto}
+
+/* ---------- hojas ---------- */
+#sheet{position:fixed;inset:0;z-index:50;display:none}
+#sheet.on{display:block}
+#sheet .scrim{position:absolute;inset:0;background:rgba(0,0,0,.62)}
+#sheet .pane{position:absolute;left:0;right:0;bottom:0;max-width:600px;max-height:92svh;overflow:auto;margin:0 auto;background:var(--panel);border-radius:22px 22px 0 0;padding:18px 16px calc(20px + env(safe-area-inset-bottom,0px));display:grid;gap:12px;box-shadow:0 -10px 40px rgba(0,0,0,.6)}
+.res{width:100%;border-collapse:collapse;font-size:14.5px}
+.res th,.res td{padding:7px 4px;text-align:right;border-bottom:1px solid var(--line)}
+.res th:first-child,.res td:first-child{text-align:left}
+.res thead th{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.res tr.tot td{font-weight:900;font-size:17px}
+.res .w{color:var(--gold)}
+.end-h{color:var(--gold);font-size:30px;text-align:center}
+.rules{display:grid;gap:14px;font-size:15px}
+.rules h3{font-size:19px;color:var(--gold)}
+.rules section{display:grid;gap:6px}
+.rules ul{margin:0;padding-left:20px;display:grid;gap:4px}
+.rules b{color:var(--gold)}
+.rules .ex{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+#tour{position:fixed;inset:0;z-index:70;display:none}
+#tour.on{display:block}
+#tour .bub{position:fixed;left:50%;transform:translateX(-50%);width:min(560px,calc(100% - 24px));background:#FFF7E6;color:#2A1A08;border-radius:18px;padding:16px;display:grid;gap:10px;box-shadow:0 20px 50px rgba(0,0,0,.6)}
+#tour .bub h3{font-size:20px;color:#7A4B04}
+#tour .bub .row .btn{flex:1 1 0}
+#tour .bub .btn.ghost{color:#2A1A08;box-shadow:inset 0 0 0 2px #D8C4A0}
+#tour .steps{font-size:12px;font-weight:800;color:#8A6A3A;letter-spacing:.08em}
+#tour .shade{position:fixed;inset:0;background:rgba(0,0,0,.55)}
+.spot{position:relative;z-index:65;box-shadow:0 0 0 4px var(--gold),0 0 0 9999px rgba(0,0,0,.6)!important;border-radius:14px}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,12px);opacity:0;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:700;font-size:14px;transition:opacity .2s,transform .2s;pointer-events:none;max-width:calc(100% - 32px);z-index:80;text-align:center}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+@media (prefers-reduced-motion:reduce){.last.fresh{animation:none}#toast{transition:none}.pc.sel{transform:none}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs id="fabrics"></defs></svg>
+<div id="app"><div class="hero"><div class="logo"><small>TALLER DE COLCHAS</small>Retales</div><p class="muted">Enhebrando la aguja…</p></div></div>
+<div id="sheet"></div>
+<div id="tour"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+"use strict";
+const B = window.Retales, NQ = B.N;
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const ls = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }, del(k) { try { localStorage.removeItem(k); } catch {} } };
+const $app = document.getElementById("app"), $sheet = document.getElementById("sheet"), $tour = document.getElementById("tour");
+let toastT;
+function toast(m, ms) { const t = document.getElementById("toast"); t.textContent = m; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), ms || 3200); }
+function on(sel, ev, fn, root) { (root || $app).querySelectorAll(sel).forEach(el => el.addEventListener(ev, fn)); }
+const LVL = { 1: "Aprendiz", 2: "Costurera", 3: "Maestra" };
+const cap = s => s[0].toUpperCase() + s.slice(1);
+const plural = (n, a, b) => n === 1 ? `${n} ${a}` : `${n} ${b}`;
+const PCOL = ["#F2C230", "#4FAE6A"];   // fichas de tiempo: amarilla y verde
+
+/* ================= telas (SVG propias) ================= */
+const FAB = [["#C8553D", "#F6D7B0"], ["#2D6A8E", "#BFE3F0"], ["#6A994E", "#E3EDC0"], ["#D9A23A", "#6E430F"], ["#8E5572", "#F5CFE3"], ["#3D5A80", "#E6F7F8"],
+  ["#B5464C", "#F6E596"], ["#4F8A78", "#F4F1C4"], ["#D0732A", "#FFEACB"], ["#6D597A", "#EADAF4"], ["#9C4A3D", "#F7E3C2"], ["#24877B", "#E6F4D6"]];
+function fabricDefs() {
+  let h = "";
+  for (let id = 1; id <= 33; id++) {
+    const [a, b] = FAB[(id * 5) % 12], st = id % 4, pid = "f" + id;
+    if (st === 0) h += `<pattern id="${pid}" width="5" height="5" patternUnits="userSpaceOnUse"><rect width="5" height="5" fill="${a}"/><circle cx="1.25" cy="1.25" r=".75" fill="${b}"/><circle cx="3.75" cy="3.75" r=".75" fill="${b}"/></pattern>`;
+    else if (st === 1) h += `<pattern id="${pid}" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="4" height="4" fill="${a}"/><rect width="1.3" height="4" fill="${b}" opacity=".75"/></pattern>`;
+    else if (st === 2) h += `<pattern id="${pid}" width="5" height="5" patternUnits="userSpaceOnUse"><rect width="5" height="5" fill="${a}"/><rect width="2.5" height="5" fill="${b}" opacity=".35"/><rect width="5" height="2.5" fill="${b}" opacity=".35"/></pattern>`;
+    else h += `<pattern id="${pid}" width="10" height="10" patternUnits="userSpaceOnUse"><rect width="10" height="10" fill="${a}"/><g fill="${b}"><circle cx="5" cy="3.4" r="1.1"/><circle cx="5" cy="6.6" r="1.1"/><circle cx="3.4" cy="5" r="1.1"/><circle cx="6.6" cy="5" r="1.1"/></g><circle cx="5" cy="5" r=".8" fill="${a}"/><circle cx="0" cy="0" r=".7" fill="${b}"/><circle cx="10" cy="10" r=".7" fill="${b}"/><circle cx="0" cy="10" r=".7" fill="${b}"/><circle cx="10" cy="0" r=".7" fill="${b}"/></pattern>`;
+  }
+  h += `<pattern id="f34" width="10" height="10" patternUnits="userSpaceOnUse"><rect width="10" height="10" fill="#8A5530"/><rect x="1.6" y="1.6" width="6.8" height="6.8" fill="none" stroke="#E9C995" stroke-width=".55" stroke-dasharray="1 .8"/><path d="M0 0 10 10M10 0 0 10" stroke="#6E3F1F" stroke-width=".5" opacity=".5"/></pattern>`;
+  document.getElementById("fabrics").innerHTML = h;
+}
+const BTN_G = (x, y, r = 3) => `<g><circle cx="${x}" cy="${y}" r="${r}" fill="#3F7FCB" stroke="#163B6B" stroke-width="${r * .26}"/><circle cx="${x}" cy="${y}" r="${r * .62}" fill="none" stroke="#9FC3EE" stroke-width="${r * .12}" opacity=".7"/>${[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([a, b]) => `<circle cx="${x + a * r * .3}" cy="${y + b * r * .3}" r="${r * .15}" fill="#163B6B"/>`).join("")}</g>`;
+const BTN_ICON = `<svg viewBox="0 0 10 10" aria-hidden="true">${BTN_G(5, 5, 4.3)}</svg>`;
+const TIME_ICON = `<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 2h10M5 18h10" stroke="#E2C08A" stroke-width="2" stroke-linecap="round"/><path d="M6 3c0 5 8 5 8 7s-8 2-8 7h8c0-5-8-5-8-7s8-2 8-7z" fill="#F4E3BF" stroke="#8A6234" stroke-width="1.3" stroke-linejoin="round"/><path d="M8 15.5h4l-2-3z" fill="#C98A3A"/></svg>`;
+const LEATHER_ICON = `<svg viewBox="0 0 10 10" aria-hidden="true"><rect x=".5" y=".5" width="9" height="9" rx="1" fill="url(#f34)" stroke="#3F2310" stroke-width=".8"/></svg>`;
+const THIMBLE = `<svg viewBox="0 0 30 38" aria-hidden="true"><path d="M5 34V16C5 8 9 3 15 3s10 5 10 13v18z" fill="#C9CED6" stroke="#5B6270" stroke-width="2"/><rect x="2" y="31" width="26" height="5" rx="2" fill="#AEB5C0" stroke="#5B6270" stroke-width="2"/>${[9, 14, 19, 24].map(y => [9, 13, 17, 21].map(x => `<circle cx="${x}" cy="${y}" r=".9" fill="#7B8391"/>`).join("")).join("")}</svg>`;
+const ib = (icon, n) => `<span class="ib">${icon}<b>${n}</b></span>`;
+
+/* Dibujo de un grupo de casillas de un retal (escala 10 por casilla) */
+function patchSVG(id, cells, W, opt = {}) {
+  // cells = índices i (fila * W + col) dentro de una rejilla de ancho W
+  const set = new Set(cells); let h = "";
+  for (const i of cells) { const x = (i % W) * 10, y = Math.floor(i / W) * 10; h += `<rect x="${x}" y="${y}" width="10" height="10" fill="url(#f${id})"/>`; }
+  let ed = "", st = "";
+  for (const i of cells) {
+    const x = (i % W) * 10, y = Math.floor(i / W) * 10, r = Math.floor(i / W), c = i % W;
+    if (!(r > 0 && set.has(i - W))) { ed += `M${x} ${y}h10`; st += `M${x + 1.4} ${y + 1.4}h7.2`; }
+    if (!set.has(i + W)) { ed += `M${x} ${y + 10}h10`; st += `M${x + 1.4} ${y + 8.6}h7.2`; }
+    if (!(c > 0 && set.has(i - 1))) { ed += `M${x} ${y}v10`; st += `M${x + 1.4} ${y + 1.4}v7.2`; }
+    if (!(c < W - 1 && set.has(i + 1))) { ed += `M${x + 10} ${y}v10`; st += `M${x + 8.6} ${y + 1.4}v7.2`; }
+  }
+  h += `<path d="${st}" stroke="rgba(255,255,255,.6)" stroke-width=".5" stroke-dasharray="1.1 .9" fill="none"/>`;
+  h += `<path d="${ed}" stroke="${opt.edge || "rgba(20,10,5,.75)"}" stroke-width="${opt.ew || .9}" fill="none" stroke-linecap="square"/>`;
+  if (id !== B.LEATHER) for (const i of B.btnCells(id, cells)) h += BTN_G((i % W) * 10 + 5, Math.floor(i / W) * 10 + 5);
+  return h;
+}
+function shapeSVG(id, o = 0, cell = 11) {
+  const O = B.patch(id).or[o], cells = O.c.map(([r, c]) => r * O.w + c);
+  return `<svg width="${O.w * cell}" height="${O.h * cell}" viewBox="-.6 -.6 ${O.w * 10 + 1.2} ${O.h * 10 + 1.2}" aria-hidden="true">${patchSVG(id, cells, O.w)}</svg>`;
+}
+function quiltSVG(st, p, opt = {}) {
+  let h = `<rect x="-3" y="-3" width="96" height="96" rx="4" fill="#4A372B"/>`;
+  for (let i = 0; i < NQ * NQ; i++) { const x = (i % NQ) * 10, y = Math.floor(i / NQ) * 10; h += `<rect x="${x + .4}" y="${y + .4}" width="9.2" height="9.2" rx=".8" fill="#5B4636"/><rect x="${x + 1.6}" y="${y + 1.6}" width="6.8" height="6.8" fill="none" stroke="#6E5644" stroke-width=".4" stroke-dasharray="1 1"/>`; }
+  for (const q of st.quilt[p]) h += patchSVG(q.id, q.c, NQ);
+  if (opt.ghost) {
+    const gcells = opt.ghost.cells.filter(i => i >= 0);
+    h += `<g opacity=".82">${patchSVG(opt.ghost.id, gcells, NQ, { edge: opt.ghost.ok ? "#7CDB9A" : "#FF6B5B", ew: 1.6 })}</g>`;
+    if (!opt.ghost.ok) for (const i of opt.ghost.bad) h += `<path d="M${(i % NQ) * 10 + 2.5} ${Math.floor(i / NQ) * 10 + 2.5}l5 5m0-5-5 5" stroke="#FF6B5B" stroke-width="1.3" stroke-linecap="round"/>`;
+  }
+  if (opt.hint) for (const i of opt.hint) h += `<rect x="${(i % NQ) * 10 + .8}" y="${Math.floor(i / NQ) * 10 + .8}" width="8.4" height="8.4" fill="none" stroke="#EDB548" stroke-width="1" stroke-dasharray="2 1"/>`;
+  return `<svg class="${opt.cls || "quilt"}" id="${opt.id || ""}" viewBox="-3 -3 96 96" role="img" aria-label="${esc(opt.label || "Colcha")}">${h}</svg>`;
+}
+
+/* ================= tablero de tiempo: espiral de 54 casillas (6×9) que acaba en el centro ================= */
+const TR = 6, TC = 9;
+const SPIRAL = (() => {
+  const out = []; let t = 0, b = TR - 1, l = 0, r = TC - 1;
+  while (t <= b && l <= r) {
+    for (let c = l; c <= r; c++) out.push([t, c]); t++;
+    for (let y = t; y <= b; y++) out.push([y, r]); r--;
+    if (t <= b) { for (let c = r; c >= l; c--) out.push([b, c]); b--; }
+    if (l <= r) { for (let y = b; y >= t; y--) out.push([y, l]); l++; }
+  }
+  return out;
+})();
+const TW = 10, TH = 7.4;
+function trackSVG(st, ghost) {
+  let h = "";
+  SPIRAL.forEach(([r, c], k) => {
+    const x = c * TW, y = r * TH, end = k === B.END;
+    h += `<rect x="${x + .3}" y="${y + .3}" width="${TW - .6}" height="${TH - .6}" rx="1.2" fill="${end ? "#B5464C" : k % 2 ? "#E8D6B8" : "#DCC6A2"}" stroke="#8A6A45" stroke-width=".3"/>`;
+    if (k === 0) h += `<text x="${x + TW / 2}" y="${y + TH / 2 + 1.1}" font-size="2.1" text-anchor="middle" font-weight="800" fill="#6B4A2A" font-family="Manrope,sans-serif">SALIDA</text>`;
+    else if (end) h += `<text x="${x + 3.6}" y="${y + 3.4}" font-size="2.6" text-anchor="middle" font-weight="800" fill="#FFF3DD" font-family="Manrope,sans-serif">FIN</text>`;
+    else h += `<text x="${x + 1.2}" y="${y + 2.6}" font-size="2" fill="#8A6A45" font-family="Manrope,sans-serif">${k}</text>`;
+    if (B.INCOME.includes(k)) h += BTN_G(x + TW - 2.6, y + TH - 2.4, 1.7);
+    if (st.leather.includes(k)) h += `<rect x="${x + 1}" y="${y + TH - 4.2}" width="3.4" height="3.4" rx=".4" fill="url(#f34)" stroke="#3F2310" stroke-width=".35"/>`;
+  });
+  const at = k => { const [r, c] = SPIRAL[Math.min(B.END, k)]; return [c * TW + TW / 2, r * TH + TH / 2]; };
+  const tok = (p, k, dx, top) => { const [x, y] = at(k); return `<g><circle cx="${x + dx}" cy="${y + .3}" r="2.6" fill="rgba(0,0,0,.35)"/><circle cx="${x + dx}" cy="${y}" r="2.6" fill="${PCOL[p]}" stroke="${top ? "#fff" : "#2A1A0A"}" stroke-width="${top ? .7 : .5}"/></g>`; };
+  if (ghost) { const [x, y] = at(ghost.to); h += `<circle cx="${x}" cy="${y}" r="3" fill="none" stroke="${PCOL[ghost.p]}" stroke-width=".8" stroke-dasharray="1.2 .8"/>`; }
+  const same = st.pos[0] === st.pos[1], under = same ? 1 - st.top : -1;
+  const order = same ? [under, st.top] : [0, 1];
+  for (const p of order) h += tok(p, st.pos[p], same ? (p === st.top ? 1.4 : -1.4) : 0, same && p === st.top);
+  return `<svg viewBox="0 0 ${TC * TW} ${TR * TH}" role="img" aria-label="Tablero de tiempo">${h}</svg>`;
+}
+
+/* ================= sonido sintetizado ================= */
+const SFX = {
+  ctx: null, noise: null, on: ls.get("retales.sound") !== false,
+  init() {
+    if (this.ctx) { if (this.ctx.state === "suspended") this.ctx.resume().catch(() => {}); return; }
+    try { const A = window.AudioContext || window.webkitAudioContext; if (!A) return; this.ctx = new A();
+      const n = this.ctx.createBuffer(1, this.ctx.sampleRate, this.ctx.sampleRate), d = n.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; this.noise = n; } catch {}
+  },
+  ok() { return this.on && this.ctx && this.ctx.state === "running"; },
+  hiss(freq, dur, g, at = 0, q = 1) {
+    const c = this.ctx, t = c.currentTime + at, s = c.createBufferSource(), f = c.createBiquadFilter(), v = c.createGain();
+    s.buffer = this.noise; f.type = "bandpass"; f.frequency.value = freq; f.Q.value = q;
+    v.gain.setValueAtTime(g, t); v.gain.exponentialRampToValueAtTime(.001, t + dur);
+    s.connect(f).connect(v).connect(c.destination); s.start(t, Math.random() * .5); s.stop(t + dur + .02);
+  },
+  tone(f, dur, g, at = 0, type = "sine") {
+    const c = this.ctx, t = c.currentTime + at, o = c.createOscillator(), v = c.createGain(); o.type = type; o.frequency.value = f;
+    v.gain.setValueAtTime(.0001, t); v.gain.exponentialRampToValueAtTime(g, t + .01); v.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(v).connect(c.destination); o.start(t); o.stop(t + dur + .05);
+  },
+  coins(n) { if (!this.ok()) return; for (let i = 0; i < Math.min(n, 6); i++) { this.tone(1500 + Math.random() * 500, .09, .06, i * .06, "triangle"); this.hiss(4200, .04, .05, i * .06, 3); } },
+  stitch() { if (this.ok()) for (let i = 0; i < 4; i++) this.hiss(2800, .05, .14, i * .07, 1.5); },
+  step() { if (this.ok()) this.hiss(900, .08, .2, 0, .8); },
+  fanfare() { if (this.ok()) [523, 659, 784, 1047].forEach((f, i) => this.tone(f, .6, .09, i * .13, "triangle")); },
+  tick() { if (this.ok()) this.hiss(3200, .03, .08); }
+};
+addEventListener("pointerdown", () => SFX.init(), { capture: true });
+
+/* ================= estado ================= */
+const S = {
+  db: null, uid: null, ready: false, offline: false,
+  name: (localStorage.getItem("sala.nick") || "").slice(0, 16),
+  mode: null, code: null, g: null, unsub: null, L: null,
+  pl: null, seenN: -1, endShown: "", homeTab: "online", aiLevel: ls.get("retales.lvl") || 2, homeMsg: "", homeErr: false, busy: false, lastKey: "",
+  aiTimer: null, hintCells: null, cache: { k: null, v: null }, drag: false
+};
+const me = () => S.uid;
+window.__ret = { S, B };
+
+async function boot() {
+  fabricDefs();
+  try {
+    const [db, user] = await Promise.all(["db", "user"].map(n => window.claude ? claude.use(n).catch(() => null) : null));
+    S.db = db; if (user) S.uid = await user.id();
+  } catch {}
+  if (!S.db || !S.uid) S.offline = true;
+  S.ready = true;
+  const h = (location.hash || "").replace("#", "").toUpperCase(), last = ls.get("retales.last");
+  if (!S.offline && /^[A-Z]{4}$/.test(h)) S.prefill = h;
+  else if (!S.offline && last && last.code && Date.now() - last.t < 12 * 3600e3) S.rejoin = last.code;
+  render();
+}
+
+/* ================= modelo común ================= */
+const seatOf = id => { const st = (S.g && S.g.seats) || {}; return [0, 1].find(i => st[i] && st[i].id === id); };
+function parseSt(str) { if (S.cache.k === str) return S.cache.v; let v = null; try { v = JSON.parse(str); } catch {} S.cache = { k: str, v }; return v; }
+function model() {
+  if (S.mode === "online") {
+    const g = S.g, st = parseSt(g.st), seats = g.seats || {}, seat = seatOf(me());
+    return { mode: "online", st, names: [(seats[0] || {}).name || "Jugador 1", (seats[1] || {}).name || "Jugador 2"], me: seat === undefined ? null : seat };
+  }
+  const L = S.L;
+  return { mode: L.mode, st: L.st, names: L.names, me: L.mode === "ai" ? 0 : L.st.turn, level: L.level };
+}
+const viewer = m => m.me === null ? 0 : m.me;
+const canAct = m => !m.st.over && m.me !== null && m.st.turn === m.me;
+const youTxt = m => m.mode !== "local";
+
+/* ================= online ================= */
+function watch(code) {
+  unwatch(); S.mode = "online"; S.code = code; ls.set("retales.last", { code, t: Date.now() });
+  S.unsub = S.db.doc("games/" + code).onSnapshot(snap => {
+    if (!snap.exists) { leave("Esa partida ya no existe."); return; }
+    const prev = S.g; S.g = snap.data(); onRemote(prev); render();
+  }, () => leave("Se ha perdido la conexión con la partida."));
+}
+function unwatch() { if (S.unsub) try { S.unsub(); } catch {} S.unsub = null; S.g = null; S.pl = null; closeSheet(); }
+function leave(msg) {
+  unwatch(); clearTimeout(S.aiTimer); S.aiTimer = null;
+  S.mode = null; S.code = null; S.L = null; S.seenN = -1; S.endShown = ""; S.pl = null;
+  S.homeMsg = msg || ""; S.homeErr = !!msg; history.replaceState(null, "", location.pathname); endTour(); render();
+}
+function onRemote(prev) {
+  if (!prev || !S.g || !S.g.st || prev.st === S.g.st) return;
+  const a = parseSt(prev.st), b = parseSt(S.g.st);
+  if (a && b && b.n !== a.n) S.pl = null;
+}
+function saveName() {
+  const el = document.getElementById("nm"), v = ((el && el.value) || S.name || "").trim().slice(0, 16);
+  if (!v) { S.homeMsg = "Escribe tu nombre."; S.homeErr = true; render(); return false; }
+  S.name = v; try { localStorage.setItem("sala.nick", v); } catch {} return true;
+}
+const genCode = () => { const A = "ABCDEFGHJKLMNPQRSTUVWXYZ"; let c = ""; for (let i = 0; i < 4; i++) c += A[Math.floor(Math.random() * A.length)]; return c; };
+async function freeCode() { let code; for (let i = 0; i < 6; i++) { code = genCode(); if (!(await S.db.doc("games/" + code).get()).exists) break; } return code; }
+const newSeed = () => Math.floor(Math.random() * 2 ** 31);
+async function createOnline() {
+  if (!saveName()) return;
+  S.busy = true; render();
+  try {
+    const code = await freeCode();
+    await S.db.doc("games/" + code).set({ v: 1, status: "lobby", host: me(), createdAt: Date.now(), seats: { 0: { id: me(), name: S.name } }, st: "" });
+    location.hash = code; watch(code);
+  } catch { S.homeMsg = "No se pudo crear la partida. Revisa la conexión."; S.homeErr = true; }
+  S.busy = false; render();
+}
+async function joinOnline(code) {
+  if (!saveName()) return;
+  code = String(code || "").toUpperCase().replace(/[^A-Z]/g, "");
+  if (code.length !== 4) { S.homeMsg = "El código tiene 4 letras."; S.homeErr = true; render(); return; }
+  S.busy = true; render();
+  try {
+    const ref = S.db.doc("games/" + code), snap = await ref.get();
+    if (!snap.exists) { S.homeMsg = "No hay ninguna partida con ese código."; S.homeErr = true; }
+    else {
+      const g = snap.data(), seats = g.seats || {};
+      const mine = [0, 1].find(i => seats[i] && seats[i].id === me());
+      if (mine !== undefined) { if (seats[mine].name !== S.name) await ref.update({ seats: { ...seats, [mine]: { id: me(), name: S.name } } }); }
+      else if (!seats[1] && g.status === "lobby") await ref.update({ seats: { ...seats, 1: { id: me(), name: S.name } } });
+      else toast("La partida está completa: entras como público.");
+      location.hash = code; watch(code);
+    }
+  } catch { S.homeMsg = "No se pudo entrar. Revisa la conexión."; S.homeErr = true; }
+  S.busy = false; render();
+}
+async function put(patch) {
+  S.g = { ...S.g, ...patch }; render();
+  try { await S.db.doc("games/" + S.code).update(patch); }
+  catch { toast("No se pudo guardar. Reintentando…"); setTimeout(() => S.db.doc("games/" + S.code).update(patch).catch(() => toast("Sin conexión con la partida.")), 1500); }
+}
+
+/* ================= mismo móvil y máquina ================= */
+function startLocal(kind) {
+  if (!saveName()) return;
+  let L;
+  if (kind === "local") {
+    const rv = (document.getElementById("rv").value || "").trim().slice(0, 16);
+    if (!rv) { S.homeMsg = "Escribe el nombre del rival."; S.homeErr = true; render(); return; }
+    L = { mode: "local", names: [S.name, rv], st: B.newGame(newSeed(), Math.random() < .5 ? 0 : 1) };
+  } else {
+    ls.set("retales.lvl", S.aiLevel);
+    L = { mode: "ai", level: S.aiLevel, names: [S.name, `La máquina · ${LVL[S.aiLevel]}`], st: B.newGame(newSeed(), Math.random() < .5 ? 0 : 1) };
+  }
+  S.mode = "local"; S.L = L; S.seenN = -1; S.endShown = ""; S.pl = null; saveLocal(); render();
+}
+function saveLocal() { if (S.L) ls.set("retales.partida", S.L); }
+function resumeLocal() { const L = ls.get("retales.partida"); if (!L) return; S.mode = "local"; S.L = L; S.seenN = L.st.n; S.endShown = ""; S.pl = null; render(); }
+
+/* ================= jugar ================= */
+function commit(st) {
+  if (S.mode === "online") put({ st: JSON.stringify(st), status: "play" });
+  else { S.L.st = st; saveLocal(); render(); }
+}
+function act(a) {
+  const m = model(), p = m.me;
+  const err = B.check(m.st, p, a);
+  if (err) { toast(err); return false; }
+  const st = B.apply(m.st, p, a);
+  sound(st.last);
+  if (st.last && st.last.inc) toast(`¡${youTxt(m) ? "Cobras" : m.names[p] + " cobra"} ${plural(st.last.inc, "botón", "botones")} de ${youTxt(m) ? "tu" : "su"} colcha!`);
+  if (st.last && st.last.bonus) toast(`¡Cuadrado de 7×7 completo: +7 puntos!`, 4000);
+  closeSheet(); S.pl = null; S.hintCells = null; commit(st);
+  return true;
+}
+function sound(L) { if (!L) return; if (L.t === "adv") { SFX.step(); SFX.coins(L.d); } else SFX.stitch(); if (L.inc) setTimeout(() => SFX.coins(Math.min(6, L.inc)), 250); }
+function maybeAI() {
+  if (S.mode !== "local" || !S.L || S.L.mode !== "ai" || S.aiTimer) return;
+  const st = S.L.st;
+  if (st.over || st.turn !== 1) return;
+  S.aiTimer = setTimeout(() => {
+    S.aiTimer = null;
+    if (!S.L || S.L.mode !== "ai" || S.L.st !== st) return;
+    const a = B.plan(st, 1, S.L.level);
+    if (!a || B.check(st, 1, a)) return;
+    const ns = B.apply(st, 1, a);
+    sound(ns.last);
+    S.L.st = ns; saveLocal(); render();
+  }, st.pend ? 700 : 1100);
+}
+function rematch() {
+  const m = model(); if (!m.st.over) return;
+  const st = B.rematch(m.st);
+  closeSheet(); S.pl = null; S.endShown = "";
+  if (S.mode === "online") put({ st: JSON.stringify(st) });
+  else { S.L.st = st; saveLocal(); render(); }
+}
+
+/* ================= colocar retales ================= */
+function notYourTurn(m) {
+  if (m.st.over) return;
+  if (m.me === null) toast("Estás mirando la partida.");
+  else if (m.mode === "ai") toast("La máquina está pensando…");
+  else toast("Espera a que juegue tu rival.");
+}
+function plId() { const m = model(); return S.pl.leather ? B.LEATHER : m.st.circle[S.pl.k]; }
+function plOrient() { return S.pl.leather ? 0 : B.orientOf(plId(), S.pl.rot, S.pl.flip); }
+function clampPl() {
+  const O = B.patch(plId()).or[plOrient()];
+  S.pl.r = Math.max(0, Math.min(NQ - O.h, S.pl.r)); S.pl.c = Math.max(0, Math.min(NQ - O.w, S.pl.c));
+}
+function ghost(m) {
+  if (!S.pl) return null;
+  const id = plId(), o = plOrient(), cells = B.cellsOf(id, o, S.pl.r, S.pl.c) || [];
+  const g = B.grid(m.st, viewer(m)), bad = cells.filter(i => g[i]);
+  return { id, o, cells, ok: cells.length > 0 && !bad.length, bad };
+}
+function startPlace(k) {
+  const m = model(), st = m.st, p = m.me;
+  const why = B.buyWhy(st, p, k);
+  if (why) { toast(why); return; }
+  const id = st.circle[k], g = B.grid(st, p), all = B.placements(g, id);
+  const first = all[0];
+  S.pl = { k, rot: 0, flip: 0, r: 0, c: 0 };
+  // orientación y sitio iniciales: el primer hueco libre, empezando por arriba a la izquierda
+  const tries = [[0, 0], [1, 0], [2, 0], [3, 0], [0, 1], [1, 1], [2, 1], [3, 1]];
+  for (const [rot, flip] of tries) { const o = B.orientOf(id, rot, flip); if (o === first.o) { S.pl.rot = rot; S.pl.flip = flip; break; } }
+  S.pl.r = first.r; S.pl.c = first.c;
+  S.hintCells = null; SFX.tick(); updateGame();
+  const q = document.getElementById("myq"); if (q) q.scrollIntoView({ block: "center", behavior: "smooth" });
+}
+function startLeather() {
+  const m = model(), g = B.grid(m.st, m.me), i = g.findIndex(x => !x);
+  S.pl = { leather: true, rot: 0, flip: 0, r: Math.floor(i / NQ), c: i % NQ };
+}
+function confirmPlace() {
+  const m = model(), gh = ghost(m); if (!gh) return;
+  if (!gh.ok) { toast(gh.bad.length ? "Se monta encima de otro retal: muévelo a un hueco libre." : "El retal se sale de la colcha."); return; }
+  if (S.pl.leather) act({ t: "leather", i: gh.cells[0] });
+  else act({ t: "buy", k: S.pl.k, o: gh.o, r: S.pl.r, c: S.pl.c });
+}
+function quiltCell(e) {
+  const svg = document.getElementById("myq"); if (!svg) return null;
+  const R = svg.getBoundingClientRect(), x = (e.clientX - R.left) / R.width * 96 - 3, y = (e.clientY - R.top) / R.height * 96 - 3;
+  const c = Math.floor(x / 10), r = Math.floor(y / 10);
+  return { r: Math.max(0, Math.min(NQ - 1, r)), c: Math.max(0, Math.min(NQ - 1, c)) };
+}
+function moveTo(cell) {
+  const O = B.patch(plId()).or[plOrient()];
+  const r = cell.r - Math.floor((O.h - 1) / 2), c = cell.c - Math.floor((O.w - 1) / 2);
+  if (r === S.pl.r && c === S.pl.c) return;
+  S.pl.r = r; S.pl.c = c; clampPl(); updateQuilt();
+}
+function hint() {
+  const m = model(); if (!canAct(m)) return;
+  const a = B.plan(m.st, m.me, 3);
+  if (!a) return;
+  if (a.t === "adv") { toast(`Pista: avanza y cobra ${plural(B.advGain(m.st, m.me), "botón", "botones")}. Ahora mismo no compensa ningún retal.`, 5000); return; }
+  if (a.t === "leather") { S.pl.r = Math.floor(a.i / NQ); S.pl.c = a.i % NQ; updateGame(); toast("Pista: ponlo en el hueco marcado.", 4000); return; }
+  startPlace(a.k);
+  const id = m.st.circle[a.k];
+  const tries = [[0, 0], [1, 0], [2, 0], [3, 0], [0, 1], [1, 1], [2, 1], [3, 1]];
+  for (const [rot, flip] of tries) if (B.orientOf(id, rot, flip) === a.o) { S.pl.rot = rot; S.pl.flip = flip; break; }
+  S.pl.r = a.r; S.pl.c = a.c; updateGame();
+  toast(`Pista: el retal ${a.k + 1}, colocado así. Pulsa «Coser aquí» si te convence.`, 5000);
+}
+
+/* ================= vistas ================= */
+function render() {
+  if (!S.ready) return;
+  if (window.SalaTurno && (!S.mode || (S.mode === "online" && (!S.g || S.g.status === "lobby" || !S.g.st)))) SalaTurno.limpiar();
+  if (!S.mode) return renderHome();
+  if (S.mode === "online") {
+    if (!S.g) return view(`<div class="hero"><div class="logo"><small>TALLER DE COLCHAS</small>Retales</div><p class="muted">Entrando en la partida…</p></div>`, "load");
+    if (S.g.status === "lobby" || !S.g.st) return renderLobby();
+  }
+  const m = model();
+  if (S.lastKey !== "game" || !document.getElementById("myqw")) buildGame();
+  updateGame();
+  maybeAI();
+  if (!ls.get("retales.tuto") && m.me !== null) setTimeout(() => startTour(), 400);
+}
+function view(html, key) { if (key && key === S.lastKey) return false; S.lastKey = key; $app.innerHTML = html; return true; }
+
+function heroQuilt() {
+  // colcha de muestra para la portada, cosida con retales de verdad
+  const demo = { quilt: [[]] }, g = Array(NQ * NQ).fill(0);
+  for (const id of [9, 14, 7, 29, 21, 24, 31, 17, 13, 26]) {
+    const pl = B.placements(g, id)[0]; if (!pl) continue;
+    pl.cells.forEach(i => g[i] = id); demo.quilt[0].push({ id, c: pl.cells });
+  }
+  demo.quilt[0].push({ id: B.LEATHER, c: [g.findIndex(x => !x)] });
+  return quiltSVG(demo, 0, { cls: "heroq", label: "Colcha de muestra" });
+}
+function renderHome() {
+  const saved = ls.get("retales.partida");
+  const canResume = saved && saved.st && !saved.st.over;
+  const tab = S.homeTab, lv = S.aiLevel;
+  const seg = (name, val, cur, label) => `<button data-${name}="${val}" aria-pressed="${cur === val}">${label}</button>`;
+  const html = `
+  <div class="hero">${heroQuilt()}
+    <div class="logo"><small>TALLER DE COLCHAS</small>Retales</div>
+    <p class="muted">Compra retales con botones, cóselos en tu colcha de 9×9 y no dejes huecos. Gana quien acabe con más botones. Para 2 jugadores.</p></div>
+  <button class="btn ghost wide" id="rules">🧵 Cómo se juega (léelo si es tu primera vez)</button>
+  <label class="lbl" for="nm">Tu nombre<input id="nm" class="text" maxlength="16" autocomplete="nickname" value="${esc(S.name)}" placeholder="Tu nombre"></label>
+  ${canResume ? `<button class="btn gold wide" id="resume">Continuar partida en este móvil</button>` : ""}
+  <div class="seg" role="group" aria-label="Modo de juego">${seg("tab", "online", tab, "Online")}${seg("tab", "local", tab, "Mismo móvil")}${seg("tab", "ai", tab, "Máquina")}</div>
+  ${tab === "online" ? (S.offline ? `<div class="card"><p class="muted">No hay conexión con el servidor de partidas. Puedes jugar en este móvil o contra la máquina.</p></div>` : `
+  <div class="card"><h2>Nueva partida</h2><p class="muted small">Cada uno desde su móvil. Pasa el código a tu rival.</p><button class="btn gold wide" id="create"${S.busy ? " disabled" : ""}>Crear partida</button></div>
+  <div class="card"><h2>Unirse</h2>
+    <div class="row"><input id="jc" class="text code" maxlength="4" autocomplete="off" placeholder="ABCD" value="${esc(S.prefill || "")}" aria-label="Código de la partida"><button class="btn" id="join"${S.busy ? " disabled" : ""}>Entrar</button></div>
+    ${S.rejoin ? `<button class="btn ghost" id="rejoin">Volver a la partida ${esc(S.rejoin)}</button>` : ""}</div>`) : ""}
+  ${tab === "local" ? `<div class="card"><h2>Los dos en este móvil</h2><p class="muted small">No hay nada secreto: el móvil enseña siempre la colcha de quien juega y os lo vais pasando.</p>
+    <input id="rv" class="text" maxlength="16" placeholder="Nombre del rival" aria-label="Nombre del rival"><button class="btn gold wide" id="local">Empezar</button></div>` : ""}
+  ${tab === "ai" ? `<div class="card"><h2>Contra la máquina</h2><p class="muted small">Ideal para aprender. Empieza por Aprendiz.</p>
+    <span class="lbl">Nivel</span><div class="seg" role="group" aria-label="Nivel">${[1, 2, 3].map(v => seg("lv", v, lv, LVL[v])).join("")}</div>
+    <button class="btn gold wide" id="ai">Empezar</button></div>` : ""}
+  <p class="msg ${S.homeErr ? "err" : ""}" role="status">${esc(S.homeMsg)}</p>`;
+  view(html, "home|" + S.busy + "|" + S.homeMsg + "|" + tab + "|" + lv);
+  const keepName = () => { const el = document.getElementById("nm"); if (el) S.name = el.value.trim().slice(0, 16); };
+  on("[data-tab]", "click", e => { keepName(); S.homeTab = e.currentTarget.dataset.tab; S.homeMsg = ""; render(); });
+  on("[data-lv]", "click", e => { keepName(); S.aiLevel = +e.currentTarget.dataset.lv; render(); });
+  on("#create", "click", createOnline);
+  on("#join", "click", () => joinOnline(document.getElementById("jc").value));
+  on("#jc", "keydown", e => { if (e.key === "Enter") joinOnline(e.target.value); });
+  on("#rejoin", "click", () => joinOnline(S.rejoin));
+  on("#local", "click", () => startLocal("local"));
+  on("#ai", "click", () => startLocal("ai"));
+  on("#resume", "click", resumeLocal);
+  on("#rules", "click", showRules);
+}
+
+function renderLobby() {
+  const g = S.g, st = g.seats || {}, host = g.host === me(), seat = seatOf(me());
+  const seatH = i => st[i] ? `<div class="seat"><span class="muted small">${i === 0 ? "Anfitrión" : "Rival"}</span><b>${esc(st[i].name)}${st[i].id === me() ? " (tú)" : ""}</b></div>` : `<div class="seat empty"><span class="small">Esperando rival…</span></div>`;
+  const html = `
+  <div class="top"><button class="btn ghost sm" id="out">Salir</button><span class="sp"></span><span class="chip">SALA ${esc(S.code)}</span><button class="icon-btn" id="help" aria-label="Cómo se juega">?</button></div>
+  <div class="hero" style="padding-block:6px 0"><div class="logo" style="font-size:40px"><small>TALLER DE COLCHAS</small>Retales</div></div>
+  <div class="card" style="text-align:center"><p class="muted small">Código de la partida</p><div class="big-code">${esc(S.code)}</div>
+    <button class="btn ghost" id="share">Invitar</button></div>
+  <div class="card"><h2>Jugadores</h2><div class="seats">${seatH(0)}${seatH(1)}</div>
+    ${seat === undefined && !st[1] ? `<button class="btn gold" id="sit">Sentarme</button>` : ""}</div>
+  ${host ? `<button class="btn gold wide" id="start"${st[1] ? "" : " disabled"}>${st[1] ? "Empezar la partida" : "Esperando a tu rival…"}</button>`
+    : `<div class="wait"><p>Esperando a que ${esc((st[0] || {}).name || "el anfitrión")} empiece la partida.</p></div>`}
+  <p class="muted small" style="text-align:center">Mientras esperáis, pulsad <b>?</b> para leer las reglas.</p>`;
+  view(html, "lobby|" + JSON.stringify(st) + host);
+  on("#out", "click", () => leave());
+  on("#share", "click", share);
+  on("#help", "click", showRules);
+  on("#sit", "click", () => joinOnline(S.code));
+  on("#start", "click", () => { if (S.g.seats[1]) put({ status: "play", st: JSON.stringify(B.newGame(newSeed(), Math.random() < .5 ? 0 : 1)) }); });
+}
+function share() {
+  const url = location.origin + location.pathname + "#" + S.code, text = `Te reto a una partida de Retales. Código: ${S.code}`;
+  if (navigator.share) { navigator.share({ title: "Retales", text, url }).catch(() => {}); return; }
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(() => toast("Enlace copiado."), () => toast(url));
+  else toast(url);
+}
+
+function buildGame() {
+  const m = model();
+  const chipTxt = S.mode === "online" ? `SALA ${esc(S.code)}` : m.mode === "ai" ? "CONTRA LA MÁQUINA" : "MISMO MÓVIL";
+  const snd = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4z"/>${SFX.on ? '<path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/>' : '<path d="m22 9-6 6M16 9l6 6"/>'}</svg>`;
+  view(`
+  <div class="top"><button class="btn ghost sm" id="out">Salir</button><span class="sp"></span><span class="chip">${chipTxt}</span>
+    <button class="icon-btn" id="help" aria-label="Cómo se juega">?</button><button class="icon-btn" id="snd" aria-label="${SFX.on ? "Quitar sonido" : "Activar sonido"}">${snd}</button></div>
+  <div id="turno"></div>
+  <div class="pl" id="opp"></div>
+  <div id="lastBox"></div>
+  <div class="track" id="trk"></div>
+  <div class="zone-h"><span>Retales</span><span id="ringInfo"></span></div>
+  <div class="ring" id="ring"></div>
+  <p class="coach" id="coach" role="status" aria-live="polite"></p>
+  <div class="quiltwrap" id="myqw"><div class="pl" id="mine" style="box-shadow:none;padding:0 2px;background:none"></div><div id="qbox"></div></div>
+  <div class="acts" id="acts"></div>
+  <details class="log" id="logBox"><summary>Lo que ha pasado</summary><ol id="log"></ol></details>`, "game");
+  on("#out", "click", () => {
+    const m = model();
+    if (S.mode === "online" && m.me !== null && !m.st.over) confirmSheet("¿Salir de la partida?", "Podrás volver con el mismo código.", "Salir", () => leave());
+    else leave();
+  });
+  on("#help", "click", showRules);
+  on("#snd", "click", () => { SFX.on = !SFX.on; ls.set("retales.sound", SFX.on); SFX.init(); S.lastKey = ""; render(); });
+  document.getElementById("ring").addEventListener("click", e => {
+    const b = e.target.closest("[data-k]"); if (!b) return;
+    const m = model(), k = +b.dataset.k;
+    if (k > 2) { toast("Solo puedes elegir uno de los 3 retales que siguen al dedal. Este llegará más adelante."); return; }
+    if (!canAct(m)) { const id = m.st.circle[k], P = B.patch(id); toast(`Retal de ${P.n} huecos: cuesta ${plural(P.cost, "botón", "botones")} y ${plural(P.time, "tiempo", "tiempos")}${P.btn ? `; da ${plural(P.btn, "botón", "botones")} en cada cobro` : ""}.`); return; }
+    if (m.st.pend) { toast("Primero coloca el retal de cuero."); return; }
+    if (S.pl && S.pl.k === k) { S.pl = null; updateGame(); return; }
+    startPlace(k);
+  });
+  const qb = document.getElementById("qbox");
+  qb.addEventListener("pointerdown", e => {
+    if (!S.pl) { const m = model(); if (!canAct(m)) return; return; }
+    const c = quiltCell(e); if (!c) return;
+    S.drag = true; try { qb.setPointerCapture(e.pointerId); } catch {} moveTo(c); e.preventDefault();
+  });
+  qb.addEventListener("pointermove", e => { if (!S.drag || !S.pl) return; const c = quiltCell(e); if (c) moveTo(c); });
+  const up = () => { if (S.drag) { S.drag = false; updateGame(); } };
+  qb.addEventListener("pointerup", up); qb.addEventListener("pointercancel", up);
+  document.getElementById("opp").addEventListener("click", e => { if (e.target.closest(".miniq")) showOppQuilt(); });
+}
+
+function playerHTML(m, q, mine) {
+  const st = m.st, isTurn = !st.over && st.turn === q;
+  const nm = mine ? (m.me === null || m.mode === "local" ? m.names[q] : "Tú") : m.names[q];
+  const inc = B.income(st, q), emp = B.empty(st, q);
+  return `<span class="tokn" style="--pc:${PCOL[q]}"></span><div class="info"><span class="nm">${esc(nm)}</span>
+    <div class="stats">${ib(BTN_ICON, st.btn[q])}<span>Cobro <b>${inc}</b></span><span>Huecos <b>${emp}</b></span><span>Casilla <b>${st.pos[q]}</b>/53</span><span>Ahora: <b>${B.score(st, q)}</b> pts</span>${st.bonus === q ? `<span class="bonus7">7×7 +7</span>` : ""}</div></div>
+    ${mine ? "" : `<button class="miniq" aria-label="Ver la colcha de ${esc(nm)} en grande">${quiltSVG(st, q, { cls: "" })}</button>`}`;
+}
+function updateQuilt() {
+  const m = model(), p = viewer(m), gh = ghost(m);
+  document.getElementById("qbox").innerHTML = quiltSVG(m.st, p, { id: "myq", cls: "quilt" + (S.pl ? " placing" : ""), ghost: gh, hint: S.hintCells, label: "Tu colcha" });
+}
+function updateGame() {
+  if (!document.getElementById("myqw")) return;
+  const m = model(), st = m.st, p = viewer(m), o = 1 - p, my = canAct(m);
+  const fresh = st.last && st.last.n !== S.seenN && S.seenN !== -1;
+  if (S.pl && !my) S.pl = null;
+  if (my && st.pend && (!S.pl || !S.pl.leather)) startLeather();
+  if (S.pl && !S.pl.leather && st.pend) S.pl = null;
+
+  /* jugadores */
+  const oppEl = document.getElementById("opp"), mineEl = document.getElementById("mine");
+  oppEl.innerHTML = playerHTML(m, o, false); oppEl.style.setProperty("--pc", PCOL[o]); oppEl.classList.toggle("turn", !st.over && st.turn === o);
+  mineEl.innerHTML = playerHTML(m, p, true);
+  document.getElementById("myqw").style.boxShadow = !st.over && st.turn === p ? `0 0 0 2px ${PCOL[p]},0 0 22px -6px ${PCOL[p]}` : "";
+
+  /* última jugada */
+  const lb = document.getElementById("lastBox");
+  if (st.last) {
+    const L = st.last, you = L.p === m.me && youTxt(m), who = you ? "Tú" : m.names[L.p];
+    lb.innerHTML = `<div class="last${fresh && L.p !== m.me ? " fresh" : ""}">${esc(cap(B.describe(L, who, you)))}.</div>`;
+  } else lb.innerHTML = `<div class="last">${esc(st.turn === m.me && youTxt(m) ? "Empiezas tú. Cada uno tiene 5 botones." : `Empieza ${m.names[st.turn]}. Cada uno tiene 5 botones.`)}</div>`;
+
+  /* tablero de tiempo */
+  let tg = null;
+  if (S.pl && !S.pl.leather) tg = { p, to: Math.min(B.END, st.pos[p] + B.patch(st.circle[S.pl.k]).time) };
+  document.getElementById("trk").innerHTML = trackSVG(st, tg) + `<div class="legend"><span>${BTN_ICON} Cobras los botones de tu colcha</span><span>${LEATHER_ICON} Retal de cuero para el primero que pase</span></div>`;
+
+  /* círculo de retales */
+  const ring = document.getElementById("ring");
+  const cardH = (id, k) => {
+    const P = B.patch(id), av = k < 3, why = av && m.me !== null ? B.buyWhy(st, viewer(m), k) : "";
+    const short = why.startsWith("Te faltan") ? "Faltan botones" : why.startsWith("No cabe") ? "No cabe" : "";
+    const cls = "pc" + (av ? " av " + (why ? "no" : "ok") : "") + (S.pl && !S.pl.leather && S.pl.k === k ? " sel" : "");
+    return `<button class="${cls}" data-k="${k}" aria-label="Retal ${k + 1}: ${P.n} huecos, cuesta ${P.cost} botones y ${P.time} de tiempo, da ${P.btn} botones">${av ? `<span class="nb">${k + 1}</span>` : ""}<span class="shp">${shapeSVG(id, 0, av ? 12 : 9)}</span>
+      <span class="pr">${ib(BTN_ICON, P.cost)}${ib(TIME_ICON, P.time)}</span>${av && short ? `<span class="why">${short}</span>` : ""}</button>`;
+  };
+  const ringKey = st.circle.join(",") + "|" + (S.pl && !S.pl.leather ? S.pl.k : "") + "|" + st.btn.join(",") + "|" + st.n;
+  if (ring.dataset.k !== ringKey) {
+    const keepScroll = ring.dataset.c === st.circle.join(",") ? ring.scrollLeft : 0;
+    ring.dataset.k = ringKey; ring.dataset.c = st.circle.join(",");
+    ring.innerHTML = `<span class="thim" title="El dedal">${THIMBLE}</span>` + st.circle.map((id, k) => (k === 3 ? `<span class="sep"></span>` : "") + cardH(id, k)).join("");
+    ring.scrollLeft = keepScroll;
+  }
+  document.getElementById("ringInfo").textContent = `Quedan ${st.circle.length}`;
+
+  /* colcha */
+  updateQuilt();
+
+  /* franja de turno */
+  const tz = document.getElementById("turno");
+  if (st.over || !window.SalaTurno) { tz.innerHTML = ""; if (window.SalaTurno) SalaTurno.limpiar(); }
+  else {
+    const t = st.turn, ai = m.mode === "ai" && t === 1;
+    const acc = st.pend ? "Coloca el retal de cuero" : "Cose un retal o avanza para cobrar botones";
+    const o2 = { quien: ai ? "la máquina" : m.names[t], color: PCOL[t], tuyo: m.mode === "local" ? null : m.me === null ? false : t === m.me, accion: ai ? "Está pensando su jugada…" : acc, clave: st.n };
+    if (o2.tuyo === false && !ai) o2.accion = "Está eligiendo su jugada…";
+    tz.innerHTML = SalaTurno.html({ ...o2, compacta: true });
+    SalaTurno.marcar({ ...o2, clave: t + "|" + (st.pos[t]) });
+  }
+
+  /* ayuda y botones */
+  const coach = document.getElementById("coach"), acts = document.getElementById("acts");
+  let ctext = "", ccls = "", bt = "";
+  if (st.over) bt = `<button class="btn gold main" id="seeEnd">Ver el final</button>`;
+  else if (!my) ctext = m.me === null ? "Estás mirando la partida." : m.mode === "ai" ? "La máquina está eligiendo…" : "";
+  else if (S.pl) {
+    const gh = ghost(m), id = plId(), P = B.patch(id);
+    if (S.pl.leather) ctext = "¡Retal de cuero! Toca el hueco donde lo coses (tapa un agujero suelto si tienes).";
+    else {
+      const to = Math.min(B.END, st.pos[p] + P.time), passes = B.INCOME.filter(x => x > st.pos[p] && x <= to).length;
+      const lea = st.leather.some(x => x > st.pos[p] && x <= to);
+      ctext = `Pagas ${plural(P.cost, "botón", "botones")} y avanzas ${plural(to - st.pos[p], "casilla", "casillas")}.` + (passes ? ` Cobrarás ${plural(B.income(st, p) + P.btn, "botón", "botones")} al pasar.` : "") + (lea ? " ¡Y te llevas el retal de cuero!" : "") + " Toca o arrastra sobre tu colcha para moverlo.";
+    }
+    if (!gh.ok) { ctext = gh.bad.length ? "Así se monta encima de otro retal: muévelo o gíralo." : "Así se sale de la colcha."; ccls = "err"; } else if (!S.pl.leather) ccls = "ok";
+    bt = (S.pl.leather ? "" : `<button class="btn sm" id="rot" aria-label="Girar">⟳ Girar</button><button class="btn sm" id="flip" aria-label="Dar la vuelta">⇋ Voltear</button>`)
+      + `<div class="row full" style="gap:8px">${S.pl.leather ? "" : `<button class="btn ghost" id="cancel">Cancelar</button>`}<button class="btn gold" id="ok" style="flex:2 1 0"${gh.ok ? "" : " disabled"}>Coser aquí</button></div>`
+      + (S.pl.leather ? "" : `<div class="row full" style="gap:6px"><button class="btn sm ghost" data-mv="-1,0" aria-label="Subir">↑</button><button class="btn sm ghost" data-mv="1,0" aria-label="Bajar">↓</button><button class="btn sm ghost" data-mv="0,-1" aria-label="Izquierda">←</button><button class="btn sm ghost" data-mv="0,1" aria-label="Derecha">→</button></div>`);
+  } else {
+    const d = B.advGain(st, p), to = st.pos[p] + d, passes = B.INCOME.filter(x => x > st.pos[p] && x <= to).length;
+    const lea = st.leather.some(x => x > st.pos[p] && x <= to);
+    ctext = "Elige uno de los 3 retales numerados para coserlo, o avanza hasta pasar a tu rival y cobra 1 botón por casilla.";
+    bt = `<button class="btn gold main" id="adv">Avanzar ${d} y cobrar ${plural(d, "botón", "botones")}${passes ? ` (+${B.income(st, p)})` : ""}${lea ? " + cuero" : ""}</button><button class="btn sm" id="hi">Pista</button>`;
+  }
+  coach.innerHTML = esc(ctext); coach.className = "coach" + (ccls ? " " + ccls : "");
+  acts.innerHTML = bt;
+  on("#adv", "click", () => act({ t: "adv" }));
+  on("#hi", "click", hint);
+  on("#rot", "click", () => { S.pl.rot = (S.pl.rot + (S.pl.flip ? 3 : 1)) % 4; clampPl(); SFX.tick(); updateGame(); });
+  on("#flip", "click", () => { S.pl.flip ^= 1; clampPl(); SFX.tick(); updateGame(); });
+  on("[data-mv]", "click", e => { const [dr, dc] = e.currentTarget.dataset.mv.split(",").map(Number); S.pl.r += dr; S.pl.c += dc; clampPl(); updateGame(); });
+  on("#cancel", "click", () => { S.pl = null; updateGame(); });
+  on("#ok", "click", confirmPlace);
+  on("#seeEnd", "click", () => showEnd());
+
+  /* historial */
+  const logEl = document.getElementById("log"), hist = st.hist || [];
+  if (logEl.dataset.k !== st.seed + "|" + st.n) {
+    logEl.dataset.k = st.seed + "|" + st.n;
+    logEl.innerHTML = hist.length ? hist.map(x => { const you = x.p === m.me && youTxt(m); return `<li>${esc(cap(B.describe(x, you ? "Tú" : m.names[x.p], you)))}</li>`; }).join("") : `<li class="muted">Todavía nada.</li>`;
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+  if (fresh && st.last.p !== m.me && m.me !== null) sound(st.last);
+  S.seenN = st.last ? st.last.n : 0;
+  if (st.over && S.endShown !== st.seed + "|" + st.n) { S.endShown = st.seed + "|" + st.n; setTimeout(() => showEnd(), 700); }
+}
+function showOppQuilt() {
+  const m = model(), o = 1 - viewer(m);
+  openSheet(`<h2>Colcha de ${esc(m.names[o])}</h2>${quiltSVG(m.st, o, { cls: "quilt" })}
+    <p class="muted small" style="text-align:center">${plural(m.st.btn[o], "botón", "botones")} · cobra ${B.income(m.st, o)} · ${plural(B.empty(m.st, o), "hueco libre", "huecos libres")}</p>
+    <button class="btn ghost wide" data-x>Cerrar</button>`);
+  on("[data-x]", "click", closeSheet, $sheet);
+}
+
+/* ================= final ================= */
+function showEnd() {
+  const m = model(), st = m.st, ov = st.over; if (!ov) return;
+  const youWin = ov.win === m.me, nm = q => esc(youTxt(m) && q === m.me ? m.names[q] + " (tú)" : m.names[q]);
+  const title = m.me === null || m.mode === "local" ? `¡${esc(m.names[ov.win])} gana!` : youWin ? "¡Has ganado!" : "Has perdido";
+  const row = (label, f, cls) => `<tr class="${cls || ""}"><td>${label}</td><td>${f(0)}</td><td>${f(1)}</td></tr>`;
+  SFX.fanfare();
+  openSheet(`<h2 class="end-h">${title}</h2>
+    ${ov.tie ? `<p class="muted" style="text-align:center">Empate a puntos: gana quien llegó antes al final del tablero.</p>` : ""}
+    <div class="row" style="justify-content:center">${[0, 1].map(q => `<div style="flex:0 1 150px;display:grid;gap:4px;justify-items:center"><b class="small">${nm(q)}</b>${quiltSVG(st, q, { cls: "" })}</div>`).join("")}</div>
+    <table class="res"><thead><tr><th></th><th>${nm(0)}</th><th>${nm(1)}</th></tr></thead><tbody>
+      ${row("Botones", q => st.btn[q])}
+      ${row("Huecos vacíos (−2 cada uno)", q => `−${2 * B.empty(st, q)}`)}
+      ${row("Cuadrado 7×7", q => st.bonus === q ? "+7" : "—")}
+      ${row("Total", q => `<span class="${q === ov.win ? "w" : ""}">${ov.sc[q]}</span>`, "tot")}
+      ${row("Partidas ganadas", q => st.wins[q])}
+    </tbody></table>
+    <div class="row">${m.me !== null || m.mode !== "online" ? `<button class="btn gold" id="nx">Revancha</button>` : ""}<button class="btn ghost" id="vt">Ver la mesa</button></div>
+    <button class="btn ghost wide" id="bye">Salir</button>`);
+  on("#nx", "click", rematch, $sheet);
+  on("#vt", "click", closeSheet, $sheet);
+  on("#bye", "click", () => { closeSheet(); if (S.mode === "local") ls.del("retales.partida"); leave(); }, $sheet);
+}
+
+/* ================= reglas ================= */
+function showRules() {
+  openSheet(`<div class="rules">
+    <h2 style="font-size:28px;color:var(--gold)">Cómo se juega</h2>
+    <section><h3>La idea</h3><p>Cada uno cose su propia <b>colcha de 9×9</b>. Compras retales con <b>botones</b> ${BTN_ICON.replace("<svg", '<svg width="16" height="16" style="display:inline;vertical-align:-3px"')} y cada retal también cuesta <b>tiempo</b> ${TIME_ICON.replace("<svg", '<svg width="16" height="16" style="display:inline;vertical-align:-3px"')}. Al final, cada hueco vacío de tu colcha resta 2 puntos.</p></section>
+    <section><h3>¿A quién le toca?</h3><p>Siempre juega quien va <b>más atrás en el tablero de tiempo</b>. Por eso a veces juegas dos o tres veces seguidas. Si estáis en la misma casilla, juega quien llegó el último (su ficha está encima).</p></section>
+    <section><h3>En tu turno haces una de dos cosas</h3><ul>
+      <li><b>Coser un retal</b>: eliges uno de los <b>3 retales que siguen al dedal</b>, pagas sus botones, lo coses en tu colcha (puedes girarlo y darle la vuelta, sin montarlo encima de otro) y avanzas tu ficha tantas casillas como tiempo marque. El dedal se queda donde estaba ese retal.</li>
+      <li><b>Avanzar</b>: pones tu ficha justo delante de la de tu rival y cobras <b>1 botón por cada casilla</b> que avanzas.</li></ul></section>
+    <section><h3>Cobrar botones</h3><p>Algunos retales tienen botones dibujados. Cada vez que tu ficha pasa por una casilla con ${BTN_ICON.replace("<svg", '<svg width="16" height="16" style="display:inline;vertical-align:-3px"')} cobras tantos botones como haya en tu colcha. Cuanto antes los consigas, más veces cobras (hay 9 cobros en todo el tablero).</p></section>
+    <section><h3>Retales de cuero</h3><p>En el tablero hay 5 retales de cuero de 1×1. El primero que pasa por su casilla se lo lleva y lo cose al momento. Son perfectos para tapar agujeros sueltos.</p></section>
+    <section><h3>Cuadrado de 7×7</h3><p>El primero que cubra por completo un cuadrado de 7×7 en su colcha gana <b>7 puntos</b> extra.</p></section>
+    <section><h3>Final y puntos</h3><p>La partida acaba cuando las dos fichas llegan al centro. Si un retal te lleva más allá, te quedas en la última casilla. Puntos = botones que tienes − 2 por cada hueco vacío + 7 si tienes el cuadrado. Si empatáis, gana quien llegó antes al final.</p></section>
+    <section><h3>Consejos para empezar</h3><ul>
+      <li>Al principio, compra retales con botones: te darán dinero toda la partida.</li>
+      <li>Al final, los botones de los retales ya no rinden: busca piezas grandes y baratas que tapen huecos.</li>
+      <li>Coloca los retales pegados a los bordes y no dejes agujeros de 1 casilla.</li>
+      <li>Mira qué 3 retales le dejas a tu rival después de tu jugada.</li>
+      <li>Si dudas, pulsa <b>Pista</b>.</li></ul></section>
+    <div class="row"><button class="btn ghost" id="tourGo">Ver la visita guiada</button><button class="btn gold" data-x>Entendido</button></div></div>`);
+  on("[data-x]", "click", closeSheet, $sheet);
+  on("#tourGo", "click", () => { closeSheet(); if (S.mode && document.getElementById("myqw")) startTour(true); else toast("La visita guiada empieza al abrir tu primera partida."); }, $sheet);
+}
+
+/* ================= visita guiada ================= */
+const TOUR = [
+  { el: null, h: "Bienvenido al taller", t: "Te enseño la mesa en un minuto. Vas a coser una colcha de 9×9 con retales que compras con <b>botones</b>." },
+  { el: "#trk", h: "El tablero de tiempo", t: "Cada retal cuesta tiempo. <b>Juega siempre quien va más atrás</b>, así que puedes repetir turno. Al pasar por un botón cobras los botones de tu colcha." },
+  { el: "#ring", h: "Los retales", t: "Solo puedes elegir entre los <b>3 numerados</b>, los que siguen al dedal. Debajo de cada uno: lo que cuesta en botones y en tiempo. Los de borde verde te los puedes permitir." },
+  { el: "#myqw", h: "Tu colcha", t: "Al elegir un retal aparece aquí. <b>Tócalo o arrástralo</b> para moverlo, gíralo o voltéalo y pulsa «Coser aquí». Cada hueco vacío al final resta 2 puntos." },
+  { el: "#acts", h: "Avanzar", t: "Si no te convence ningún retal, avanza hasta pasar a tu rival y cobra 1 botón por casilla. <b>Pista</b> te sugiere una jugada." },
+  { el: "#help", h: "¿Dudas?", t: "Aquí tienes las reglas completas cuando quieras. ¡A coser!" }
+];
+let tourI = -1;
+function startTour(force) {
+  if (tourI >= 0 || (!force && ls.get("retales.tuto"))) return;
+  if (!document.getElementById("myqw")) return;
+  ls.set("retales.tuto", 1); tourI = 0; showTour();
+}
+function showTour() {
+  document.querySelectorAll(".spot").forEach(e => e.classList.remove("spot"));
+  const s = TOUR[tourI]; if (!s) return endTour();
+  let el = s.el && document.querySelector(s.el);
+  if (el && !el.offsetHeight) el = null;
+  if (el) { el.classList.add("spot"); el.scrollIntoView({ block: "center" }); }
+  const r = el ? el.getBoundingClientRect() : null, low = r && r.top + r.height / 2 > innerHeight / 2;
+  $tour.innerHTML = `${el ? "" : '<div class="shade"></div>'}<div class="bub" role="dialog" aria-modal="true" style="${low ? "top:calc(12px + env(safe-area-inset-top,0px))" : "bottom:calc(14px + env(safe-area-inset-bottom,0px))"}">
+    <span class="steps">PASO ${tourI + 1} DE ${TOUR.length}</span><h3>${s.h}</h3><p>${s.t}</p>
+    <div class="row"><button class="btn ghost sm" id="tX">Saltar</button><button class="btn gold sm" id="tN">${tourI === TOUR.length - 1 ? "¡A jugar!" : "Siguiente"}</button></div></div>`;
+  $tour.classList.add("on");
+  $tour.querySelector("#tX").addEventListener("click", endTour);
+  $tour.querySelector("#tN").addEventListener("click", () => { tourI++; showTour(); });
+}
+function endTour() { tourI = -1; $tour.classList.remove("on"); $tour.innerHTML = ""; document.querySelectorAll(".spot").forEach(e => e.classList.remove("spot")); }
+
+/* ================= hojas ================= */
+function confirmSheet(title, text, okLabel, fn) {
+  openSheet(`<h2>${esc(title)}</h2>${text ? `<p class="muted">${esc(text)}</p>` : ""}<div class="row"><button class="btn ghost" data-x>Cancelar</button><button class="btn gold" data-ok>${esc(okLabel)}</button></div>`);
+  on("[data-x]", "click", closeSheet, $sheet);
+  on("[data-ok]", "click", () => { closeSheet(); fn(); }, $sheet);
+}
+function openSheet(html) {
+  document.getElementById("toast").classList.remove("on");
+  $sheet.innerHTML = `<div class="scrim"></div><div class="pane" role="dialog" aria-modal="true">${html}</div>`; $sheet.classList.add("on");
+  $sheet.querySelector(".scrim").addEventListener("click", closeSheet); $sheet.querySelector(".pane").scrollTop = 0;
+}
+function closeSheet() { $sheet.classList.remove("on"); $sheet.innerHTML = ""; }
+addEventListener("keydown", e => { if (e.key === "Escape") { closeSheet(); endTour(); } });
+
+boot();
+})();
+</script>
+</body>
+</html>
