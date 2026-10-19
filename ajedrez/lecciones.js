@@ -8,7 +8,19 @@
    play jugar una posición contra la máquina hasta cumplir el objetivo (mate o coronar)
    pool ejercicios de la colección de problemas con ese tema */
 window.LECCIONES = [
-{ id: "u1", t: "Primeros pasos", d: "El valor de las piezas, jaque mate y no dejar nada colgado.", lessons: [
+{ id: "u1", t: "Primeros pasos", d: "Cómo leer el tablero, el valor de las piezas, jaque mate y no dejar nada colgado.", lessons: [
+  { id: "leer", t: "Cómo leer el tablero y las jugadas", steps: [
+    { k: "txt", fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", marks: { g1: "g" }, txt: "Antes de nada, el idioma del ajedrez. Las <b>columnas</b> tienen letras, de la <b>a</b> a la <b>h</b> (míralas abajo del tablero). Las <b>filas</b> tienen números, del <b>1</b> al <b>8</b> (a la izquierda). Cada casilla se nombra con su letra y su número. La casilla verde es <b>g1</b>: columna g, fila 1. Ahí empieza un caballo blanco." },
+    { k: "quiz", fen: "7k/8/8/8/8/8/8/K7 w - - 0 1", marks: { e4: "g" }, q: "¿Cómo se llama la casilla verde?", opts: ["e4", "d4", "e5"], a: 0, exp: "Columna e (la quinta letra) y fila 4. Es una de las cuatro casillas del centro." },
+    { k: "quiz", fen: "7k/8/8/8/8/8/8/K7 w - - 0 1", marks: { b7: "g" }, q: "¿Y esta?", opts: ["g2", "b7", "b2"], a: 1, exp: "Columna b, fila 7. Las blancas empiezan abajo (filas 1 y 2) y las negras arriba (filas 7 y 8)." },
+    { k: "txt", fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", arrows: [["g1", "f3", "g"], ["e2", "e4", "g"]], txt: "Las jugadas se escriben con la <b>letra de la pieza</b> y la <b>casilla a la que va</b>:<br><b>R</b> rey · <b>D</b> dama · <b>T</b> torre · <b>A</b> alfil · <b>C</b> caballo. El <b>peón no lleva letra</b>.<br><b>Cf3</b> = el caballo va a f3. <b>e4</b> = un peón va a e4 (las dos flechas verdes)." },
+    { k: "txt", txt: "Y unos símbolos que verás todo el rato:<br><b>x</b> = come. <b>Axf7</b>: el alfil come lo que hay en f7.<br><b>+</b> = jaque. <b>Dh5+</b>: la dama va a h5 y da jaque.<br><b>#</b> = jaque mate, se acaba la partida.<br><b>O-O</b> = enroque corto (el rey hacia la derecha) y <b>O-O-O</b> = enroque largo." },
+    { k: "quiz", q: "¿Qué significa Dxe5+?", opts: ["La dama va a e5", "La dama come en e5 y da jaque", "Un peón come en e5"], a: 1, exp: "D = dama, x = come, e5 = la casilla, + = jaque." },
+    { k: "txt", txt: "Ahora lo más importante: <b>en esta escuela, cada vez que se mueve una pieza te explico debajo del tablero qué ha pasado</b>: qué pieza se ha movido, qué ataca y qué amenaza.<br>Las <b>flechas rojas</b> son amenazas (lo que se puede comer) y las <b>azules</b>, piezas que defienden.<br>Léelo siempre, sobre todo cuando mueve el rival: así aprendes a ver el tablero como un jugador fuerte." },
+    { k: "line", moves: ["e2e4", "e7e5", "f1c4", "b8c6", "d1h5", "g8f6", "h5f7"], txt: "Vamos a verlo con la partida más corta y famosa, el <b>mate del pastor</b>. Pulsa <b>Adelante</b> y lee la explicación de cada jugada.",
+      notes: ["Las blancas adelantan el peón del rey dos casillas. Ocupa el centro y deja salir al alfil y a la dama.", "Las negras hacen lo mismo.", "El alfil sale y apunta a f7. f7 es el punto débil de las negras: solo lo defiende el rey.", "Las negras sacan un caballo. Bien, pero no se fijan en lo que preparan las blancas.", "La dama también apunta a f7. Ya son dos piezas atacando f7 y solo el rey lo defiende.", "¡Error! El caballo ataca a la dama, pero no defiende f7.", "La dama come en f7, protegida por el alfil. El rey no puede comerla y no tiene adónde ir: jaque mate."] },
+    { k: "quiz", q: "En el mate del pastor, ¿por qué el rey negro no puede comer la dama en f7?", opts: ["Porque el rey no puede comer", "Porque la dama está defendida por el alfil de c4: el rey se pondría en jaque", "Porque es el turno de las blancas"], a: 1, exp: "El rey nunca puede ir a una casilla atacada. Por eso una pieza defendida al lado del rey es tan peligrosa." }
+  ]},
   { id: "valor", t: "Lo que vale cada pieza", steps: [
     { k: "txt", fen: "8/8/8/8/1PNBRQ2/8/8/8 w - - 0 1", txt: "Cada pieza vale lo que puede hacer. Apréndete esta tabla, la usarás en <b>cada</b> jugada:<br><b>Peón 1 · Caballo 3 · Alfil 3 · Torre 5 · Dama 9</b>.<br>El rey no tiene precio: si lo pierdes, pierdes la partida." },
     { k: "txt", txt: "Cuando cambias piezas, suma y resta. Dar un caballo (3) por una torre (5) es <b>ganar 2</b>. Dar una dama (9) por una torre (5) es <b>perder 4</b>, aunque te parezca un cambio." },
@@ -28,7 +40,7 @@ window.LECCIONES = [
     { k: "txt", txt: "La mitad de las partidas de principiantes se deciden por una pieza que se queda <b>colgada</b>: atacada y sin defensa.<br>Antes de cada jugada hazte dos preguntas:<br>1. <b>¿Qué ha cambiado con la última jugada del rival?</b> ¿Qué ataca ahora?<br>2. <b>¿Dejo algo sin defender</b> con mi jugada?" },
     { k: "pz", fen: "r1b1kbnr/pppp1ppp/2n5/4p1q1/4P3/2NP4/PPP2PPP/R1BQKBNR w KQkq - 1 4", sol: ["c1g5"], txt: "Las negras han sacado la dama demasiado pronto. ¿Qué haces?", ok: "Axg5. El alfil de c1 apuntaba a g5 por la diagonal. Una dama gratis." },
     { k: "pz", fen: "rnbqkb1r/pppp1ppp/8/4p3/2B1P1n1/2N5/PPPP1PPP/R1BQK1NR w KQkq - 0 4", sol: ["d1g4"], alts: { 0: ["c4f7"] }, txt: "El caballo negro se ha ido de paseo. ¿Quién lo defiende?", ok: "Dxg4. Nadie defendía el caballo de g4: el alfil de c8 tiene el peón de d7 delante." },
-    { k: "pool", th: "colgada", n: 3, hi: 1100, txt: "Ahora tres de la colección: en todos hay algo que se puede comer." }
+    { k: "pool", th: "colgada", n: 3, hi: 900, txt: "Ahora tres de la colección: en todos hay algo que se puede comer." }
   ]}
 ]},
 { id: "u2", t: "Mates que tienes que saber", d: "El pasillo, dama y torre contra rey y los patrones clásicos.", lessons: [

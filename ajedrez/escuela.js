@@ -146,7 +146,8 @@ const TH = { mate: "Mate", mate1: "Mate en 1", mate2: "Mate en 2", mate3: "Mate 
 let B = null, gen = 0;
 const boardHTML = () => `<div class="board-wrap sch-bd"><div class="frame"><div class="board" id="bd"><div class="sqs" id="sqs"></div><div class="veins"></div><div class="grain"></div><div class="pcs" id="pcs"></div><svg class="arw" id="arw" viewBox="0 0 800 800" aria-hidden="true"></svg><div class="fx" id="fx"></div></div></div></div>`;
 function newBoard(pos, o = {}) {
-  B = { pos, bottom: o.bottom || pos.turn, user: o.user || null, sel: null, last: null, marks: o.marks || {}, arrows: o.arrows || [], busy: false, onMove: o.onMove || null, keys: [C.toFEN(pos, true)] };
+  B = { pos, bottom: o.bottom || pos.turn, user: o.user || null, sel: null, last: null, marks: o.marks || {}, arrows: o.arrows || [], busy: false, onMove: o.onMove || null, keys: [C.toFEN(pos, true)], me: o.me || null, opp: o.opp || "El rival" };
+  const cm = $("#cm"); if (cm) cm.innerHTML = "";
   const sq = $("#sqs");
   if (sq) sq.addEventListener("click", e => { const b = e.target.closest(".sq"); if (b) tap(+b.dataset.sq); });
   draw();
@@ -213,9 +214,116 @@ async function play(uci, anim = true) {
   const me = B;
   if (anim) { B.busy = true; draw(); try { await animateMove(h, B.bottom); } catch {} if (B !== me) return null; B.busy = false; }
   B.pos = C.make(pos, m); B.last = { f: m.f, t: m.t }; B.keys.push(C.toFEN(B.pos, true));
+  comment(pos, m);
   draw();
   if (C.inCheck(B.pos)) SFX.check();
   return h;
+}
+
+/* ================= explicar cada jugada en palabras ================= */
+const Cap = x => x.charAt(0).toUpperCase() + x.slice(1);
+const elLa = t => (A.FEM(t) ? "la" : "el");
+const ao = t => (A.FEM(t) ? "a" : "o");
+const pAt = (p, sq) => `${elLa(C.type(p))} ${NAME[C.type(p)]} de ${C.sqName(sq)}`;
+const pts = n => `${n} punto${n === 1 ? "" : "s"}`;
+function moveWords(m) {
+  if (m.k) return m.k === "K" ? "Enroque corto" : "Enroque largo";
+  return `${Cap(NAME[C.type(m.p)])} de ${C.sqName(m.f)} a ${C.sqName(m.t)}`;
+}
+function describe(pos, m) {
+  const c = pos.turn, o = other(c), p1 = C.make(pos, m), t = C.type(m.pr || m.p), out = [], arrows = [];
+  const mate = isMate(p1), chk = C.inCheck(p1);
+  if (m.k) out.push("El rey se esconde en una esquina, detrás de sus peones, y la torre sale a jugar.");
+  if (m.c) out.push(`Come ${elLa(C.type(m.c))} ${NAME[C.type(m.c)]} (${pts(PV[C.type(m.c)])}).`);
+  if (m.pr) out.push(`¡El peón llega al final del tablero y se convierte en ${NAME[C.type(m.pr)]}!`);
+  if (mate) out.push("<b>¡Jaque mate!</b> El rey está atacado y no tiene ninguna forma de salvarse.");
+  else if (chk) out.push("<b>Da jaque</b>: el rival está obligado a salvar a su rey antes de hacer otra cosa.");
+  if (!mate) {
+    const tg = [];
+    for (let s = 0; s < 64; s++) {
+      const x = p1.b[s]; if (!x || C.colorOf(x) !== o || C.type(x) === "k") continue;
+      if (!C.attackersOf(p1.b, s, c).some(a => a.sq === m.t)) continue;
+      const def = C.attackersOf(p1.b, s, o).length > 0;
+      if (!def || PV[C.type(x)] > PV[t]) tg.push({ s, x, def });
+    }
+    if (tg.length) {
+      tg.forEach(z => arrows.push([C.sqName(m.t), C.sqName(z.s), "r"]));
+      out.push(`${tg.length > 1 ? "<b>¡Ataca dos piezas a la vez!</b> " : ""}Amenaza con comer ${A.listY(tg.map(z => pAt(z.x, z.s) + (z.def ? "" : ", que no tiene defensa")))}.`);
+    }
+    if (!chk) {
+      const nm = { ...p1, turn: c, ep: -1 };
+      const mm = C.legalMoves(nm).find(x => isMate(C.make(nm, x)));
+      if (mm) { arrows.push([C.sqName(mm.f), C.sqName(mm.t), "r"]); out.push(`<b>Amenaza jaque mate</b> con ${moveWords(mm).toLowerCase()} (flecha roja). El rival tiene que evitarlo.`); }
+    }
+  }
+  if (t !== "k" && !mate) {
+    const att = C.attackersOf(p1.b, m.t, o), def = C.attackersOf(p1.b, m.t, c);
+    if (att.length) {
+      const cheap = att.filter(a => PV[C.type(a.p)] < PV[t]);
+      if (!def.length) { att.forEach(a => arrows.push([C.sqName(a.sq), C.sqName(m.t), "r"])); out.push(`Ojo: ${elLa(t)} ${NAME[t]} se queda atacad${ao(t)} por ${pAt(att[0].p, att[0].sq)} y nadie ${t === "p" ? "lo" : A.FEM(t) ? "la" : "lo"} defiende.`); }
+      else if (cheap.length) out.push(`Ojo: ${pAt(cheap[0].p, cheap[0].sq)} puede comer${A.FEM(t) ? "la" : "lo"}, y vale menos.`);
+      else { arrows.push([C.sqName(def[0].sq), C.sqName(m.t), "b"]); out.push(`Si ${A.FEM(t) ? "la" : "lo"} comen, se recupera: ${pAt(def[0].p, def[0].sq)} ${A.FEM(t) ? "la" : "lo"} defiende (flecha azul).`); }
+    }
+  }
+  if (!m.c && !m.k && !mate) {
+    const was = C.attackersOf(pos.b, m.f, o);
+    if (was.length && (!C.attackersOf(pos.b, m.f, c).length || was.some(a => PV[C.type(a.p)] < PV[C.type(m.p)])) && t !== "k") out.push(`${Cap(elLa(t))} ${NAME[t]} estaba en peligro en ${C.sqName(m.f)} y se pone a salvo.`);
+  }
+  if (!out.length) {
+    const back = c === "w" ? 0 : 7;
+    if (pos.full <= 12 && "nb".includes(t) && m.f >> 3 === back) out.push("Saca una pieza a jugar. Se llama <b>desarrollar</b>: en la apertura hay que sacar caballos y alfiles pronto.");
+    else if (t === "p" && [27, 28, 35, 36].includes(m.t)) out.push("Ocupa el <b>centro</b> del tablero: desde ahí las piezas controlan más casillas y el rival tiene menos espacio.");
+    else if (t === "p" && pos.full <= 12) out.push("Abre camino a las piezas de detrás o gana espacio.");
+    else if (t === "k") out.push("El rey se acerca a la acción. En los finales, el rey es una pieza más que tiene que ayudar.");
+    else {
+      const n0 = C.pseudo({ ...pos, turn: c }).filter(x => x.f === m.f).length, n1 = C.pseudo({ ...p1, turn: c }).filter(x => x.f === m.t).length;
+      out.push(n1 > n0 ? `Busca una casilla mejor: ahora ${elLa(t)} ${NAME[t]} controla más casillas (${n1} en vez de ${n0}).` : "Una jugada tranquila para preparar la siguiente.");
+    }
+  }
+  return { head: moveWords(m), txt: out.join(" "), arrows };
+}
+function comment(pos, m) {
+  const el = $("#cm"); if (!el || !B) return;
+  const d = describe(pos, m), c = pos.turn;
+  const who = B.me ? (c === B.me ? "Tú" : B.opp) : c === "w" ? "Blancas" : "Negras";
+  B.arrows = d.arrows;
+  el.innerHTML = `<p><span class="side ${c}"></span><b>${who}: ${esc(d.head)}.</b> ${d.txt}</p>${d.arrows.length ? `<p class="small muted">Flecha roja: amenaza · azul: defensa.</p>` : ""}`;
+}
+/* Resumen de una secuencia: por qué es la mejor */
+function whyLine(pos0, moves) {
+  const me = pos0.turn; let p = pos0; const won = [], lost = [];
+  for (const u of moves) { const m = C.findMove(p, u); if (!m) break; if (m.c) (C.colorOf(m.p) === me ? won : lost).push(C.type(m.c)); p = C.make(p, m); }
+  if (isMate(p)) return `<b>¿Por qué es la mejor?</b> Termina en <b>jaque mate</b>${moves.length > 1 ? ` en ${Math.ceil(moves.length / 2)} jugadas` : ""}: no hay nada mejor que ganar la partida.`;
+  const sum = a => a.reduce((x, t) => x + PV[t], 0), d = sum(won) - sum(lost);
+  const nm = a => A.listY(a.map(t => `${t === "p" ? "un" : A.FEM(t) ? "una" : "un"} ${NAME[t]}`));
+  if (d > 0) return `<b>¿Por qué es la mejor?</b> Al final de la secuencia ${won.length ? `ganas ${nm(won)}` : ""}${lost.length ? ` y entregas ${nm(lost)}` : ""}: en total <b>+${pts(d)}</b> de material. Cualquier otra jugada no gana tanto.`;
+  const m0 = C.findMove(pos0, moves[0]), d0 = m0 ? describe(pos0, m0).txt : "";
+  return `<b>¿Por qué es la mejor?</b> ${d0 ? d0 + " " : ""}El rival no puede arreglarlo todo a la vez, y cualquier otra jugada le deja respirar.`;
+}
+/* Botón para repasar la solución jugada a jugada */
+function addReplay(pos0, moves, tok, me) {
+  const la = $("#la"); if (!la || !moves.length) return;
+  la.insertAdjacentHTML("afterbegin", `<button class="btn sm" id="rpl">▶ Ver la solución paso a paso</button>`);
+  let i = -1;
+  A.on("#rpl", "click", async e => {
+    const b = e.currentTarget; if (!B || B.busy) return;
+    if (i < 0 || i >= moves.length) { B.pos = pos0; B.last = null; B.arrows = []; B.marks = {}; B.user = null; draw(); i = 0; const cm = $("#cm"); if (cm) cm.innerHTML = `<p>Posición de partida. Pulsa otra vez para ver la primera jugada.</p>`; b.textContent = `Jugada 1 de ${moves.length} ▶`; return; }
+    await play(moves[i]); if (tok !== gen) return; i++;
+    b.textContent = i >= moves.length ? "↺ Verla otra vez" : `Jugada ${i + 1} de ${moves.length} ▶`;
+  });
+}
+/* Pistas por pasos: idea → pieza → flecha */
+function hintFor(pos, uci, lvl) {
+  const m = C.findMove(pos, uci); if (!m) return "";
+  if (lvl === 1) {
+    const p1 = C.make(pos, m);
+    if (isMate(p1)) return "Pista: hay un <b>jaque mate</b>. Mira qué casillas le quedan al rey rival.";
+    if (C.inCheck(p1)) return "Pista: empieza con un <b>jaque</b>. Los jaques obligan al rival a responder.";
+    if (m.c) return "Pista: hay algo que se puede <b>comer</b>. Mira qué piezas del rival no están defendidas.";
+    return "Pista: busca una jugada que <b>amenace</b> algo grande (mate, la dama o dos piezas a la vez).";
+  }
+  if (lvl === 2) { B.marks = { [C.sqName(m.f)]: "g" }; draw(); return `Pista: mueve ${pAt(m.p, m.f)} (casilla verde).`; }
+  B.arrows = [[C.sqName(m.f), C.sqName(m.t), "g"]]; draw(); return `Pista: ${moveWords(m).toLowerCase()} (flecha verde).`;
 }
 const isMate = pos => C.inCheck(pos) && !C.legalMoves(pos).length;
 const mates = (pos, uci) => { const m = C.findMove(pos, uci); return !!m && isMate(C.make(pos, m)); };
@@ -306,11 +414,13 @@ function renderStep() {
   const tok = show(`${topBar("← Escuela", esc(u.t.toUpperCase()))}
     <div class="ltitle"><h2>${esc(l.t)}</h2><div class="pbar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${pct}%"></i></div></div>
     <div class="ltxt" id="lt"></div>
-    ${needBoard ? boardHTML() : ""}
+    ${needBoard ? boardHTML() + `<div class="cm" id="cm"></div>` : ""}
     <div id="lx"></div>
     <p class="fb" id="fb" role="status" aria-live="polite"></p>
     <div class="acts" id="la"></div>`);
   A.on("#bk", "click", () => goHome());
+  $("#sch .top .sp").insertAdjacentHTML("afterend", `<button class="icon-btn" id="gl" aria-label="Palabras del ajedrez">📖</button>`);
+  A.on("#gl", "click", glossary);
   const K = { txt: stepTxt, quiz: stepQuiz, pz: stepPz, line: stepLine, rep: stepRep, play: stepPlay, pool: stepPool }[st.k];
   if (K) K(st, tok); else nextStep();
 }
@@ -348,11 +458,11 @@ function stepQuiz(st) {
 function stepPz(st, tok) {
   const pos = C.fromFEN(st.fen), side = pos.turn;
   txtEl(`<p><span class="side ${side}"></span><b>Juegan ${side === "w" ? "blancas" : "negras"}.</b> ${st.txt || ""}</p>`);
-  let j = 0, miss = 0, over = false;
+  let j = 0, miss = 0, over = false, hl = 0;
   const finish = ok => {
     over = true; B.user = null;
     fb((ok ? "✓ " : "") + (st.ok || "¡Bien!"), ok ? "ok" : ""); if (ok) SFX.magic();
-    nextBtn();
+    nextBtn(); addReplay(pos, st.sol, tok);
   };
   const onMove = async u => {
     if (over) return;
@@ -360,19 +470,20 @@ function stepPz(st, tok) {
     if (u === exp || alts.includes(u) || (st.mate && mates(B.pos, u))) {
       await play(u); if (tok !== gen) return;
       if (u !== exp || j + 1 >= st.sol.length) return finish(true);
-      await wait(350); await play(st.sol[j + 1]); if (tok !== gen) return;
-      j += 2; if (j >= st.sol.length) finish(true); else fb("¡Bien! Sigue.", "ok");
+      fb("¡Bien! Mira cómo responde el rival…", "ok");
+      await wait(900); await play(st.sol[j + 1]); if (tok !== gen) return;
+      j += 2; hl = 0; if (j >= st.sol.length) finish(true); else fb("¡Bien! Lee qué ha hecho el rival (debajo del tablero) y sigue.", "ok");
     } else {
       miss++; if (miss === 1) V.err++;
       wrong(); fb(miss >= 2 ? "Tampoco. Usa la pista si te atascas." : "No es esa. Prueba otra vez.", "bad");
     }
   };
-  newBoard(pos, { bottom: side, user: side, onMove });
+  newBoard(pos, { bottom: side, user: side, onMove, me: side });
   setActs(`<button class="btn sm" id="ph">Pista</button><button class="btn sm ghost" id="ps">Ver solución</button>`, {
-    "#ph": () => { if (over) return; V.err++; const f = st.sol[j].slice(0, 2); B.marks = { [f]: "g" }; draw(); fb(`Mueve la pieza de ${f}.`); },
+    "#ph": () => { if (over || B.busy) return; if (!hl) V.err++; hl = Math.min(3, hl + 1); fb(hintFor(B.pos, st.sol[j], hl)); },
     "#ps": async () => {
-      if (over) return; over = true; V.err += 2; B.user = null;
-      while (j < st.sol.length) { await play(st.sol[j]); if (tok !== gen) return; j++; await wait(300); }
+      if (over || B.busy) return; over = true; V.err += 2; B.user = null;
+      while (j < st.sol.length) { await play(st.sol[j]); if (tok !== gen) return; j++; await wait(1100); }
       finish(false);
     }
   });
@@ -411,7 +522,7 @@ function stepRep(st, tok) {
   txtEl(`<p>${st.txt || ""} Juegas con <b>${side === "w" ? "blancas" : "negras"}</b>: haz tus jugadas de la línea; el rival responde solo.</p>`);
   let j = 0, miss = 0, done = false;
   const auto = async () => {
-    while (j < st.moves.length && B.pos.turn !== side) { await wait(380); if (tok !== gen) return; await play(st.moves[j]); if (tok !== gen) return; j++; }
+    while (j < st.moves.length && B.pos.turn !== side) { await wait(700); if (tok !== gen) return; await play(st.moves[j]); if (tok !== gen) return; j++; }
     if (j >= st.moves.length) { done = true; B.user = null; SFX.magic(); fb("✓ ¡Línea completa! Ya la tienes en la cabeza.", "ok"); nextBtn(); }
     else fb(`Tu jugada (${Math.ceil((j + 1) / 2)}).`);
   };
@@ -424,7 +535,7 @@ function stepRep(st, tok) {
       else fb("Esa no es la de la línea. Prueba otra vez.", "bad");
     }
   };
-  newBoard(C.fromFEN(C.START), { bottom: side, user: side, onMove });
+  newBoard(C.fromFEN(C.START), { bottom: side, user: side, onMove, me: side });
   auto();
 }
 function stepPlay(st, tok) {
@@ -455,17 +566,39 @@ function stepPlay(st, tok) {
     if (n >= st.max) return fail(`Se acabaron las ${st.max} jugadas. Prueba otra vez con un plan.`);
     fb(`Jugada ${n} de ${st.max}. La máquina piensa…`);
     const r = await engineBest(B.pos, 350); if (tok !== gen || !r) return;
-    await wait(200);
+    await wait(500);
     const h2 = await play(r); if (tok !== gen) return;
     if (check(h2)) return;
     B.user = side; fb(`Jugada ${n} de ${st.max}. Te toca.`);
   };
-  newBoard(pos0, { bottom: side, user: side, onMove });
+  newBoard(pos0, { bottom: side, user: side, onMove, me: side, opp: "La máquina" });
   fb(`Tienes ${st.max} jugadas.`);
   setActs(`<button class="btn sm" id="ph">Pista</button><button class="btn sm ghost" id="pr">Empezar de nuevo</button>`, {
     "#ph": async () => { if (over || !B.user) return; fb("Pensando una pista…"); const r = await engineBest(B.pos, 600); if (tok !== gen || !r) return; B.arrows = [[r.slice(0, 2), r.slice(2, 4), "g"]]; draw(); fb("La flecha verde es una buena jugada."); },
     "#pr": () => renderStep()
   });
+}
+
+const GLOS = [
+  ["Jaque", "El rey está atacado. Hay que salvarlo: moverlo, comer la pieza que ataca o poner una pieza en medio."],
+  ["Jaque mate", "Jaque sin ninguna forma de salvarse. Se acaba la partida."],
+  ["Ahogado", "No estás en jaque pero no tienes ninguna jugada legal. Es tablas (empate)."],
+  ["Pieza colgada", "Una pieza atacada que nadie defiende: el rival se la puede comer gratis."],
+  ["Defender", "Tener otra pieza que pueda comer si te comen. Así, si te la quitan, la recuperas."],
+  ["Desarrollar", "Sacar caballos y alfiles de su casilla inicial para que jueguen."],
+  ["Centro", "Las casillas d4, e4, d5 y e5. Las piezas en el centro controlan más."],
+  ["Enroque", "Mover el rey dos casillas hacia una torre y pasar la torre al otro lado. Pone al rey a salvo."],
+  ["Horquilla", "Una pieza ataca dos piezas a la vez. El rival solo puede salvar una."],
+  ["Clavada", "Una pieza no se puede mover porque detrás está el rey (o algo más valioso) y quedaría atacado."],
+  ["Enfilada", "Atacas una pieza valiosa; cuando se aparta, comes la que estaba detrás."],
+  ["Ataque a la descubierta", "Mueves una pieza y la que estaba detrás de ella ataca de golpe."],
+  ["Sacrificio", "Entregar material a propósito para conseguir algo mejor (mate o más material)."],
+  ["Material", "Lo que valen tus piezas: peón 1, caballo 3, alfil 3, torre 5, dama 9."],
+  ["Coronar", "Llevar un peón a la última fila. Se convierte en dama (o en otra pieza)."],
+  ["Notación", "R rey, D dama, T torre, A alfil, C caballo; el peón sin letra. x come, + jaque, # mate, O-O enroque."]];
+function glossary() {
+  openSheet(`<h2>Palabras del ajedrez</h2><div class="glos">${GLOS.map(([t, d]) => `<p><b>${t}</b>: ${d}</p>`).join("")}</div><button class="btn gold" data-x>Entendido</button>`);
+  A.sheet.querySelector("[data-x]").addEventListener("click", closeSheet);
 }
 
 /* ---------- problemas de la colección ---------- */
@@ -486,8 +619,9 @@ function pickPuzzles(n, o = {}) {
 /* Problema: el primer movimiento es el error del rival; luego tú encuentras la mejor */
 function runPuzzle(k, tok, done) {
   const [fen, mv] = PZ[k], moves = mv.split(" "), pos = C.fromFEN(fen), side = other(pos.turn);
-  let j = 1, failed = false, over = false;
-  const end = () => { over = true; B.user = null; done(!failed); };
+  let j = 1, failed = false, over = false, hl = 0, p1 = null;
+  const end = () => { over = true; B.user = null; done(!failed); fb2(whyLine(p1, moves.slice(1))); addReplay(p1, moves.slice(1), tok); };
+  const fb2 = h => { const el = $("#fb"); if (el) el.insertAdjacentHTML("beforeend", `<span class="why2">${h}</span>`); };
   const onMove = async u => {
     if (over || B.busy) return;
     const exp = moves[j], last = j === moves.length - 1;
@@ -495,23 +629,23 @@ function runPuzzle(k, tok, done) {
       B.user = null;
       await play(u); if (tok !== gen) return;
       if (j + 1 >= moves.length || isMate(B.pos)) return end();
-      fb("¡Bien! Sigue…", "ok");
-      await wait(400); await play(moves[j + 1]); if (tok !== gen) return;
-      j += 2; B.user = side;
+      fb("¡Bien! Mira cómo responde el rival…", "ok");
+      await wait(900); await play(moves[j + 1]); if (tok !== gen) return;
+      j += 2; hl = 0; B.user = side; fb("¡Bien! Lee qué ha hecho el rival (debajo del tablero) y sigue.", "ok");
       if (j >= moves.length) end();
     } else { failed = true; wrong(); fb("No es la mejor. Prueba otra vez.", "bad"); }
   };
-  newBoard(pos, { bottom: side, user: null, onMove });
-  txtEl(`<p><span class="side ${side}"></span><b>Juegan ${side === "w" ? "blancas" : "negras"}.</b> El rival acaba de mover. Encuentra la mejor jugada.</p>`);
+  newBoard(pos, { bottom: side, user: null, onMove, me: side });
+  txtEl(`<p><span class="side ${side}"></span><b>Juegas con ${side === "w" ? "blancas" : "negras"}.</b> Mira la jugada que acaba de hacer el rival (te la explico debajo del tablero): ha cometido un error. Encuentra la mejor respuesta.</p>`);
   fb("");
-  const ready = wait(600).then(async () => { if (tok !== gen) return; await play(moves[0]); if (tok !== gen) return; B.user = side; });
+  const ready = wait(600).then(async () => { if (tok !== gen) return; await play(moves[0]); if (tok !== gen) return; p1 = B.pos; B.user = side; });
   return {
-    async hint() { await ready; if (tok !== gen || over || B.busy || !B.user) return; failed = true; B.marks = { [moves[j].slice(0, 2)]: "g" }; draw(); fb(`Mueve la pieza de ${moves[j].slice(0, 2)}.`); },
+    async hint() { await ready; if (tok !== gen || over || B.busy || !B.user) return; failed = true; hl = Math.min(3, hl + 1); fb(hintFor(B.pos, moves[j], hl)); },
     async solve() {
       await ready; while (B && B.busy && tok === gen) await wait(100);
       if (tok !== gen || over || !B.user) return; failed = true; over = true; B.user = null;
-      while (j < moves.length) { await play(moves[j]); if (tok !== gen) return; j++; await wait(350); }
-      done(false);
+      while (j < moves.length) { await play(moves[j]); if (tok !== gen) return; j++; await wait(1100); }
+      done(false); fb2(whyLine(p1, moves.slice(1))); addReplay(p1, moves.slice(1), tok);
     }
   };
 }
@@ -567,7 +701,7 @@ function renderTactics() {
   const k = pickPuzzles(1, { lo: P.pr - 150, hi: P.pr + 150 })[0];
   const tok = show(`${topBar("← Escuela", "TÁCTICA")}
     <div class="ltitle"><h2>Tu nivel: <span class="gold">${P.pr}</span></h2><p class="muted small">Problemas de partidas jugadas por el motor. Si aciertas a la primera sube tu nivel; si fallas o pides pista, baja.</p></div>
-    <div class="ltxt" id="lt"></div>${boardHTML()}<p class="fb" id="fb" role="status" aria-live="polite"></p><div class="acts" id="la"></div>`);
+    <div class="ltxt" id="lt"></div>${boardHTML()}<div class="cm" id="cm"></div><p class="fb" id="fb" role="status" aria-live="polite"></p><div class="acts" id="la"></div>`);
   A.on("#bk", "click", goHome);
   if (k == null) { fb("No hay problemas."); return; }
   const ctl = runPuzzle(k, tok, ok => {
