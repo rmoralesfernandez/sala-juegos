@@ -1289,7 +1289,7 @@ async function syncClock() {
       const t1 = Date.now();
       if (r && r.acquired && r.expiresAt) {
         const off = Date.parse(r.expiresAt) - 1000 - (t0 + t1) / 2;
-        if (isFinite(off) && (!best || t1 - t0 < best.rtt)) best = { off, rtt: t1 - t0 };
+        if (isFinite(off) && (!best || t1 - t0 < best.rtt)) { best = { off, rtt: t1 - t0 }; S.offset = off; S.clockOk = true; }
       }
     } catch (e) {}
     await sleep(1200);

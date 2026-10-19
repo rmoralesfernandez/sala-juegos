@@ -31,9 +31,24 @@
       const fs = firebase.firestore();
       const nick = ls.get(NICK_KEY);
       if (nick) fs.doc(`profiles/${user.uid}`).set({ name: nick }).catch(() => {});
-      return { uid: user.uid, fs, rtdb: firebase.database() };
+      const rtdb = firebase.database();
+      return { uid: user.uid, fs, rtdb, serverNow: serverClock(rtdb) };
     })();
     return ready;
+  }
+
+  /* Hora del servidor: cada móvil tiene su reloj y pueden ir segundos o minutos desfasados.
+     Realtime Database da el desfase respecto a sus servidores, así todos los móviles comparten la misma hora. */
+  function serverClock(rtdb) {
+    let skew = 0, known = false;
+    const first = new Promise(res => {
+      const t = setTimeout(res, 4000);
+      rtdb.ref(".info/serverTimeOffset").on("value", s => {
+        const v = s.val();
+        if (typeof v === "number" && isFinite(v)) { skew = v; known = true; clearTimeout(t); res(); }
+      }, () => res());
+    });
+    return async () => { if (!known) await first; return Date.now() + skew; };
   }
 
   /* ---------- db: API tipo Firestore guardando el JSON tal cual ---------- */
@@ -84,8 +99,9 @@
         const ttl = Math.min(600000, Math.max(1000, ttlMs || 30000));
         const lease = core.fs.doc(`apps/${APP}/_leases/${segs(path).join("__")}`);
         try {
+          const now = await core.serverNow();
           return await core.fs.runTransaction(async tx => {
-            const s = await tx.get(lease), now = Date.now(), cur = s.exists ? s.data() : null;
+            const s = await tx.get(lease), cur = s.exists ? s.data() : null;
             if (cur && cur.exp > now && cur.holder !== holder) return { acquired: false, expiresAt: new Date(cur.exp).toISOString() };
             const exp = now + ttl;
             tx.set(lease, { holder, exp });
