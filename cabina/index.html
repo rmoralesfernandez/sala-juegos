@@ -1,0 +1,990 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Doble Mando</title>
+<meta name="theme-color" content="#0A1222">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="../icons/icon-192.png">
+<link rel="apple-touch-icon" href="../icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Manrope:wght@500;700;800&display=swap">
+<script>window.APP_KEY="cabina"</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="../firebase-config.js"></script>
+<script src="../shared/claude-shim.js"></script>
+<script src="../shared/turno.js"></script>
+<script src="motor.js"></script>
+<style>
+/* Cabina a una columna: aproximación y altitud arriba, panel de mandos en medio, tus dados abajo */
+:root{
+  --bg:#0A1222; --bg2:#14254A; --panel:#121D33; --panel2:#1B2A48; --line:#2B3D60; --metal:#22324F;
+  --ink:#EAF1FF; --muted:#9EB0D0; --gold:#FFD166; --ok:#5BE49B; --bad:#FF6B6B;
+  --pi:#3D8BFF; --pi2:#1E4FA3; --co:#FF9A3C; --co2:#A9561A;
+  --display:"Chakra Petch","Manrope",system-ui,sans-serif;
+  --body:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:
+  radial-gradient(80% 40% at 50% -6%,rgba(61,139,255,.22),transparent 70%),
+  radial-gradient(120% 80% at 50% 0%,var(--bg2),var(--bg) 70%) fixed;
+  background-color:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.4;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+#app{max-width:600px;margin:0 auto;min-height:100%;padding-inline:16px;padding-block:calc(12px + env(safe-area-inset-top,0px)) calc(24px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:10px}
+h1,h2,h3{font-family:var(--display);font-weight:700;margin:0;letter-spacing:.02em;text-wrap:balance}
+p{margin:0}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+svg{display:block}
+
+.btn{appearance:none;border:0;border-radius:14px;min-height:50px;padding:0 18px;background:var(--panel2);color:var(--ink);font-weight:800;font-size:16px;box-shadow:0 3px 0 rgba(0,0,0,.5);display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:transform .08s;text-align:center}
+.btn:active{transform:translateY(2px)}
+.btn.gold{background:linear-gradient(180deg,#FFE29A,var(--gold));color:#3A2800}
+.btn.ghost{background:transparent;box-shadow:inset 0 0 0 2px var(--line)}
+.btn.sm{min-height:42px;font-size:14px;padding:0 12px;border-radius:11px}
+.btn:disabled{opacity:.42;cursor:default;transform:none}
+.btn.wide{width:100%}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>*{flex:1 1 140px}
+input.text{width:100%;min-height:50px;border-radius:12px;border:2px solid var(--line);background:var(--bg);padding:0 14px;font-size:17px;font-weight:700}
+input.code{text-transform:uppercase;letter-spacing:.3em;font-family:var(--display);font-size:24px;text-align:center}
+label.lbl,.lbl{display:grid;gap:6px;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.card{background:var(--panel);border-radius:18px;padding:16px;display:grid;gap:12px;box-shadow:0 0 0 1px var(--line)}
+.card h2{font-size:21px}
+.msg{min-height:1.4em;color:var(--gold);text-align:center;font-weight:700}
+.msg.err{color:var(--bad)}
+.hero{display:grid;gap:10px;justify-items:center;text-align:center;padding-block:10px 4px}
+.logo{font-family:var(--display);font-weight:700;font-size:clamp(42px,12.5vw,62px);line-height:1;color:var(--ink);text-shadow:0 3px 0 #0B2A66,0 10px 30px rgba(0,0,0,.6);letter-spacing:.03em}
+.logo em{font-style:normal;color:var(--gold)}
+.logo small{display:block;font-family:var(--body);font-weight:800;font-size:.2em;letter-spacing:.4em;color:var(--muted);text-shadow:none;margin-bottom:8px}
+.heroart{width:min(260px,72vw);filter:drop-shadow(0 12px 22px rgba(0,0,0,.55))}
+.seg{display:flex;gap:6px;background:var(--bg);border-radius:12px;padding:4px}
+.seg button{flex:1;appearance:none;border:0;background:transparent;border-radius:9px;min-height:40px;font-weight:800;font-size:14px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--panel2);color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--gold)}
+.seg button.pi[aria-pressed="true"]{box-shadow:inset 0 0 0 2px var(--pi);color:#CFE2FF}
+.seg button.co[aria-pressed="true"]{box-shadow:inset 0 0 0 2px var(--co);color:#FFE2C8}
+
+.top{display:flex;align-items:center;gap:8px}
+.top .sp{flex:1}
+.chip{font-weight:800;font-size:12px;letter-spacing:.1em;background:var(--panel);padding:7px 11px;border-radius:999px;box-shadow:0 0 0 1px var(--line);white-space:nowrap}
+.icon-btn{appearance:none;border:0;width:40px;height:40px;border-radius:11px;background:var(--panel);box-shadow:0 0 0 1px var(--line);display:grid;place-items:center;color:var(--ink);font-weight:800;font-size:18px;flex:none}
+.big-code{font-family:var(--display);font-size:52px;letter-spacing:.16em;line-height:1;text-align:center;color:var(--gold)}
+.seats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.seat{background:var(--bg);border-radius:14px;padding:12px;display:grid;gap:2px;text-align:center;min-width:0;border-top:4px solid var(--sc)}
+.seat b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.seat.empty{color:var(--muted);border:2px dashed var(--line);background:transparent}
+.wait{display:grid;place-items:center;gap:6px;text-align:center;padding:14px;background:var(--panel);border-radius:16px}
+#turno:empty{display:none}
+#turno .st-franja{margin:0}
+
+/* ---------- tripulación ---------- */
+.crew{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mate{background:var(--panel);border-radius:14px;padding:8px 10px;box-shadow:0 0 0 1px var(--line);display:flex;align-items:center;gap:8px;min-width:0;border-left:5px solid var(--mc)}
+.mate.turn{box-shadow:0 0 0 2px var(--mc),0 0 20px -6px var(--mc)}
+.mate .who{min-width:0;flex:1}
+.mate .who b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14.5px}
+.mate .who span{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--mc)}
+.backs{display:flex;gap:2px;flex:none}
+.backs i{width:12px;height:12px;border-radius:3px;background:var(--mc);opacity:.85;box-shadow:inset 0 -2px 0 rgba(0,0,0,.3)}
+
+/* ---------- pistas de altitud y aproximación ---------- */
+.strip{background:var(--panel);border-radius:16px;padding:8px 10px 10px;box-shadow:0 0 0 1px var(--line);display:grid;gap:6px}
+.strip-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:11.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.strip-h b{color:var(--ink);font-family:var(--display);font-size:15px;letter-spacing:.04em;text-transform:none}
+.cells{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cell{position:relative;border-radius:9px;background:var(--bg);min-height:52px;display:grid;align-content:space-between;justify-items:center;padding:3px 2px;box-shadow:inset 0 0 0 1px var(--line);font-size:11px;font-weight:800;color:var(--muted)}
+.cell.past{opacity:.35}
+.cell.here{box-shadow:inset 0 0 0 2px var(--gold),0 0 14px -4px var(--gold);color:var(--ink)}
+.cell.tgt{box-shadow:inset 0 0 0 2px #7FE3FF,0 0 14px -4px #7FE3FF}
+.cell .rn{font-size:10px;font-weight:800;color:#7FE3FF}
+.cell .pls{display:flex;flex-wrap:wrap;gap:1px;justify-content:center;max-width:44px}
+.cell .pls svg{width:17px;height:17px}
+.cell.apt{background:linear-gradient(180deg,#24324F,#1A2440)}
+.cell .apt-i svg{width:30px;height:24px}
+.alt .cell{min-height:40px}
+.alt .cell .ft{font-family:var(--display);font-size:12.5px;color:inherit}
+.alt .cell .fp{font-size:10px;letter-spacing:.04em}
+.alt .cell.here{color:var(--ink)}
+.rrdot{position:absolute;top:-5px;right:-4px;width:17px;height:17px;border-radius:50%;background:#7FE3FF;color:#06283A;font-size:11px;display:grid;place-items:center;font-weight:900;box-shadow:0 2px 0 rgba(0,0,0,.4)}
+
+/* ---------- panel de mandos ---------- */
+.panel{background:linear-gradient(180deg,#17233D,#101A2E);border-radius:20px;padding:10px;box-shadow:0 0 0 1px var(--line),inset 0 1px 0 rgba(255,255,255,.05);display:grid;gap:10px}
+.inst{background:var(--metal);border-radius:14px;padding:8px;display:grid;gap:6px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.04)}
+.inst-h{display:flex;justify-content:space-between;align-items:center;gap:6px;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.inst-h .tag{font-size:10px;letter-spacing:.06em;padding:2px 7px;border-radius:999px;background:var(--bg);color:var(--ink)}
+.inst-h .tag.must{background:#5A2330;color:#FFD3DA}
+.inst-h .tag.ok{background:#1E4D37;color:#C8F5DC}
+.pair{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center}
+.sides{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.side{border-radius:14px;padding:8px;display:grid;gap:8px;align-content:start;background:color-mix(in srgb,var(--sc) 9%,var(--metal));box-shadow:inset 0 3px 0 var(--sc)}
+.side .sh{font-family:var(--display);font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--sc);text-align:center}
+.grp{display:grid;gap:5px}
+.grp .gl{font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between}
+.swrow{display:flex;gap:6px;justify-content:center}
+.swrow.f{display:grid;grid-template-columns:repeat(2,44px)}
+.sw{position:relative;display:grid;justify-items:center;gap:3px}
+.sw .lamp{width:12px;height:12px;border-radius:50%;flex:none;background:#5A2330;box-shadow:inset 0 0 0 2px #2A0E16}
+.sw .lamp.on{background:var(--ok);box-shadow:0 0 10px var(--ok),inset 0 0 0 2px #0F5130}
+.sw .lamp.lock{opacity:.35}
+.slot{appearance:none;border:0;width:44px;height:44px;border-radius:10px;flex:none;display:grid;place-items:center;background:#0B1427;box-shadow:inset 0 0 0 2px var(--sc,#3A4D73);color:var(--muted);font-family:var(--display);font-size:13px;font-weight:700;padding:0;position:relative}
+.slot.any{--sc:#7C8BA8;border-radius:50%}
+.slot.legal{background:color-mix(in srgb,var(--gold) 22%,#0B1427);box-shadow:inset 0 0 0 3px var(--gold),0 0 16px -2px var(--gold);color:var(--ink);animation:pulse 1.2s ease-in-out infinite}
+.slot.hint{box-shadow:inset 0 0 0 3px #7FE3FF,0 0 18px #7FE3FF}
+.slot.full{background:none;box-shadow:none}
+.slot.full svg{width:44px;height:44px}
+.slot.dim{opacity:.5}
+@keyframes pulse{50%{box-shadow:inset 0 0 0 3px var(--gold),0 0 4px -2px var(--gold)}}
+.radios{display:flex;gap:6px;justify-content:center}
+.conc{display:flex;align-items:center;gap:8px;justify-content:space-between;flex-wrap:wrap}
+.conc .slots{display:flex;gap:6px}
+.tokens{display:flex;gap:10px;align-items:center;font-size:12px;font-weight:800;color:var(--muted)}
+.tokens .tk{display:flex;gap:3px;align-items:center}
+.tokens svg{width:22px;height:22px}
+.gauge svg{width:100%;height:auto}
+.dial svg{width:100%;max-width:230px;margin:0 auto;height:auto}
+.axrow{display:grid;grid-template-columns:44px 1fr 44px;gap:8px;align-items:center}
+.axrow .lb,.enrow .lb{font-size:10px;font-weight:800;text-align:center;letter-spacing:.06em;margin-top:3px}
+.enrow{display:grid;grid-template-columns:44px 1fr 44px;gap:8px;align-items:center}
+.spd{font-size:12.5px;text-align:center;font-weight:700;color:var(--muted)}
+.spd b{color:var(--ink)}
+
+/* ---------- tus dados ---------- */
+.tray{position:sticky;bottom:calc(6px + env(safe-area-inset-bottom,0px));z-index:6;background:var(--panel);border-radius:18px;padding:10px 12px;box-shadow:0 0 0 1px var(--line),0 -10px 30px rgba(0,0,0,.55);box-shadow:0 0 0 1px var(--line);display:grid;gap:10px;border-top:4px solid var(--sc)}
+.tray-h{display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:800}
+.tray-h span{font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--sc)}
+.dice{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;min-height:60px}
+.die{appearance:none;border:0;background:none;padding:0;border-radius:12px;transition:transform .12s}
+.die svg{width:58px;height:58px}
+.die.sel{transform:translateY(-6px)}
+.die.sel svg{filter:drop-shadow(0 0 10px var(--gold))}
+.die.mark svg{outline:3px solid #7FE3FF;outline-offset:2px;border-radius:12px}
+.die.rr svg{outline:3px dashed var(--gold);outline-offset:2px;border-radius:12px;opacity:.8}
+.cof{display:flex;align-items:center;justify-content:center;gap:10px;font-weight:800;font-size:14px}
+.cof .btn{min-width:46px}
+.cover{display:grid;gap:10px;text-align:center;justify-items:center;padding:6px 0}
+.coach:empty{display:none}
+.coach{font-size:14.5px;font-weight:700;text-align:center;color:var(--ink);text-wrap:balance}
+.coach.err{color:#FFB2A8}
+.coach.ok{color:var(--gold)}
+.brief{background:rgba(127,227,255,.1);border-radius:12px;padding:9px 12px;font-size:13.5px;font-weight:700;box-shadow:inset 0 0 0 1px rgba(127,227,255,.35);color:#D8F6FF}
+.last{display:flex;align-items:center;gap:8px;background:rgba(255,209,102,.1);border-radius:12px;padding:8px 12px;font-size:14px;font-weight:700;box-shadow:inset 0 0 0 1px rgba(255,209,102,.35)}
+.last.fresh{animation:glow 1.6s ease-out}
+@keyframes glow{0%{background:rgba(255,209,102,.45)}}
+.acts{display:flex;gap:8px;flex-wrap:wrap}
+.acts .btn{flex:1 1 0;min-width:0}
+.log{background:var(--panel);border-radius:14px;padding:10px 12px;box-shadow:0 0 0 1px var(--line);font-size:13.5px}
+.log summary{font-weight:800;cursor:pointer}
+.log ol{margin:8px 0 0;padding-left:20px;display:grid;gap:3px;max-height:200px;overflow:auto}
+.log li.rd{list-style:none;margin-left:-20px;color:var(--gold);font-weight:800;margin-top:4px}
+
+/* ---------- hojas ---------- */
+#sheet{position:fixed;inset:0;z-index:50;display:none}
+#sheet.on{display:block}
+#sheet .scrim{position:absolute;inset:0;background:rgba(0,0,0,.62)}
+#sheet .pane{position:absolute;left:0;right:0;bottom:0;max-width:600px;max-height:92svh;overflow:auto;margin:0 auto;background:var(--panel);border-radius:22px 22px 0 0;padding:18px 16px calc(20px + env(safe-area-inset-bottom,0px));display:grid;gap:12px;box-shadow:0 -10px 40px rgba(0,0,0,.6)}
+.end-h{font-size:30px;text-align:center}
+.end-h.win{color:var(--ok)}
+.end-h.lose{color:var(--bad)}
+.checks{display:grid;gap:6px;margin:0;padding:0;list-style:none}
+.checks li{display:flex;gap:8px;align-items:center;background:var(--bg);border-radius:10px;padding:8px 10px;font-weight:700;font-size:14px}
+.checks li i{font-style:normal;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:13px;flex:none;background:#1E4D37;color:var(--ok)}
+.checks li.no i{background:#5A2330;color:var(--bad)}
+.rules{display:grid;gap:14px;font-size:15px}
+.rules h3{font-size:19px;color:var(--gold)}
+.rules section{display:grid;gap:6px}
+.rules ul{margin:0;padding-left:20px;display:grid;gap:4px}
+.rules b{color:var(--gold)}
+.rules .pi{color:#9CC4FF}
+.rules .co{color:#FFC48F}
+#tour{position:fixed;inset:0;z-index:70;display:none}
+#tour.on{display:block}
+#tour .bub{position:fixed;left:50%;transform:translateX(-50%);width:min(560px,calc(100% - 24px));background:#F3F7FF;color:#0E1A33;border-radius:18px;padding:16px;display:grid;gap:10px;box-shadow:0 20px 50px rgba(0,0,0,.6)}
+#tour .bub h3{font-size:20px;color:#1E4FA3}
+#tour .bub .row .btn{flex:1 1 0}
+#tour .bub .btn.ghost{color:#0E1A33;box-shadow:inset 0 0 0 2px #C3D0EA}
+#tour .steps{font-size:12px;font-weight:800;color:#5A6B8C;letter-spacing:.08em}
+#tour .shade{position:fixed;inset:0;background:rgba(0,0,0,.55)}
+.spot{position:relative;z-index:65;box-shadow:0 0 0 4px var(--gold),0 0 0 9999px rgba(0,0,0,.6)!important;border-radius:14px}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,12px);opacity:0;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:700;font-size:14px;transition:opacity .2s,transform .2s;pointer-events:none;max-width:calc(100% - 32px);z-index:80;text-align:center}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+@media (max-width:380px){.slot{width:40px;height:40px}.slot.full svg{width:40px;height:40px}.die svg{width:52px;height:52px}.sides{gap:8px}.swrow.f{grid-template-columns:repeat(2,40px)}}
+@media (prefers-reduced-motion:reduce){.last.fresh,.slot.legal{animation:none}#toast{transition:none}.die{transition:none}}
+</style>
+</head>
+<body>
+<div id="app"><div class="hero"><div class="logo"><small>CABINA PARA DOS</small>Doble <em>Mando</em></div><p class="muted">Encendiendo los motores…</p></div></div>
+<div id="sheet"></div>
+<div id="tour"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+"use strict";
+const B = window.Cabina, P = B.P, C = B.C;
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const ls = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }, del(k) { try { localStorage.removeItem(k); } catch {} } };
+const $app = document.getElementById("app"), $sheet = document.getElementById("sheet"), $tour = document.getElementById("tour");
+let toastT;
+function toast(m, ms) { const t = document.getElementById("toast"); t.textContent = m; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), ms || 3200); }
+function on(sel, ev, fn, root) { (root || $app).querySelectorAll(sel).forEach(el => el.addEventListener(ev, fn)); }
+const cap = s => s[0].toUpperCase() + s.slice(1);
+const plural = (n, a, b) => n === 1 ? `${n} ${a}` : `${n} ${b}`;
+const COL = ["#3D8BFF", "#FF9A3C"], COL2 = ["#1E4FA3", "#A9561A"];
+const ROLE = ["Piloto", "Copiloto"];
+const AI_NAME = ["Capitana Vega", "Copiloto Leo"];
+
+/* ================= dibujos propios ================= */
+const PIPS = { 1: [[5, 5]], 2: [[2.6, 2.6], [7.4, 7.4]], 3: [[2.6, 2.6], [5, 5], [7.4, 7.4]], 4: [[2.6, 2.6], [7.4, 2.6], [2.6, 7.4], [7.4, 7.4]], 5: [[2.6, 2.6], [7.4, 2.6], [5, 5], [2.6, 7.4], [7.4, 7.4]], 6: [[2.6, 2.4], [7.4, 2.4], [2.6, 5], [7.4, 5], [2.6, 7.6], [7.4, 7.6]] };
+function dieSVG(v, p, o = {}) {
+  const c = COL[p], d = COL2[p];
+  return `<svg viewBox="-.4 -.4 10.8 10.8" aria-hidden="true"><rect x="0" y=".5" width="10" height="10" rx="2.2" fill="${d}"/><rect x="0" y="0" width="10" height="9.6" rx="2.2" fill="${c}"/><rect x=".6" y=".5" width="8.8" height="3" rx="1.4" fill="#fff" opacity=".16"/>${v ? PIPS[v].map(([x, y]) => `<circle cx="${x}" cy="${y}" r=".95" fill="#fff"/>`).join("") : `<text x="5" y="6.6" font-size="5" text-anchor="middle" fill="#fff" font-weight="800" font-family="Manrope,sans-serif">?</text>`}${o.k ? `<circle cx="9" cy="1" r="1.6" fill="#6B3E1E" stroke="#FFD166" stroke-width=".4"/><text x="9" y="1.9" font-size="2.4" text-anchor="middle" fill="#FFD166" font-weight="900" font-family="Manrope,sans-serif">☕</text>` : ""}</svg>`;
+}
+const PLANE_I = `<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 1.5c.9 0 1.3 1 1.3 2.2v4l6.7 3.8v1.6l-6.7-2v3.6l2 1.6v1.3l-3.3-.9-3.3.9v-1.3l2-1.6v-3.6l-6.7 2v-1.6l6.7-3.8v-4C8.7 2.5 9.1 1.5 10 1.5z" fill="#FF6B6B" stroke="#4A0F14" stroke-width=".6"/></svg>`;
+const RUNWAY_I = `<svg viewBox="0 0 30 24" aria-hidden="true"><path d="M11 2h8l7 20H4z" fill="#3B475F"/><path d="M15 4v3M15 9v3M15 14v3M15 19v2" stroke="#fff" stroke-width="1.4"/><path d="M5.5 20h19" stroke="#FFD166" stroke-width="1.2"/></svg>`;
+const CUP = full => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h13v6a6 6 0 0 1-6 6h-1a6 6 0 0 1-6-6z" fill="${full ? "#C98A4B" : "none"}" stroke="${full ? "#FFD9A8" : "#55658A"}" stroke-width="1.6"/><path d="M17 10h1.5a2.5 2.5 0 0 1 0 5H17" fill="none" stroke="${full ? "#FFD9A8" : "#55658A"}" stroke-width="1.6"/>${full ? `<path d="M8 2.5c1 1 1 2 0 3M12 2.5c1 1 1 2 0 3" stroke="#FFD9A8" stroke-width="1.3" fill="none" stroke-linecap="round"/>` : ""}</svg>`;
+const RR_I = n => `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="${n ? "#7FE3FF" : "none"}" stroke="${n ? "#BDF2FF" : "#55658A"}" stroke-width="1.6"/><path d="M16.5 9.5A5 5 0 1 0 17 13" fill="none" stroke="${n ? "#06283A" : "#55658A"}" stroke-width="2" stroke-linecap="round"/><path d="M17.5 6v4h-4" fill="none" stroke="${n ? "#06283A" : "#55658A"}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+function heroSVG() {
+  return `<svg class="heroart" viewBox="0 0 260 150" aria-hidden="true">
+    <defs><linearGradient id="hsky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2E5FB8"/><stop offset="1" stop-color="#F2A65A"/></linearGradient></defs>
+    <rect x="0" y="0" width="260" height="150" rx="22" fill="url(#hsky)"/>
+    <circle cx="200" cy="112" r="26" fill="#FFD166" opacity=".9"/>
+    <path d="M0 118h260v32H0z" fill="#1A2440"/><path d="M96 150l20-32h28l20 32z" fill="#3B475F"/><path d="M130 122v4M130 131v5M130 141v7" stroke="#fff" stroke-width="2.4"/>
+    <g transform="translate(130 64) rotate(-8)">
+      <ellipse cx="0" cy="0" rx="13" ry="12" fill="#F4F7FF" stroke="#0E1A33" stroke-width="2"/>
+      <path d="M-13 2h-62l-6 6h68zM13 2h62l6 6H13z" fill="#E5ECFA" stroke="#0E1A33" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M-4 -11l4-14 4 14z" fill="#E5ECFA" stroke="#0E1A33" stroke-width="2" stroke-linejoin="round"/>
+      <circle cx="-34" cy="11" r="5" fill="#9EB0D0" stroke="#0E1A33" stroke-width="2"/><circle cx="34" cy="11" r="5" fill="#9EB0D0" stroke="#0E1A33" stroke-width="2"/>
+      <path d="M-8 -3h16" stroke="#3D8BFF" stroke-width="4" stroke-linecap="round"/><circle cx="-4" cy="-3" r="1.6" fill="#3D8BFF"/><circle cx="4" cy="-3" r="1.6" fill="#FF9A3C"/>
+    </g>
+    <g fill="#fff" opacity=".7"><ellipse cx="46" cy="40" rx="22" ry="7"/><ellipse cx="62" cy="36" rx="14" ry="7"/><ellipse cx="214" cy="30" rx="20" ry="6"/></g>
+  </svg>`;
+}
+/* Eje: horizonte artificial con el avión de frente */
+function dialSVG(st) {
+  const A = 25, ax = st.axis;
+  const tick = (k, lab) => { const a = (k * A - 90) * Math.PI / 180, r1 = 76, r2 = k % 3 === 0 && k ? 86 : 84, x1 = 100 + r1 * Math.cos(a), y1 = 96 + r1 * Math.sin(a), x2 = 100 + r2 * Math.cos(a), y2 = 96 + r2 * Math.sin(a);
+    if (Math.abs(k) === 3) { const xx = 100 + 86 * Math.cos(a), yy = 96 + 86 * Math.sin(a); return `<g transform="translate(${xx} ${yy})"><circle r="8" fill="#5A2330"/><path d="M-4-4 4 4M4-4-4 4" stroke="#FF6B6B" stroke-width="2.6" stroke-linecap="round"/></g>`; }
+    return `<path d="M${x1} ${y1}L${x2} ${y2}" stroke="${k === 0 ? "#FFD166" : "#C7D3EE"}" stroke-width="${k === 0 ? 4 : 3}" stroke-linecap="round"/><text x="${100 + 64 * Math.cos(a)}" y="${96 + 64 * Math.sin(a) + 4}" font-size="11" text-anchor="middle" fill="#9EB0D0" font-weight="800" font-family="Manrope,sans-serif">${lab}</text>`; };
+  let h = `<defs><clipPath id="dc"><path d="M14 96a86 86 0 0 1 172 0z"/></clipPath></defs>`;
+  h += `<g clip-path="url(#dc)"><g transform="rotate(${-ax * A} 100 96)"><rect x="-60" y="-100" width="320" height="196" fill="#2E66C4"/><rect x="-60" y="96" width="320" height="200" fill="#7A4B2A"/><path d="M-60 96h320" stroke="#fff" stroke-width="2"/></g></g>`;
+  h += `<path d="M14 96a86 86 0 0 1 172 0" fill="none" stroke="#0B1427" stroke-width="5"/>`;
+  for (let k = -3; k <= 3; k++) h += tick(k, k === 0 ? "0" : Math.abs(k));
+  h += `<g transform="rotate(${ax * A} 100 96)"><path d="M48 96h34l6 7h24l6-7h34" fill="none" stroke="#FFD166" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="100" cy="96" r="5" fill="#FFD166"/></g>`;
+  return `<svg viewBox="0 0 200 100" role="img" aria-label="Eje del avión: ${ax === 0 ? "recto" : `inclinado ${Math.abs(ax)} hacia el ${ax > 0 ? "copiloto" : "piloto"}`}">${h}</svg>`;
+}
+/* Indicador de velocidad: escala 2..12 con los marcadores de aerodinámica (o el freno en la última ronda) */
+function gaugeSVG(st) {
+  const x = v => 10 + (v - 2) * 18, fin = B.final(st), bl = B.blue(st), or = B.orange(st), br = B.brakeVal(st);
+  let h = "";
+  if (fin) {
+    h += `<rect x="${x(1.5)}" y="16" width="${Math.max(0, x(br - .5) - x(1.5))}" height="12" rx="3" fill="#1E4D37"/><rect x="${x(Math.max(1.5, br - .5))}" y="16" width="${x(12.5) - x(Math.max(1.5, br - .5))}" height="12" rx="3" fill="#5A2330"/>`;
+  } else {
+    h += `<rect x="${x(1.5)}" y="16" width="${x(bl) - x(1.5)}" height="12" rx="3" fill="#2A3A5C"/><rect x="${x(bl)}" y="16" width="${x(or) - x(bl)}" height="12" fill="#1E4D37"/><rect x="${x(or)}" y="16" width="${x(12.5) - x(or)}" height="12" rx="3" fill="#5C4317"/>`;
+    h += `<text x="${(x(1.5) + x(bl)) / 2}" y="25.5" font-size="8.5" text-anchor="middle" fill="#C7D3EE" font-weight="800" font-family="Manrope,sans-serif">0</text><text x="${(x(bl) + x(or)) / 2}" y="25.5" font-size="8.5" text-anchor="middle" fill="#C8F5DC" font-weight="800" font-family="Manrope,sans-serif">avanza 1</text><text x="${(x(or) + x(12.5)) / 2}" y="25.5" font-size="8.5" text-anchor="middle" fill="#FFE2A8" font-weight="800" font-family="Manrope,sans-serif">2</text>`;
+  }
+  for (let v = 2; v <= 12; v++) h += `<text x="${x(v)}" y="42" font-size="9.5" text-anchor="middle" fill="#9EB0D0" font-weight="800" font-family="Manrope,sans-serif">${v}</text>`;
+  const mk = (v, c, lab) => `<path d="M${x(v)} 15l-5-9h10z" fill="${c}" stroke="#0B1427" stroke-width="1"/><path d="M${x(v)} 16v12" stroke="${c}" stroke-width="2"/>${lab ? `<text x="${x(v)}" y="5" font-size="7.5" text-anchor="middle" fill="${c}" font-weight="800" font-family="Manrope,sans-serif">${lab}</text>` : ""}`;
+  if (fin) h += mk(br - .5, "#FF6B6B", st.brakes ? "frenos " + br : "sin frenos");
+  else { h += mk(bl, COL[0]); h += mk(or, COL[1]); }
+  if (st.speed != null) h += `<circle cx="${x(st.speed)}" cy="22" r="6.5" fill="#FFD166" stroke="#0B1427" stroke-width="1.5"/><text x="${x(st.speed)}" y="25" font-size="8" text-anchor="middle" fill="#3A2800" font-weight="900" font-family="Manrope,sans-serif">${st.speed}</text>`;
+  return `<svg viewBox="0 0 200 46" role="img" aria-label="Velocidad">${h}</svg>`;
+}
+
+/* ================= sonido sintetizado ================= */
+const SFX = {
+  ctx: null, noise: null, on: ls.get("cabina.sound") !== false,
+  init() {
+    if (this.ctx) { if (this.ctx.state === "suspended") this.ctx.resume().catch(() => {}); return; }
+    try { const A = window.AudioContext || window.webkitAudioContext; if (!A) return; this.ctx = new A();
+      const n = this.ctx.createBuffer(1, this.ctx.sampleRate, this.ctx.sampleRate), d = n.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; this.noise = n; } catch {}
+  },
+  ok() { return this.on && this.ctx && this.ctx.state === "running"; },
+  hiss(freq, dur, g, at = 0, q = 1) {
+    const c = this.ctx, t = c.currentTime + at, s = c.createBufferSource(), f = c.createBiquadFilter(), v = c.createGain();
+    s.buffer = this.noise; f.type = "bandpass"; f.frequency.value = freq; f.Q.value = q;
+    v.gain.setValueAtTime(g, t); v.gain.exponentialRampToValueAtTime(.001, t + dur);
+    s.connect(f).connect(v).connect(c.destination); s.start(t, Math.random() * .5); s.stop(t + dur + .02);
+  },
+  tone(f, dur, g, at = 0, type = "sine") {
+    const c = this.ctx, t = c.currentTime + at, o = c.createOscillator(), v = c.createGain(); o.type = type; o.frequency.value = f;
+    v.gain.setValueAtTime(.0001, t); v.gain.exponentialRampToValueAtTime(g, t + .01); v.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(v).connect(c.destination); o.start(t); o.stop(t + dur + .05);
+  },
+  roll() { if (this.ok()) for (let i = 0; i < 6; i++) this.hiss(1800 + Math.random() * 1500, .05, .16, i * .05 + Math.random() * .02, 2); },
+  click() { if (this.ok()) { this.hiss(2600, .04, .2, 0, 3); this.tone(700, .06, .05, 0, "square"); } },
+  ding() { if (this.ok()) { this.tone(880, .35, .07); this.tone(1320, .4, .05, .12); } },
+  alarm() { if (this.ok()) for (let i = 0; i < 4; i++) this.tone(i % 2 ? 520 : 760, .18, .08, i * .2, "sawtooth"); },
+  land() { if (this.ok()) [523, 659, 784, 1047].forEach((f, i) => this.tone(f, .6, .09, i * .13, "triangle")); }
+};
+addEventListener("pointerdown", () => SFX.init(), { capture: true });
+
+/* ================= estado ================= */
+const S = {
+  db: null, uid: null, ready: false, offline: false,
+  name: (localStorage.getItem("sala.nick") || "").slice(0, 16),
+  mode: null, code: null, g: null, unsub: null, L: null,
+  homeTab: "online", aiRole: ls.get("cabina.rol") === 1 ? 1 : 0, homeMsg: "", homeErr: false, busy: false, lastKey: "",
+  sel: null, k: 0, reveal: "", rrSel: [], hintA: null, aiTimer: null, seenN: -1, endShown: "", cache: { k: null, v: null }, rrSent: ""
+};
+const me = () => S.uid;
+window.__cab = { S, B };
+
+async function boot() {
+  try {
+    const [db, user] = await Promise.all(["db", "user"].map(n => window.claude ? claude.use(n).catch(() => null) : null));
+    S.db = db; if (user) S.uid = await user.id();
+  } catch {}
+  if (!S.db || !S.uid) S.offline = true;
+  S.ready = true;
+  const h = (location.hash || "").replace("#", "").toUpperCase(), last = ls.get("cabina.last");
+  if (!S.offline && /^[A-Z]{4}$/.test(h)) S.prefill = h;
+  else if (!S.offline && last && last.code && Date.now() - last.t < 12 * 3600e3) S.rejoin = last.code;
+  render();
+}
+
+/* ================= modelo común ================= */
+const seatOf = id => { const st = (S.g && S.g.seats) || {}; return [0, 1].find(i => st[i] && st[i].id === id); };
+function parseSt(str) { if (S.cache.k === str) return S.cache.v; let v = null; try { v = JSON.parse(str); } catch {} S.cache = { k: str, v }; return v; }
+/* Quién tiene que hacer algo ahora */
+function actor(st) { if (st.rrPend) return st.rrPend.need[0] ? 0 : st.rrPend.need[1] ? 1 : null; return st.turn; }
+function model() {
+  if (S.mode === "online") {
+    const g = S.g, st = parseSt(g.st), seats = g.seats || {}, seat = seatOf(me());
+    return { mode: "online", st, names: [(seats[0] || {}).name || ROLE[0], (seats[1] || {}).name || ROLE[1]], me: seat === undefined ? null : seat };
+  }
+  const L = S.L;
+  if (L.mode === "ai") return { mode: "ai", st: L.st, names: L.names, me: L.human };
+  // mismo móvil: quien tiene que actuar; si estáis eligiendo dados para volver a tirar, el primero que falte
+  return { mode: "local", st: L.st, names: L.names, me: actor(L.st) };
+}
+/* ¿El jugador m.me tiene que hacer algo ahora? */
+function myAction(m) {
+  const st = m.st;
+  if (st.over || m.me === null) return null;
+  if (st.rrPend) return st.rrPend.need[m.me] && !(m.mode === "online" && rraSent(m)) ? "pick" : null;
+  return st.turn === m.me ? "place" : null;
+}
+const revealKey = m => m.me + "|" + m.st.n;
+const trayOpen = m => m.mode !== "local" || S.reveal === revealKey(m);
+const youTxt = m => m.mode !== "local";
+function rraSent(m) { const a = S.g && S.g.rra && S.g.rra[m.me]; return !!(a && m.st.rrPend && a.id === m.st.rrPend.id); }
+
+/* ================= online ================= */
+function watch(code) {
+  unwatch(); S.mode = "online"; S.code = code; ls.set("cabina.last", { code, t: Date.now() });
+  S.unsub = S.db.doc("games/" + code).onSnapshot(snap => {
+    if (!snap.exists) { leave("Esa partida ya no existe."); return; }
+    const prev = S.g; S.g = snap.data(); onRemote(prev); render();
+  }, () => leave("Se ha perdido la conexión con la partida."));
+}
+function unwatch() { if (S.unsub) try { S.unsub(); } catch {} S.unsub = null; S.g = null; closeSheet(); }
+function leave(msg) {
+  unwatch(); clearTimeout(S.aiTimer); S.aiTimer = null;
+  S.mode = null; S.code = null; S.L = null; S.seenN = -1; S.seenRound = null; S.endShown = ""; S.sel = null; S.reveal = "";
+  S.homeMsg = msg || ""; S.homeErr = !!msg; history.replaceState(null, "", location.pathname); endTour(); render();
+}
+function onRemote(prev) {
+  if (!S.g || !S.g.st) return;
+  const st = parseSt(S.g.st);
+  if (prev && prev.st !== S.g.st) { S.sel = null; S.k = 0; S.hintA = null; S.rrSel = []; }
+  resolveRR(st);
+}
+/* Online: cada uno manda qué dados vuelve a tirar; cuando están las dos respuestas se aplican en orden (mismo resultado en los dos móviles) */
+function resolveRR(st) {
+  if (!st || !st.rrPend || !S.g) return;
+  const A = S.g.rra || {}, id = st.rrPend.id;
+  if ([0, 1].some(p => st.rrPend.need[p] && !(A[p] && A[p].id === id))) return;
+  let s = st;
+  for (const p of [0, 1]) if (s.rrPend && s.rrPend.need[p]) {
+    const a = { t: "rerollPick", idx: A[p].idx };
+    if (B.check(s, p, a)) return;
+    s = B.apply(s, p, a);
+  }
+  put({ st: JSON.stringify(s) });
+}
+function saveName() {
+  const el = document.getElementById("nm"), v = ((el && el.value) || S.name || "").trim().slice(0, 16);
+  if (!v) { S.homeMsg = "Escribe tu nombre."; S.homeErr = true; render(); return false; }
+  S.name = v; try { localStorage.setItem("sala.nick", v); } catch {} return true;
+}
+const genCode = () => { const A = "ABCDEFGHJKLMNPQRSTUVWXYZ"; let c = ""; for (let i = 0; i < 4; i++) c += A[Math.floor(Math.random() * A.length)]; return c; };
+async function freeCode() { let code; for (let i = 0; i < 6; i++) { code = genCode(); if (!(await S.db.doc("games/" + code).get()).exists) break; } return code; }
+const newSeed = () => Math.floor(Math.random() * 2 ** 31);
+async function createOnline() {
+  if (!saveName()) return;
+  S.busy = true; render();
+  try {
+    const code = await freeCode();
+    await S.db.doc("games/" + code).set({ v: 1, status: "lobby", host: me(), createdAt: Date.now(), seats: { 0: { id: me(), name: S.name } }, st: "", rra: {} });
+    location.hash = code; watch(code);
+  } catch { S.homeMsg = "No se pudo crear la partida. Revisa la conexión."; S.homeErr = true; }
+  S.busy = false; render();
+}
+async function joinOnline(code) {
+  if (!saveName()) return;
+  code = String(code || "").toUpperCase().replace(/[^A-Z]/g, "");
+  if (code.length !== 4) { S.homeMsg = "El código tiene 4 letras."; S.homeErr = true; render(); return; }
+  S.busy = true; render();
+  try {
+    const ref = S.db.doc("games/" + code), snap = await ref.get();
+    if (!snap.exists) { S.homeMsg = "No hay ninguna partida con ese código."; S.homeErr = true; }
+    else {
+      const g = snap.data(), seats = g.seats || {};
+      const mine = [0, 1].find(i => seats[i] && seats[i].id === me());
+      const freeSeat = [0, 1].find(i => !seats[i]);
+      if (mine !== undefined) { if (seats[mine].name !== S.name) await ref.update({ seats: { [mine]: { id: me(), name: S.name } } }); }
+      else if (freeSeat !== undefined && g.status === "lobby") await ref.update({ seats: { [freeSeat]: { id: me(), name: S.name } } });
+      else toast("La cabina está completa: entras como público.");
+      location.hash = code; watch(code);
+    }
+  } catch { S.homeMsg = "No se pudo entrar. Revisa la conexión."; S.homeErr = true; }
+  S.busy = false; render();
+}
+async function put(patch) {
+  S.g = { ...S.g, ...patch }; render();
+  try { await S.db.doc("games/" + S.code).update(patch); }
+  catch { toast("No se pudo guardar. Reintentando…"); setTimeout(() => S.db.doc("games/" + S.code).update(patch).catch(() => toast("Sin conexión con la partida.")), 1500); }
+}
+
+/* ================= mismo móvil e IA ================= */
+function startLocal(kind) {
+  if (!saveName()) return;
+  let L;
+  if (kind === "local") {
+    const rv = (document.getElementById("rv").value || "").trim().slice(0, 16);
+    if (!rv) { S.homeMsg = "Escribe el nombre de tu compañero."; S.homeErr = true; render(); return; }
+    const swap = S.aiRole === 1;
+    L = { mode: "local", names: swap ? [rv, S.name] : [S.name, rv], st: B.newGame(newSeed()) };
+  } else {
+    ls.set("cabina.rol", S.aiRole);
+    const h = S.aiRole, names = [];
+    names[h] = S.name; names[1 - h] = AI_NAME[1 - h];
+    L = { mode: "ai", human: h, names, st: B.newGame(newSeed()) };
+  }
+  S.mode = "local"; S.L = L; S.seenN = -1; S.endShown = ""; S.sel = null; S.reveal = ""; saveLocal(); SFX.roll(); render();
+}
+function saveLocal() { if (S.L) ls.set("cabina.partida", S.L); }
+function resumeLocal() { const L = ls.get("cabina.partida"); if (!L) return; S.mode = "local"; S.L = L; S.seenN = L.st.n; S.endShown = ""; S.sel = null; S.reveal = ""; render(); }
+
+/* ================= jugar ================= */
+function commit(st) {
+  S.sel = null; S.k = 0; S.hintA = null; S.rrSel = [];
+  if (S.mode === "online") put({ st: JSON.stringify(st), status: "play" });
+  else { S.L.st = st; saveLocal(); render(); }
+}
+function act(a) {
+  const m = model(), p = m.me;
+  const err = B.check(m.st, p, a);
+  if (err) { toast(err); return false; }
+  const st = B.apply(m.st, p, a);
+  feedback(m.st, st);
+  closeSheet(); commit(st);
+  return true;
+}
+function feedback(a, b) {
+  const L = b.last; if (!L) return;
+  if (b.over) { if (b.over.win) SFX.land(); else SFX.alarm(); return; }
+  if (b.round !== a.round) { setTimeout(() => SFX.roll(), 350); }
+  if (L.t === "place") { SFX.click(); if (L.on || L.hit) setTimeout(() => SFX.ding(), 120); }
+  if (L.t === "pick" && L.c) SFX.roll();
+}
+function maybeAI() {
+  if (S.mode !== "local" || !S.L || S.L.mode !== "ai" || S.aiTimer) return;
+  const st = S.L.st, ai = 1 - S.L.human;
+  if (st.over) return;
+  const need = st.rrPend ? st.rrPend.need[ai] : st.turn === ai;
+  if (!need) return;
+  S.aiTimer = setTimeout(() => {
+    S.aiTimer = null;
+    if (!S.L || S.L.mode !== "ai") return;
+    if (S.L.st !== st) { maybeAI(); return; }
+    const a = B.plan(st, ai);
+    if (!a || B.check(st, ai, a)) { console.warn("IA sin jugada", a); return; }
+    const ns = B.apply(st, ai, a);
+    feedback(st, ns);
+    if (a.t === "reroll") toast(`${S.L.names[ai]} gasta una ficha: podéis volver a tirar los dados que queráis.`, 4500);
+    S.L.st = ns; saveLocal(); render();
+  }, st.rrPend ? 700 : 1300);
+}
+function rematch() {
+  const m = model(); if (!m.st.over) return;
+  const st = B.rematch(m.st);
+  closeSheet(); S.endShown = ""; SFX.roll();
+  if (S.mode === "online") put({ st: JSON.stringify(st), rra: {} });
+  else { S.L.st = st; saveLocal(); render(); }
+}
+function selectDie(i) {
+  const m = model(); if (myAction(m) !== "place") return;
+  if (S.sel === i) { S.sel = null; S.k = 0; } else { S.sel = i; S.k = 0; }
+  S.hintA = null; SFX.click(); render();
+}
+function clickSlot(id) {
+  const m = model(), st = m.st, Sd = B.SLOTS[id];
+  if (st.sl[id]) { const o = st.sl[id]; toast(`${o.p === m.me && youTxt(m) ? "Tu" : "Un"} ${o.v} ${o.p === P ? "azul" : "naranja"} en ${slotName(id)}.`); return; }
+  if (myAction(m) !== "place" || !trayOpen(m)) { toast(slotInfo(id, st)); return; }
+  if (S.sel == null) { toast(slotInfo(id, st) + " Elige antes uno de tus dados."); return; }
+  const a = { t: "place", d: S.sel, s: id, k: S.k }, err = B.check(st, m.me, a);
+  if (err) { toast(err); return; }
+  // avisos de peligro antes de colocar
+  const ns = B.apply(st, m.me, a);
+  if (ns.over && !ns.over.win) { confirmSheet("¡Cuidado!", ns.over.txt + " ¿Seguro que quieres poner el dado ahí?", "Ponerlo igualmente", () => act(a)); return; }
+  act(a);
+}
+function slotName(id) { return { axis: "el eje", eng: "los motores", radio: "la radio", gear: "el tren de aterrizaje", flap: "los flaps", brake: "los frenos", conc: "concentración" }[B.SLOTS[id].k]; }
+function slotInfo(id, st) {
+  const Sd = B.SLOTS[id];
+  const who = Sd.who === -1 ? "Cualquiera de los dos" : `Solo el ${ROLE[Sd.who].toLowerCase()}`;
+  const t = {
+    axis: "Eje: cada ronda los dos ponéis un dado. El avión se inclina hacia quien pone el número más alto, tanto como la diferencia.",
+    eng: "Motores: cada ronda los dos ponéis un dado. La suma es la velocidad.",
+    radio: "Radio: un dado de valor N quita un avión de la casilla N contando desde vuestra posición (1 = donde estáis).",
+    gear: `Tren de aterrizaje (${Sd.ok.join(" o ")}): al desplegarlo, el marcador azul sube una casilla.`,
+    flap: `Flaps (${Sd.ok.join(" o ")}), en orden de arriba abajo: al desplegarlos, el marcador naranja sube una casilla.`,
+    brake: `Frenos (${Sd.ok[0]}), en orden 2, 4, 6: solo cuentan en la última ronda.`,
+    conc: "Concentración: cualquier dado. Ganáis un café (máximo 3) que cambia un dado ±1."
+  }[Sd.k];
+  return `${t} ${who}.`;
+}
+function doHint() {
+  const m = model(); if (myAction(m) !== "place") return;
+  const a = B.hint(m.st, m.me);
+  if (!a) { toast("No se me ocurre nada mejor: confía en tu instinto."); return; }
+  S.sel = a.d; S.k = a.k; S.hintA = a; render();
+  toast(a.rr ? "Pista: estos dados pintan mal. Plantéate gastar la ficha de volver a tirar; si no, lo menos malo es lo marcado." : `Pista: pon el ${m.st.dice[m.me][a.d] + a.k}${a.k ? ` (con ${Math.abs(a.k)} café)` : ""} en ${slotName(a.s)}.`, 5000);
+}
+function askReroll() {
+  const m = model(), st = m.st;
+  const err = B.check(st, m.me === null ? 0 : m.me, { t: "reroll" });
+  if (err) { toast(err); return; }
+  confirmSheet("¿Gastar una ficha de volver a tirar?", "Los dos podréis volver a tirar los dados que queráis de los que os quedan (una vez).", "Gastar ficha", () => {
+    const m2 = model(), p = m2.me === null ? 0 : m2.me;
+    const ns = B.apply(m2.st, p, { t: "reroll" });
+    S.reveal = ""; commit(ns);
+  });
+}
+function sendPick(idx) {
+  const m = model();
+  if (S.mode === "online") {
+    S.rrSent = m.st.rrPend.id + "|" + m.me;
+    put({ rra: { ...(S.g.rra || {}), [m.me]: { id: m.st.rrPend.id, idx } } });
+    resolveRR(m.st);
+    return;
+  }
+  act({ t: "rerollPick", idx });
+}
+
+/* ================= vistas ================= */
+function render() {
+  if (!S.ready) return;
+  if (window.SalaTurno && (!S.mode || (S.mode === "online" && (!S.g || S.g.status === "lobby" || !S.g.st)))) SalaTurno.limpiar();
+  if (!S.mode) return renderHome();
+  if (S.mode === "online") {
+    if (!S.g) return view(`<div class="hero"><div class="logo"><small>CABINA PARA DOS</small>Doble <em>Mando</em></div><p class="muted">Entrando en la cabina…</p></div>`, "load");
+    if (S.g.status === "lobby" || !S.g.st) return renderLobby();
+  }
+  renderGame();
+  maybeAI();
+  const m = model();
+  if (!ls.get("cabina.tuto") && m.me !== null && m.mode !== "local") setTimeout(() => startTour(), 400);
+  if (!ls.get("cabina.tuto") && m.mode === "local" && trayOpen(m)) setTimeout(() => startTour(), 400);
+}
+function view(html, key) { if (key && key === S.lastKey) return false; S.lastKey = key; $app.innerHTML = html; return true; }
+
+function renderHome() {
+  const saved = ls.get("cabina.partida");
+  const canResume = saved && saved.st && !saved.st.over;
+  const tab = S.homeTab, rl = S.aiRole;
+  const seg = (name, val, cur, label, cls) => `<button data-${name}="${val}" class="${cls || ""}" aria-pressed="${cur === val}">${label}</button>`;
+  const html = `
+  <div class="hero">${heroSVG()}
+    <div class="logo"><small>CABINA PARA DOS</small>Doble <em>Mando</em></div>
+    <p class="muted">Piloto y copiloto tenéis que aterrizar el avión juntos, colocando dados en el panel… sin poder hablar. Cooperativo para 2.</p></div>
+  <button class="btn ghost wide" id="rules">✈️ Cómo se juega (léelo si es tu primer vuelo)</button>
+  <label class="lbl" for="nm">Tu nombre<input id="nm" class="text" maxlength="16" autocomplete="nickname" value="${esc(S.name)}" placeholder="Tu nombre"></label>
+  ${canResume ? `<button class="btn gold wide" id="resume">Continuar el vuelo en este móvil</button>` : ""}
+  <div class="seg" role="group" aria-label="Modo de juego">${seg("tab", "online", tab, "Online")}${seg("tab", "local", tab, "Mismo móvil")}${seg("tab", "ai", tab, "Con la IA")}</div>
+  ${tab === "online" ? (S.offline ? `<div class="card"><p class="muted">No hay conexión con el servidor de partidas. Puedes jugar en este móvil o con la IA.</p></div>` : `
+  <div class="card"><h2>Nuevo vuelo</h2><p class="muted small">Cada uno desde su móvil, así nadie ve los dados del otro. Pasa el código a tu compañero.</p><button class="btn gold wide" id="create"${S.busy ? " disabled" : ""}>Crear partida</button></div>
+  <div class="card"><h2>Unirse</h2>
+    <div class="row"><input id="jc" class="text code" maxlength="4" autocomplete="off" placeholder="ABCD" value="${esc(S.prefill || "")}" aria-label="Código de la partida"><button class="btn" id="join"${S.busy ? " disabled" : ""}>Entrar</button></div>
+    ${S.rejoin ? `<button class="btn ghost" id="rejoin">Volver a la partida ${esc(S.rejoin)}</button>` : ""}</div>`) : ""}
+  ${tab === "local" ? `<div class="card"><h2>Los dos en este móvil</h2><p class="muted small">Los dados son secretos: el móvil los tapa y cada uno mira los suyos solo en su turno, sin que mire el otro.</p>
+    <span class="lbl">Tú vas de</span><div class="seg" role="group" aria-label="Tu puesto">${seg("rl", 0, rl, "Piloto", "pi")}${seg("rl", 1, rl, "Copiloto", "co")}</div>
+    <input id="rv" class="text" maxlength="16" placeholder="Nombre de tu compañero" aria-label="Nombre de tu compañero"><button class="btn gold wide" id="local">Despegar</button></div>` : ""}
+  ${tab === "ai" ? `<div class="card"><h2>Con un compañero IA</h2><p class="muted small">La IA solo ve sus dados y el panel, como una persona. Ideal para aprender.</p>
+    <span class="lbl">Tú vas de</span><div class="seg" role="group" aria-label="Tu puesto">${seg("rl", 0, rl, "Piloto", "pi")}${seg("rl", 1, rl, "Copiloto", "co")}</div>
+    <button class="btn gold wide" id="ai">Despegar</button></div>` : ""}
+  <p class="msg ${S.homeErr ? "err" : ""}" role="status">${esc(S.homeMsg)}</p>`;
+  view(html, "home|" + S.busy + "|" + S.homeMsg + "|" + tab + "|" + rl);
+  const keepName = () => { const el = document.getElementById("nm"); if (el) S.name = el.value.trim().slice(0, 16); };
+  on("[data-tab]", "click", e => { keepName(); S.homeTab = e.currentTarget.dataset.tab; S.homeMsg = ""; render(); });
+  on("[data-rl]", "click", e => { keepName(); const rv = document.getElementById("rv"); S.rvKeep = rv ? rv.value : ""; S.aiRole = +e.currentTarget.dataset.rl; render(); const r2 = document.getElementById("rv"); if (r2) r2.value = S.rvKeep || ""; });
+  on("#create", "click", createOnline);
+  on("#join", "click", () => joinOnline(document.getElementById("jc").value));
+  on("#jc", "keydown", e => { if (e.key === "Enter") joinOnline(e.target.value); });
+  on("#rejoin", "click", () => joinOnline(S.rejoin));
+  on("#local", "click", () => startLocal("local"));
+  on("#ai", "click", () => startLocal("ai"));
+  on("#resume", "click", resumeLocal);
+  on("#rules", "click", showRules);
+}
+
+function renderLobby() {
+  const g = S.g, st = g.seats || {}, host = g.host === me(), seat = seatOf(me());
+  const seatH = i => st[i] ? `<div class="seat" style="--sc:${COL[i]}"><span class="small" style="color:${COL[i]};font-weight:800">${ROLE[i].toUpperCase()}</span><b>${esc(st[i].name)}${st[i].id === me() ? " (tú)" : ""}</b></div>` : `<div class="seat empty"><span class="small">${ROLE[i]}: esperando…</span></div>`;
+  const full = st[0] && st[1];
+  const html = `
+  <div class="top"><button class="btn ghost sm" id="out">Salir</button><span class="sp"></span><span class="chip">SALA ${esc(S.code)}</span><button class="icon-btn" id="help" aria-label="Cómo se juega">?</button></div>
+  <div class="hero" style="padding-block:6px 0"><div class="logo" style="font-size:40px"><small>CABINA PARA DOS</small>Doble <em>Mando</em></div></div>
+  <div class="card" style="text-align:center"><p class="muted small">Código de la partida</p><div class="big-code">${esc(S.code)}</div>
+    <button class="btn ghost" id="share">Invitar</button></div>
+  <div class="card"><h2>Tripulación</h2><div class="seats">${seatH(0)}${seatH(1)}</div>
+    ${seat === undefined && !full ? `<button class="btn gold" id="sit">Sentarme</button>` : ""}
+    ${host && full ? `<button class="btn ghost" id="swap">Cambiar los puestos</button>` : ""}</div>
+  ${host ? `<button class="btn gold wide" id="start"${full ? "" : " disabled"}>${full ? "Despegar" : "Esperando a tu compañero…"}</button>`
+    : `<div class="wait"><p>Esperando a que ${esc((st[0] && st[0].id === g.host ? st[0] : st[1] || {}).name || "el anfitrión")} despegue.</p></div>`}
+  <p class="muted small" style="text-align:center">Mientras esperáis, pulsad <b>?</b> para leer las reglas. Ahora sí podéis hablar de estrategia.</p>`;
+  view(html, "lobby|" + JSON.stringify(st) + host);
+  on("#out", "click", () => leave());
+  on("#share", "click", share);
+  on("#help", "click", showRules);
+  on("#sit", "click", () => joinOnline(S.code));
+  on("#swap", "click", () => put({ seats: { 0: st[1], 1: st[0] } }));
+  on("#start", "click", () => { if (S.g.seats[0] && S.g.seats[1]) { SFX.roll(); put({ status: "play", rra: {}, st: JSON.stringify(B.newGame(newSeed())) }); } });
+}
+function share() {
+  const url = location.origin + location.pathname + "#" + S.code, text = `¿Me ayudas a aterrizar? Partida de Doble Mando, código: ${S.code}`;
+  if (navigator.share) { navigator.share({ title: "Doble Mando", text, url }).catch(() => {}); return; }
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(() => toast("Enlace copiado."), () => toast(url));
+  else toast(url);
+}
+
+/* ---------- partes de la cabina ---------- */
+function legalSet(m) {
+  const set = new Set();
+  if (S.sel == null || myAction(m) !== "place" || !trayOpen(m)) return set;
+  for (const id of B.SLOT_IDS) if (!B.check(m.st, m.me, { t: "place", d: S.sel, s: id, k: S.k })) set.add(id);
+  return set;
+}
+function slotH(m, id, legal, label) {
+  const st = m.st, o = st.sl[id], Sd = B.SLOTS[id];
+  const sc = Sd.who === -1 ? "" : `--sc:${COL[Sd.who]}`;
+  if (o) return `<button class="slot full" data-slot="${id}" aria-label="${esc(slotName(id))}: ${o.v}">${dieSVG(o.v, o.p)}</button>`;
+  const cls = "slot" + (Sd.who === -1 ? " any" : "") + (legal.has(id) ? " legal" : "") + (S.hintA && S.hintA.s === id ? " hint" : "");
+  return `<button class="${cls}" style="${sc}" data-slot="${id}" aria-label="${esc(slotName(id))}${label ? " " + label : ""}">${label || ""}</button>`;
+}
+function approachH(m, radioV) {
+  const st = m.st;
+  let h = "";
+  for (let i = 0; i <= B.AIRPORT; i++) {
+    const n = st.planes[i], past = i < st.pos, here = i === st.pos, apt = i === B.AIRPORT, rn = i - st.pos + 1;
+    const tgt = radioV != null && i === st.pos + radioV - 1;
+    h += `<div class="cell${past ? " past" : ""}${here ? " here" : ""}${apt ? " apt" : ""}${tgt ? " tgt" : ""}">
+      <span class="rn">${!past && rn <= 6 ? (here ? "AQUÍ·1" : rn) : ""}</span>
+      ${apt ? `<span class="apt-i">${RUNWAY_I}</span>` : `<span class="pls">${n ? Array(n).fill(PLANE_I).join("") : ""}</span>`}
+      <span>${apt ? B.ROUTE.code : ""}</span></div>`;
+  }
+  const ahead = st.planes.reduce((a, x, i) => a + (i >= st.pos ? x : 0), 0);
+  return `<div class="strip" id="appr"><div class="strip-h"><span>Aproximación · ${esc(B.ROUTE.name)}</span><b>${st.pos === B.AIRPORT ? "¡Pista a la vista!" : `Faltan ${plural(B.AIRPORT - st.pos, "casilla", "casillas")}`} · ${plural(ahead, "avión", "aviones")}</b></div><div class="cells">${h}</div></div>`;
+}
+function altitudeH(m) {
+  const st = m.st;
+  let h = "";
+  B.ALT.forEach((ft, i) => {
+    const here = i === st.round - 1, past = i < st.round - 1, first = i % 2 === 0 ? 0 : 1;
+    const rr = B.REROLL_AT.includes(i) && i >= st.round - 1 && !(i === st.round - 1);
+    h += `<div class="cell${past ? " past" : ""}${here ? " here" : ""}" style="${here ? `box-shadow:inset 0 0 0 2px ${COL[first]},0 0 14px -4px ${COL[first]}` : ""}">
+      ${rr ? `<span class="rrdot" title="Ficha de volver a tirar">↻</span>` : ""}
+      <span class="ft">${i === 6 ? "✈︎" : ft / 1000 + "k"}</span><span class="fp" style="color:${COL[first]}">${first === 0 ? "◀ P" : "C ▶"}</span></div>`;
+  });
+  return `<div class="strip alt" id="alt"><div class="strip-h"><span>Altitud · ronda ${st.round}/7</span><b>${B.final(st) ? "Última ronda: ¡a aterrizar!" : st.round === 1 ? "6000 pies" : `${B.ALT[st.round - 1]} pies`}</b></div><div class="cells">${h}</div></div>`;
+}
+function switchRow(m, id, legal, on, lock) {
+  return `<div class="sw"><span class="lamp${on ? " on" : ""}${lock ? " lock" : ""}" aria-hidden="true"></span>${slotH(m, id, legal, B.SLOTS[id].ok.join("·"))}</div>`;
+}
+function panelH(m, legal) {
+  const st = m.st, fin = B.final(st);
+  const axOK = st.sl.axP && st.sl.axC, enOK = st.sl.enP && st.sl.enC;
+  const spTxt = fin
+    ? `Última ronda: la velocidad tiene que ser <b>menor que ${st.brakes ? B.brakeVal(st) : "los frenos"}</b>${st.brakes < 2 ? " (necesitáis al menos 2 frenos)" : ""}.`
+    : `Menos de ${Math.ceil(B.blue(st))}: no avanzáis · ${Math.ceil(B.blue(st))}–${Math.floor(B.orange(st))}: avanzáis 1 · más de ${Math.floor(B.orange(st))}: avanzáis 2`;
+  return `<div class="panel" id="panel">
+    <div class="inst" id="axisBox"><div class="inst-h"><span>Eje</span><span class="tag ${axOK ? "ok" : "must"}">${axOK ? "Hecho" : "Obligatorio"}</span></div>
+      <div class="axrow"><div>${slotH(m, "axP", legal)}<div class="lb" style="color:${COL[0]}">PILOTO</div></div><div class="dial">${dialSVG(st)}</div><div>${slotH(m, "axC", legal)}<div class="lb" style="color:${COL[1]}">COPILOTO</div></div></div></div>
+    <div class="inst" id="engBox"><div class="inst-h"><span>Motores · velocidad</span><span class="tag ${enOK ? "ok" : "must"}">${enOK ? (st.speed != null ? "Velocidad " + st.speed : "Hecho") : "Obligatorio"}</span></div>
+      <div class="enrow"><div>${slotH(m, "enP", legal)}<div class="lb" style="color:${COL[0]}">PILOTO</div></div><div class="gauge">${gaugeSVG(st)}</div><div>${slotH(m, "enC", legal)}<div class="lb" style="color:${COL[1]}">COPILOTO</div></div></div>
+      <p class="spd">${spTxt}</p></div>
+    <div class="sides">
+      <div class="side" style="--sc:${COL[0]}" id="sideP"><div class="sh">Piloto</div>
+        <div class="grp"><div class="gl"><span>Radio</span></div><div class="radios">${slotH(m, "raP", legal, "📻")}</div></div>
+        <div class="grp" id="gearBox"><div class="gl"><span>Tren</span><span>${B.gearCount(st)}/3</span></div>
+          <div class="swrow">${["g1", "g2", "g3"].map((id, i) => switchRow(m, id, legal, st.gear[i], false)).join("")}</div></div>
+        <div class="grp" id="brakeBox"><div class="gl"><span>Frenos</span><span>${st.brakes}/3</span></div>
+          <div class="swrow">${["b1", "b2", "b3"].map((id, i) => switchRow(m, id, legal, i < st.brakes, i > st.brakes)).join("")}</div></div>
+      </div>
+      <div class="side" style="--sc:${COL[1]}" id="sideC"><div class="sh">Copiloto</div>
+        <div class="grp"><div class="gl"><span>Radio</span></div><div class="radios">${slotH(m, "raC1", legal, "📻")}${slotH(m, "raC2", legal, "📻")}</div></div>
+        <div class="grp" id="flapBox"><div class="gl"><span>Flaps (en orden)</span><span>${st.flaps}/4</span></div>
+          <div class="swrow f">${["f1", "f2", "f3", "f4"].map((id, i) => switchRow(m, id, legal, i < st.flaps, i > st.flaps)).join("")}</div></div>
+      </div>
+    </div>
+    <div class="inst" id="concBox"><div class="inst-h"><span>Concentración · cualquiera</span><span class="tag">Café ${st.coffee}/3</span></div>
+      <div class="conc"><div class="slots">${["c1", "c2", "c3"].map(id => slotH(m, id, legal, "☕")).join("")}</div>
+        <div class="tokens"><span class="tk" title="Café">${[0, 1, 2].map(i => CUP(i < st.coffee)).join("")}</span><span class="tk" title="Fichas de volver a tirar">${RR_I(st.rr)}<b>${st.rr}</b></span></div></div></div>
+  </div>`;
+}
+function crewH(m) {
+  const st = m.st, a = actor(st);
+  return `<div class="crew">${[0, 1].map(p => {
+    const nm = youTxt(m) && p === m.me ? `${m.names[p]} (tú)` : m.names[p];
+    const left = st.dice[p].length;
+    return `<div class="mate${!st.over && a === p ? " turn" : ""}" style="--mc:${COL[p]}"><div class="who"><span>${ROLE[p]}</span><b>${esc(nm)}</b></div><div class="backs" aria-label="${plural(left, "dado", "dados")} por colocar">${Array(left).fill("<i></i>").join("")}</div></div>`;
+  }).join("")}</div>`;
+}
+function trayH(m) {
+  const st = m.st, act0 = myAction(m), p = m.me;
+  if (st.over) return `<div class="tray" style="--sc:var(--gold)"><button class="btn gold wide" id="seeEnd">Ver el final</button></div>`;
+  if (p === null) {
+    if (m.mode === "online") return `<div class="tray" style="--sc:var(--line)"><p class="coach">Estás mirando el vuelo. Los dados son secretos.</p></div>`;
+    return "";
+  }
+  const sc = `--sc:${COL[p]}`;
+  if (!act0) {
+    const a = actor(st);
+    let t = m.mode === "ai" ? `${m.names[a]} está pensando…` : `Le toca a ${m.names[a]}. Recuerda: ¡en silencio!`;
+    if (st.rrPend && m.mode === "online") t = st.rrPend.need[p] ? "Esperando a que tu compañero elija sus dados…" : `${m.names[1 - p]} está eligiendo qué dados vuelve a tirar…`;
+    return `<div class="tray" style="${sc}"><div class="tray-h"><span>Tus dados</span><span style="color:var(--muted)">${plural(st.dice[p].length, "por colocar", "por colocar")}</span></div>
+      <div class="dice">${st.dice[p].map(v => `<span class="die">${dieSVG(v, p)}</span>`).join("") || `<span class="muted small">Ya has colocado tus 4 dados.</span>`}</div><p class="coach">${esc(t)}</p></div>`;
+  }
+  if (!trayOpen(m)) {
+    return `<div class="tray" style="${sc}"><div class="cover"><p style="font-size:17px;font-weight:800">Pasa el móvil a <span style="color:${COL[p]}">${esc(m.names[p])}</span> (${ROLE[p].toLowerCase()})</p>
+      <p class="muted small">${esc(m.names[1 - p])}, no mires: los dados de tu compañero son secretos.</p>
+      <button class="btn gold wide" id="reveal">Soy ${esc(m.names[p])}: ver mis dados</button></div></div>`;
+  }
+  if (act0 === "pick") {
+    return `<div class="tray" style="${sc}"><div class="tray-h"><span>¿Qué dados vuelves a tirar?</span></div>
+      <div class="dice">${st.dice[p].map((v, i) => `<button class="die${S.rrSel.includes(i) ? " rr" : ""}" data-rr="${i}" aria-pressed="${S.rrSel.includes(i)}" aria-label="Dado ${v}">${dieSVG(v, p)}</button>`).join("")}</div>
+      <p class="coach">Toca los dados que quieres volver a tirar.</p>
+      <div class="acts"><button class="btn ghost" id="keepAll">Me los quedo</button><button class="btn gold" id="doRR"${S.rrSel.length ? "" : " disabled"}>Volver a tirar ${S.rrSel.length || ""}</button></div></div>`;
+  }
+  const sel = S.sel, v = sel != null ? st.dice[p][sel] : null;
+  let cof = "";
+  if (sel != null && st.coffee > 0) {
+    const lo = Math.max(-st.coffee, 1 - v), hi = Math.min(st.coffee, 6 - v);
+    cof = `<div class="cof"><button class="btn sm ghost" id="kMinus"${S.k <= lo ? " disabled" : ""} aria-label="Café: restar 1">−1</button><span>${S.k ? `☕ ×${Math.abs(S.k)}: tu ${v} vale <b style="color:var(--gold)">${v + S.k}</b>` : "Café: cambia el dado ±1"}</span><button class="btn sm ghost" id="kPlus"${S.k >= hi ? " disabled" : ""} aria-label="Café: sumar 1">+1</button></div>`;
+  }
+  const must = B.mandLeft(st, p), left = st.dice[p].length;
+  let coach = sel == null ? "Elige uno de tus dados." : "Ahora toca una casilla iluminada del panel.";
+  if (sel == null && must && left === must) coach = `Te quedan ${plural(left, "dado", "dados")} y ${must === 2 ? "el eje y los motores" : st.sl[p === P ? "axP" : "axC"] ? "los motores" : "el eje"} sin poner: van ahí sí o sí.`;
+  return `<div class="tray" style="${sc}" id="tray"><div class="tray-h"><span>Tus dados · ${ROLE[p]}</span>${m.mode === "local" ? `<button class="btn sm ghost" id="hide">Tapar</button>` : ""}</div>
+    <div class="dice">${st.dice[p].map((d, i) => `<button class="die${sel === i ? " sel" : ""}${S.hintA && S.hintA.d === i ? " mark" : ""}" data-die="${i}" aria-pressed="${sel === i}" aria-label="Dado ${d}">${dieSVG(sel === i ? d + S.k : d, p, { k: sel === i && S.k })}</button>`).join("")}</div>
+    ${cof}<p class="coach${sel != null ? " ok" : ""}">${esc(coach)}</p>
+    <div class="acts"><button class="btn sm" id="hi">Pista</button>${st.rr > 0 && !st.rrPend ? `<button class="btn sm ghost" id="rrBtn">↻ Volver a tirar (${st.rr})</button>` : ""}</div></div>`;
+}
+function lastH(m) {
+  const st = m.st, L = st.last;
+  if (B.placed(st) === 0 && !st.over && !st.rrPend) {
+    const tip = st.round === 1 ? "Antes de mirar los dados podéis hablar de estrategia (sin decir números). En cuanto los veáis, silencio total." : `Ronda ${st.round}: hablad de estrategia ahora si queréis. En cuanto miréis los dados, silencio.`;
+    return `<div class="brief">🗣️ ${esc(tip)}${L && L.t === "round" ? "" : ""}</div>`;
+  }
+  if (!L) return "";
+  const prev = st.hist.slice().reverse().find(x => x.t !== "round");
+  if (!prev) return "";
+  const you = prev.p === m.me && youTxt(m), who = you ? "Tú" : m.names[prev.p];
+  return `<div class="last${prev.n !== S.seenN && S.seenN !== -1 ? " fresh" : ""}">${esc(cap(B.describe(prev, who, you)))}.</div>`;
+}
+function logH(m) {
+  const hist = m.st.hist || [];
+  if (!hist.length) return `<li class="muted">Todavía nada.</li>`;
+  return `<li class="rd">Ronda 1 · 6000 pies</li>` + hist.map(x => {
+    if (x.t === "round") return `<li class="rd">${esc(B.describe(x))}</li>`;
+    const you = x.p === m.me && youTxt(m);
+    return `<li>${esc(cap(B.describe(x, you ? "Tú" : m.names[x.p], you)))}</li>`;
+  }).join("");
+}
+function renderGame() {
+  const m = model(), st = m.st;
+  if (S.sel != null && (myAction(m) !== "place" || S.sel >= st.dice[m.me].length)) { S.sel = null; S.k = 0; }
+  const legal = legalSet(m);
+  const selV = S.sel != null ? st.dice[m.me][S.sel] + S.k : null;
+  const radioV = selV != null && [...legal].some(id => B.SLOTS[id].k === "radio") ? selV : null;
+  const chipTxt = S.mode === "online" ? `SALA ${esc(S.code)}` : m.mode === "ai" ? "CON LA IA" : "MISMO MÓVIL";
+  const snd = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4z"/>${SFX.on ? '<path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/>' : '<path d="m22 9-6 6M16 9l6 6"/>'}</svg>`;
+  const logOpen = document.getElementById("logBox") && document.getElementById("logBox").open;
+  S.lastKey = "game";
+  $app.innerHTML = `
+  <div class="top"><button class="btn ghost sm" id="out">Salir</button><span class="sp"></span><span class="chip">${chipTxt}</span>
+    <button class="icon-btn" id="help" aria-label="Cómo se juega">?</button><button class="icon-btn" id="snd" aria-label="${SFX.on ? "Quitar sonido" : "Activar sonido"}">${snd}</button></div>
+  <div id="turno"></div>
+  ${crewH(m)}
+  ${lastH(m)}
+  ${approachH(m, radioV)}
+  ${altitudeH(m)}
+  ${panelH(m, legal)}
+  ${trayH(m)}
+  <details class="log" id="logBox"${logOpen ? " open" : ""}><summary>Cuaderno de vuelo</summary><ol id="log">${logH(m)}</ol></details>`;
+  const lg = document.getElementById("log"); lg.scrollTop = lg.scrollHeight;
+
+  on("#out", "click", () => {
+    const m = model();
+    if (S.mode === "online" && m.me !== null && !m.st.over) confirmSheet("¿Salir de la partida?", "Podrás volver con el mismo código.", "Salir", () => leave());
+    else leave();
+  });
+  on("#help", "click", showRules);
+  on("#snd", "click", () => { SFX.on = !SFX.on; ls.set("cabina.sound", SFX.on); SFX.init(); render(); });
+  on("[data-slot]", "click", e => clickSlot(e.currentTarget.dataset.slot));
+  on("[data-die]", "click", e => selectDie(+e.currentTarget.dataset.die));
+  on("[data-rr]", "click", e => { const i = +e.currentTarget.dataset.rr; S.rrSel = S.rrSel.includes(i) ? S.rrSel.filter(x => x !== i) : [...S.rrSel, i]; render(); });
+  on("#keepAll", "click", () => sendPick([]));
+  on("#doRR", "click", () => sendPick(S.rrSel.slice()));
+  on("#reveal", "click", () => { S.reveal = revealKey(model()); S.sel = null; S.k = 0; render(); });
+  on("#hide", "click", () => { S.reveal = ""; S.sel = null; render(); });
+  on("#kMinus", "click", () => { S.k--; render(); });
+  on("#kPlus", "click", () => { S.k++; render(); });
+  on("#hi", "click", doHint);
+  on("#rrBtn", "click", askReroll);
+  on("#seeEnd", "click", () => showEnd());
+
+  /* franja de turno */
+  const tz = document.getElementById("turno"), a = actor(st);
+  if (st.over || !window.SalaTurno || a === null) { tz.innerHTML = ""; if (window.SalaTurno) SalaTurno.limpiar(); }
+  else {
+    const aiTurn = m.mode === "ai" && a !== m.me;
+    const acc = st.rrPend ? "Elige qué dados vuelves a tirar" : `Coloca un dado en el panel (${st.dice[a].length === 1 ? "le queda 1" : `le quedan ${st.dice[a].length}`})`;
+    const o = { quien: `${m.names[a]} · ${ROLE[a]}`, color: COL[a], tuyo: m.mode === "local" ? null : m.me === null ? false : a === m.me, accion: aiTurn ? "Está pensando su jugada…" : acc };
+    if (st.rrPend && m.mode === "online") { o.tuyo = myAction(m) === "pick"; o.quien = o.tuyo ? m.names[m.me] : m.names[1 - (m.me || 0)]; o.titulo = "Volver a tirar"; o.color = COL[o.tuyo ? m.me : 1 - (m.me || 0)]; }
+    tz.innerHTML = SalaTurno.html({ ...o, compacta: true });
+    SalaTurno.marcar({ ...o, clave: st.round + "|" + B.placed(st) + "|" + (st.rrPend ? "rr" + a : a) });
+  }
+
+  if (st.last && st.last.n !== S.seenN && S.seenN !== -1 && st.last.p !== m.me && m.mode !== "local") {
+    const L = st.last;
+    if (L.t === "place") { SFX.click(); if (L.on || L.hit) setTimeout(() => SFX.ding(), 120); }
+    if (L.t === "reroll") toast(`${m.names[L.p]} gasta una ficha: podéis volver a tirar los dados que queráis.`, 4500);
+  }
+  if (S.seenRound != null && st.round !== S.seenRound && !st.over) toast(st.round === 7 ? "Última ronda: ¡a por el aterrizaje!" : `Ronda ${st.round}: bajáis a ${B.ALT[st.round - 1]} pies.`, 3500);
+  S.seenRound = st.round;
+  S.seenN = st.last ? st.last.n : 0;
+  if (st.over && S.endShown !== st.seed + "|" + st.n) { S.endShown = st.seed + "|" + st.n; if (m.mode === "online" && !st.over.win) SFX.alarm(); if (m.mode === "online" && st.over.win) SFX.land(); setTimeout(() => showEnd(), 900); }
+}
+
+/* ================= final ================= */
+function showEnd() {
+  const m = model(), st = m.st, ov = st.over; if (!ov) return;
+  const items = [
+    ["Ningún avión en la aproximación", !st.planes.some(x => x)],
+    ["Tren de aterrizaje desplegado (3/3)", B.gearCount(st) === 3],
+    ["Flaps desplegados (4/4)", st.flaps === 4],
+    ["Avión recto", st.axis === 0],
+    ["Velocidad menor que los frenos", B.final(st) && st.speed != null && st.speed < B.brakeVal(st)]
+  ];
+  const showChecks = ov.why === "land" || ov.why === "brakes";
+  const rate = st.played ? `${st.wins[0]} de ${st.played}` : "";
+  openSheet(`<h2 class="end-h ${ov.win ? "win" : "lose"}">${ov.win ? "¡Aterrizaje perfecto!" : "Vuelo fallido"}</h2>
+    <p style="text-align:center;font-weight:700">${ov.win ? "Habéis tomado tierra con todo en verde. ¡Gran trabajo de equipo!" : esc(ov.txt)}</p>
+    ${showChecks ? `<ul class="checks">${items.map(([t, ok]) => `<li class="${ok ? "" : "no"}"><i>${ok ? "✓" : "✕"}</i>${esc(t)}</li>`).join("")}</ul>` : ""}
+    <p class="muted small" style="text-align:center">Ronda ${st.round} de 7${rate ? ` · Aterrizajes de esta tripulación: ${rate}` : ""}</p>
+    <div class="row">${m.me !== null || m.mode !== "online" ? `<button class="btn gold" id="nx">Otro vuelo</button>` : ""}<button class="btn ghost" id="vt">Ver la cabina</button></div>
+    <button class="btn ghost wide" id="bye">Salir</button>`);
+  on("#nx", "click", rematch, $sheet);
+  on("#vt", "click", closeSheet, $sheet);
+  on("#bye", "click", () => { closeSheet(); if (S.mode === "local") ls.del("cabina.partida"); leave(); }, $sheet);
+}
+
+/* ================= reglas ================= */
+function showRules() {
+  openSheet(`<div class="rules">
+    <h2 style="font-size:28px;color:var(--gold)">Cómo se juega</h2>
+    <section><h3>La idea</h3><p>Sois la tripulación: <b class="pi">piloto</b> (dados azules) y <b class="co">copiloto</b> (dados naranjas). Tenéis <b>7 rondas</b> (de 6000 pies al suelo) para aterrizar. Es cooperativo: ganáis o perdéis juntos.</p></section>
+    <section><h3>Cada ronda</h3><ul>
+      <li><b>Estrategia:</b> antes de mirar los dados podéis hablar, pero sin decir números ni qué dados vais a poner.</li>
+      <li><b>Dados:</b> cada uno tira 4 dados en secreto. Desde ese momento, <b>silencio</b>.</li>
+      <li><b>Colocar:</b> por turnos, cada uno pone un dado en una casilla libre de su color (o en una blanca de concentración). Empieza quien marca la flecha de la altitud (◀ P o C ▶).</li>
+      <li><b>Fin de ronda:</b> el avión baja 1000 pies y se recogen los dados.</li></ul></section>
+    <section><h3>Eje (obligatorio)</h3><p>Cada uno pone un dado. El avión se inclina hacia quien ha puesto el número más alto, tanto como la diferencia, y se queda así para la ronda siguiente. Si llega a la <b>X</b> (3), entra en barrena y perdéis.</p></section>
+    <section><h3>Motores (obligatorio)</h3><p>Cada uno pone un dado y se suman: es la velocidad. Si es menor que el marcador <b class="pi">azul</b> no avanzáis; entre los dos marcadores avanzáis 1 casilla; si es mayor que el <b class="co">naranja</b>, avanzáis 2.</p>
+      <p>Si tenéis que avanzar y hay un avión en vuestra casilla, <b>chocáis</b>. Si ya estáis en el aeropuerto y tenéis que avanzar, <b>os pasáis</b>.</p></section>
+    <section><h3>Radio</h3><p>El piloto tiene 1 radio y el copiloto 2. Un dado de valor N quita un avión de la casilla N contando desde la vuestra (el 1 es vuestra casilla). Los números azules sobre la aproximación te lo indican.</p></section>
+    <section><h3>Tren de aterrizaje <span class="pi">(piloto)</span> y flaps <span class="co">(copiloto)</span></h3><p>Cada interruptor pide un valor concreto. El tren (1·2, 3·4, 5·6) se despliega en cualquier orden y sube el marcador azul: frena el avance. Los flaps (1·2, 2·3, 4·5, 5·6) van en orden de arriba abajo y suben el naranja: hace falta más velocidad para avanzar 2. Para aterrizar tienen que estar <b>todos en verde</b>.</p></section>
+    <section><h3>Frenos <span class="pi">(piloto)</span></h3><p>Se despliegan en orden: 2, luego 4, luego 6. Solo cuentan en la última ronda: la velocidad tiene que ser <b>menor</b> que el valor del freno (con 2 frenos, menor que 4; con 3, menor que 6). Sin al menos 2 frenos no podéis parar.</p></section>
+    <section><h3>Concentración y café</h3><p>Cualquiera puede poner cualquier dado en concentración y ganáis un café (máximo 3 entre los dos). Antes de colocar un dado podéis gastar cafés para subirlo o bajarlo 1 por café (sin pasar de 6 ni bajar de 1).</p></section>
+    <section><h3>Volver a tirar</h3><p>A 6000 y a 2000 pies conseguís una ficha ↻. Cualquiera puede gastarla en cualquier momento de la ronda: los dos podéis volver a tirar los dados que queráis de los que os quedan.</p></section>
+    <section><h3>Aterrizar</h3><p>Tenéis que llegar a la pista justo cuando el avión llega al suelo (ronda 7). Si llegáis antes, dais vueltas esperando: no podéis avanzar más. Si llegáis al suelo sin tener la pista delante, os estrelláis. Al final de la ronda 7 ganáis si:</p>
+      <ul><li>no queda ningún avión en la aproximación,</li><li>el tren y los flaps están en verde,</li><li>el avión está recto,</li><li>la velocidad de esa ronda era menor que los frenos.</li></ul></section>
+    <section><h3>Consejos</h3><ul>
+      <li>Cada ronda hay que avanzar 1 casilla de media: fijaos en el marcador azul y en el naranja.</li>
+      <li>Despejad con la radio los aviones de vuestra casilla <b>antes</b> de completar los motores.</li>
+      <li>Si tu compañero ya ha puesto su dado en el eje, iguálalo para dejar el avión recto.</li>
+      <li>Los cafés salvan rondas: guardad alguno para la última.</li>
+      <li>Si dudas, pulsa <b>Pista</b>.</li></ul></section>
+    <div class="row"><button class="btn ghost" id="tourGo">Ver la visita guiada</button><button class="btn gold" data-x>Entendido</button></div></div>`);
+  on("[data-x]", "click", closeSheet, $sheet);
+  on("#tourGo", "click", () => { closeSheet(); if (S.mode && document.getElementById("panel")) startTour(true); else toast("La visita guiada empieza al abrir tu primer vuelo."); }, $sheet);
+}
+
+/* ================= visita guiada ================= */
+const TOUR = [
+  { el: null, h: "Bienvenidos a bordo", t: "Te enseño la cabina en un minuto. Piloto y copiloto colocáis dados en el panel para aterrizar <b>sin hablar</b>." },
+  { el: "#appr", h: "La aproximación", t: "Vuestra posición y el aeropuerto. Los <b>aviones rojos</b> hay que quitarlos con la radio antes de pasar por su casilla." },
+  { el: "#alt", h: "La altitud", t: "7 rondas hasta el suelo. Tenéis que llegar a la pista <b>justo en la última</b>. La flecha dice quién empieza cada ronda." },
+  { el: "#axisBox", h: "El eje", t: "Obligatorio cada ronda. El avión se inclina hacia el dado más alto. <b>Igualad los dados</b> para mantenerlo recto." },
+  { el: "#engBox", h: "Los motores", t: "Obligatorio cada ronda. La suma marca cuánto avanzáis: entre el marcador azul y el naranja, 1 casilla." },
+  { el: "#sideP", h: "Interruptores", t: "Tren, flaps y frenos piden números concretos. Para aterrizar tienen que estar todos en verde (los frenos, cuantos más mejor)." },
+  { el: "#concBox", h: "Café", t: "Un dado en concentración os da un café, que cambia un dado ±1 cuando lo necesitéis." },
+  { el: "#tray", h: "Tus dados", t: "Toca un dado y luego una casilla iluminada. Tu compañero no ve tus dados. <b>Pista</b> te sugiere una jugada." },
+  { el: "#help", h: "¿Dudas?", t: "Aquí tienes las reglas completas cuando quieras. ¡Buen vuelo!" }
+];
+let tourI = -1;
+function startTour(force) {
+  if (tourI >= 0 || (!force && ls.get("cabina.tuto"))) return;
+  if (!document.getElementById("panel")) return;
+  ls.set("cabina.tuto", 1); tourI = 0; showTour();
+}
+function showTour() {
+  document.querySelectorAll(".spot").forEach(e => e.classList.remove("spot"));
+  const s = TOUR[tourI]; if (!s) return endTour();
+  let el = s.el && document.querySelector(s.el);
+  if (el && !el.offsetHeight) el = null;
+  if (s.el && !el) { tourI++; return showTour(); }
+  if (el) { el.classList.add("spot"); el.scrollIntoView({ block: "center" }); }
+  const r = el ? el.getBoundingClientRect() : null, low = r && r.top + r.height / 2 > innerHeight / 2;
+  $tour.innerHTML = `${el ? "" : '<div class="shade"></div>'}<div class="bub" role="dialog" aria-modal="true" style="${low ? "top:calc(12px + env(safe-area-inset-top,0px))" : "bottom:calc(14px + env(safe-area-inset-bottom,0px))"}">
+    <span class="steps">PASO ${tourI + 1} DE ${TOUR.length}</span><h3>${s.h}</h3><p>${s.t}</p>
+    <div class="row"><button class="btn ghost sm" id="tX">Saltar</button><button class="btn gold sm" id="tN">${tourI === TOUR.length - 1 ? "¡A volar!" : "Siguiente"}</button></div></div>`;
+  $tour.classList.add("on");
+  $tour.querySelector("#tX").addEventListener("click", endTour);
+  $tour.querySelector("#tN").addEventListener("click", () => { tourI++; showTour(); });
+}
+function endTour() { tourI = -1; $tour.classList.remove("on"); $tour.innerHTML = ""; document.querySelectorAll(".spot").forEach(e => e.classList.remove("spot")); }
+
+/* ================= hojas ================= */
+function confirmSheet(title, text, okLabel, fn) {
+  openSheet(`<h2>${esc(title)}</h2>${text ? `<p class="muted">${esc(text)}</p>` : ""}<div class="row"><button class="btn ghost" data-x>Cancelar</button><button class="btn gold" data-ok>${esc(okLabel)}</button></div>`);
+  on("[data-x]", "click", closeSheet, $sheet);
+  on("[data-ok]", "click", () => { closeSheet(); fn(); }, $sheet);
+}
+function openSheet(html) {
+  document.getElementById("toast").classList.remove("on");
+  $sheet.innerHTML = `<div class="scrim"></div><div class="pane" role="dialog" aria-modal="true">${html}</div>`; $sheet.classList.add("on");
+  $sheet.querySelector(".scrim").addEventListener("click", closeSheet); $sheet.querySelector(".pane").scrollTop = 0;
+}
+function closeSheet() { $sheet.classList.remove("on"); $sheet.innerHTML = ""; }
+addEventListener("keydown", e => { if (e.key === "Escape") { closeSheet(); endTour(); } });
+
+boot();
+})();
+</script>
+</body>
+</html>
