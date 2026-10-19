@@ -20,6 +20,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="../firebase-config.js"></script>
 <script src="../shared/claude-shim.js"></script>
+<script src="../shared/turno.js"></script>
 <style>
 /* Layout: mesa de juego a una columna — jugadores arriba, tablero hexagonal en el centro, panel de acciones y registro abajo */
 :root{
@@ -125,6 +126,8 @@ summary{cursor:pointer}
 .log li:nth-child(2){color:var(--ink);font-weight:700}
 .log .lh{font-family:var(--display);font-size:16px;color:var(--ink)}
 .log .sep{color:var(--gold);font-weight:900;margin-top:4px}
+#turno:empty{display:none}
+#turno .st-franja{margin:0}
 .thead{display:flex;align-items:center;gap:8px;font-size:17px}
 .thead.yo b{color:var(--gold)}
 .tdot{width:16px;height:16px;border-radius:50%;background:var(--c);box-shadow:0 0 0 2px rgba(255,255,255,.6)}
@@ -647,8 +650,7 @@ function onGame(prev) {
   if (g.gid) watchSecret();
   if (g.status === "end" && !g.score && g.actor === me()) finalize();
   if (prev && g.status === "play" && g.actor === me() && prev.actor !== me()) {
-    if (navigator.vibrate) try { navigator.vibrate(80); } catch {}
-    toast(g.phase === "defense" ? "¡Te atacan! Decide si te defiendes." : cur(g) === me() ? "¡Te toca!" : "Te toca decidir");
+    /* el aviso de turno (vibración incluida) lo da SalaTurno.marcar en el render */
   } else if (prev && prev.log && g.log && g.log[0] !== prev.log[0] && prev.actor !== me()) {
     const fresh = g.log.slice(0, g.log.indexOf(prev.log[0]) < 0 ? 1 : g.log.indexOf(prev.log[0])).filter(l => !l.startsWith("▶"));
     if (fresh.length) toast(fresh[fresh.length - 1]);
@@ -659,6 +661,7 @@ function onGame(prev) {
 /* ================= vistas ================= */
 function render() {
   if (!S.ready) return;
+  if (!S.g || S.g.status !== "play") SalaTurno.limpiar();
   if (S.offline) return view(`<div class="hero"><div class="logo">¡Escapa<small>de la Isla!</small></div><p class="muted">No hay conexión con el servidor de partidas. Revisa internet y recarga.</p></div>`, "off");
   if (!S.code) return renderHome();
   if (!S.g) return view(`<div class="hero"><div class="logo">¡Escapa<small>de la Isla!</small></div><p class="muted">Remando hacia la partida…</p></div>`, "load");
@@ -843,10 +846,24 @@ function hexInfo(g, k) {
 }
 const STEPS = [["start", "Loseta"], ["move", "Mover"], ["sink", "Hundir"], ["roll", "Dado"]];
 function turnHead(g) {
-  if (!["start", "move", "sink", "roll", "creature", "defense"].includes(g.phase)) return `<div class="thead"><span class="tdot" style="--c:${colorOf(g, g.actor)}"></span><b>Preparación</b><span class="muted small">· ${g.phase === "placeExp" ? "colocando exploradores" : "colocando botes"}</span></div>`;
-  const owner = cur(g), idx = { start: 0, move: 1, sink: 2, roll: 3, creature: 3, defense: 3 }[g.phase];
-  return `<div class="thead ${owner === me() ? "yo" : ""}"><span class="tdot" style="--c:${colorOf(g, owner)}"></span><b>${owner === me() ? "¡Tu turno!" : "Turno de " + esc(nameOf(owner))}</b></div>
-    <ol class="steps">${STEPS.map(([, t], i) => `<li class="${i < idx ? "done" : i === idx ? "now" : ""}">${i + 1}. ${t}</li>`).join("")}</ol>`;
+  if (!["start", "move", "sink", "roll", "creature", "defense"].includes(g.phase)) return `<div class="thead"><b>Preparación</b><span class="muted small">· ${g.phase === "placeExp" ? "colocando exploradores" : "colocando botes"}</span></div>`;
+  const idx = { start: 0, move: 1, sink: 2, roll: 3, creature: 3, defense: 3 }[g.phase];
+  return `<ol class="steps">${STEPS.map(([, t], i) => `<li class="${i < idx ? "done" : i === idx ? "now" : ""}">${i + 1}. ${t}</li>`).join("")}</ol>`;
+}
+/* indicador de turno común (shared/turno.js): quién tiene que actuar ahora y qué */
+function turnoInfo(g) {
+  const A = g.actor, mine = A === me();
+  const accion = {
+    placeExp: mine ? "Coloca un explorador en la isla" : "Coloca un explorador",
+    placeBoat: mine ? "Coloca un bote junto a la isla" : "Coloca un bote",
+    start: mine ? "Puedes jugar una loseta antes de mover" : "Empieza su turno",
+    move: mine ? `Mueve: ${plural(g.moves, "movimiento", "movimientos")}` : "Está moviendo",
+    sink: mine ? "Hunde una loseta" : "Va a hundir una loseta",
+    roll: mine ? "Tira el dado de criaturas" : "Va a tirar el dado",
+    creature: mine ? "Mueve la criatura del dado" : "Mueve una criatura",
+    defense: mine ? "¡Te atacan! Decide si te defiendes" : "Decide si se defiende del ataque"
+  }[g.phase] || "";
+  return { quien: nameOf(A), color: colorOf(g, A), tuyo: mine, accion, clave: g.phase === "defense" ? "def" : (g.phase === "placeExp" || g.phase === "placeBoat" ? g.phase : "t" + (g.tn || 0)) };
 }
 function legendHTML() {
   return `<details class="legend"><summary>¿Qué es cada cosa del tablero?</summary><ul>
@@ -942,6 +959,7 @@ function renderGame() {
   const g = S.g;
   if (view(`<div class="top"><button class="btn ghost sm" id="out">Salir</button><span class="sp"></span><span class="chip">SALA ${esc(S.code)}</span></div>
     <div class="players" id="players"></div>
+    <div id="turno"></div>
     <div class="bwrap" id="bwrap"><button class="zbtn" id="zoom" aria-label="Ampliar tablero">＋</button><svg id="board" viewBox="0 0 ${VBW.toFixed(0)} ${VBH.toFixed(0)}" role="img" aria-label="Tablero de la isla"></svg></div>
     <div id="panel"></div><div class="panel"><ul class="log" id="log"></ul></div><div class="panel" id="minebox"></div><div id="legend"></div>`, "game|" + S.code)) {
     on("#out", "click", () => leave(""));
@@ -951,6 +969,11 @@ function renderGame() {
   }
   computeTaps();
   document.getElementById("players").innerHTML = playersHTML();
+  if (g.status === "play" && g.order && g.actor) {
+    const t = turnoInfo(g);
+    document.getElementById("turno").innerHTML = SalaTurno.html({ ...t, compacta: true });
+    SalaTurno.marcar(t);
+  } else { document.getElementById("turno").innerHTML = ""; SalaTurno.limpiar(); }
   document.getElementById("board").innerHTML = boardSVG();
   const panel = document.getElementById("panel");
   if (g.status === "end") panel.outerHTML = `<div id="panel">${endHTML()}</div>`;

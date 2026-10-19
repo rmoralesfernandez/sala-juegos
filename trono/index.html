@@ -20,6 +20,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="../firebase-config.js"></script>
 <script src="../shared/claude-shim.js"></script>
+<script src="../shared/turno.js"></script>
 <script src="motor.js"></script>
 <style>
 /* Layout: mesa de bazas a una columna. Rival arriba, carta en juego y baza en el centro, facciones, tus seguidores y tu mano abajo, botón de jugar fijo bajo la mano */
@@ -169,6 +170,7 @@ button.cardx.no{opacity:.38;filter:grayscale(.6)}
 .hand{display:grid;grid-template-columns:repeat(7,1fr);gap:clamp(4px,1.4vw,8px);min-height:60px;align-items:end;padding-top:12px}
 .hand .empty{grid-column:1/-1;color:var(--muted);font-size:14px;text-align:center;padding:16px 0}
 .coach{font-size:14.5px;font-weight:700;text-align:center;min-height:2.8em;color:var(--ink);text-wrap:balance}
+.coach:empty{min-height:0;display:none}
 .coach.err{color:#FFB2A8}
 .coach.ok{color:var(--gold)}
 .coach.lo{color:#C9CEE6}
@@ -185,6 +187,8 @@ button.cardx.no{opacity:.38;filter:grayscale(.6)}
 /* ---------- cubierta para pasar el móvil ---------- */
 .cover{display:grid;gap:16px;justify-items:center;text-align:center;padding:40px 8px}
 .cover h2{font-size:30px;color:var(--gold)}
+#turno:empty{display:none}
+#turno .st-franja{margin:0}
 
 /* ---------- final ---------- */
 .res{width:100%;border-collapse:collapse;font-size:14.5px}
@@ -343,6 +347,22 @@ function model() {
 }
 const viewer = m => m.me === null ? 0 : m.me;
 const canAct = m => !m.st.over && m.me !== null && m.st.turn === m.me && !(m.mode === "local" && S.cover);
+const SEATC = ["#2F7FD8", "#D2484E"];
+function turnoInfo(m) {
+  const st = m.st; if (!st || st.over) return null;
+  const t = st.turn, resp = st.table.length > 0, opp = m.names[1 - t];
+  const tuyo = m.mode === "local" ? null : m.me === null ? false : t === m.me;
+  let accion;
+  if (tuyo === false) accion = m.me === null ? (resp ? "Responde a la baza" : "Sale en esta baza") : m.mode === "ai" ? "La máquina está pensando…" : resp ? "Está respondiendo a tu carta" : "Va a salir con una carta";
+  else accion = resp ? `Responde a la carta de ${tuyo === null ? opp : youName(m, 1 - t)}` : "Sal con la carta que quieras";
+  return { quien: m.names[t], color: SEATC[t], tuyo, accion };
+}
+function pintaTurno(m, el) {
+  const o = turnoInfo(m);
+  if (!o) { if (el) el.innerHTML = ""; SalaTurno.limpiar(); return; }
+  if (el) el.innerHTML = SalaTurno.html(o);
+  SalaTurno.marcar(o);
+}
 const youName = (m, p) => p === m.me && m.mode !== "local" ? "Tú" : m.names[p];
 
 /* ================= online ================= */
@@ -549,6 +569,7 @@ function hint() {
 /* ================= vistas ================= */
 function render() {
   if (!S.ready) return;
+  if (!S.mode || (S.mode === "online" && (!S.g || S.g.status === "lobby" || !S.g.st))) SalaTurno.limpiar();
   if (!S.mode) return renderHome();
   if (S.mode === "online") {
     if (!S.g) return view(`<div class="hero"><div class="logo"><small>DOS HEREDEROS</small>Por el Trono</div><p class="muted">Entrando en la partida…</p></div>`, "load");
@@ -658,6 +679,7 @@ function renderCover(m) {
     <button class="btn gold wide" id="go">Soy ${esc(who)}: ver mis cartas</button></div>`, "cover|" + st.n + "|" + st.gn);
   on("#out", "click", () => leave());
   on("#go", "click", () => { S.cover = false; S.lastKey = ""; render(); });
+  pintaTurno(m, null);
 }
 
 function buildGame() {
@@ -667,6 +689,7 @@ function buildGame() {
   view(`
   <div class="top"><button class="btn ghost sm" id="out">Salir</button><span class="sp"></span><span class="chip">${chip}</span>
     <button class="icon-btn" id="help" aria-label="Cómo se juega">?</button><button class="icon-btn" id="snd" aria-label="${SFX.on ? "Quitar sonido" : "Activar sonido"}">${snd}</button></div>
+  <div id="turno"></div>
   <button class="pl" id="opp"></button>
   <div class="phase" id="phase"></div>
   <div class="board" id="board"><div class="upz" id="upz"></div><div class="trick" id="trick"></div></div>
@@ -710,6 +733,8 @@ function updateGame() {
   const fresh = st.last && st.last.n !== S.seenN && S.seenN !== -1;
   const leg = my ? B.legal(st, p) : [];
   if (S.sel !== null && !leg.includes(S.sel)) S.sel = null;
+
+  pintaTurno(m, document.getElementById("turno"));
 
   /* rival */
   const oppEl = document.getElementById("opp");
@@ -776,7 +801,7 @@ function updateGame() {
   const coach = document.getElementById("coach");
   let ct = { text: "" };
   if (st.over) ct = { text: "Partida terminada." };
-  else if (!my) ct = { text: m.me === null ? `Juega ${esc(m.names[st.turn])}.` : m.mode === "ai" ? "La máquina está pensando…" : `Turno de ${esc(m.names[st.turn])}. Espera a que juegue.` };
+  else if (!my) ct = { text: "" };
   else ct = coachText(m);
   coach.innerHTML = ct.text;
   coach.className = "coach" + (ct.ok ? " ok" : ct.lo ? " lo" : "");

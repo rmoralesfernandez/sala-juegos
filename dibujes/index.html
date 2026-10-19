@@ -20,6 +20,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="../firebase-config.js"></script>
 <script src="../shared/claude-shim.js"></script>
+<script src="../shared/turno.js"></script>
 <script src="cartas.js"></script>
 <style>
 /* Layout: una columna; carta de 3 partes arriba, lienzo cuadrado blanco, herramientas debajo */
@@ -38,6 +39,7 @@ button,input,select{font:inherit;color:inherit}
 button{cursor:pointer}
 :focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
 #app{max-width:560px;margin:0 auto;min-height:100%;padding-inline:16px;padding-block:14px 36px;display:flex;flex-direction:column;gap:12px}
+#app>.st-franja{margin:0}
 h1,h2,h3{font-family:var(--display);font-weight:400;margin:0;letter-spacing:.01em;text-wrap:balance}
 p{margin:0}
 .muted{color:var(--muted)}
@@ -347,11 +349,25 @@ async function boot() {
 /* ================= vistas: utilidades ================= */
 function render() {
   if (!S.ready) return;
+  S.turno = null;
+  renderView();
+  turnoMarca();
+}
+function renderView() {
   if (S.L) return renderLocal();
   if (!S.code) return renderHome();
   if (!S.g) return view(`<div class="hero"><div class="logo">TRAZOS <span>Y</span> TRAGOS</div><p class="muted">Entrando en la partida…</p></div>`);
   if (S.g.status === "lobby") return renderLobby();
   renderGame();
+}
+/* indicador de turno común (shared/turno.js): la vista llama a turnoFr() y render() aplica borde/aviso */
+function turnoFr(o) {
+  S.turno = o;
+  return window.SalaTurno ? SalaTurno.html({ ...o, compacta: true }) : "";
+}
+function turnoMarca() {
+  if (!window.SalaTurno) return;
+  if (S.turno) SalaTurno.marcar(S.turno); else SalaTurno.limpiar();
 }
 function view(html) {
   if (html === S.lastHtml) { patch(); return; }
@@ -372,8 +388,7 @@ function bind() {
 /* datos que cambian a menudo sin rehacer la pantalla (no corta un trazo a medias) */
 function patch() {
   const g = S.g;
-  const dn = document.getElementById("dn");
-  if (dn && g && g.order) dn.textContent = `${g.order.filter(u => actOf(g, u)).length}/${g.order.length}`;
+  if (g && g.order) document.querySelectorAll("#dn").forEach(dn => dn.textContent = `${g.order.filter(u => actOf(g, u)).length}/${g.order.length}`);
   const gn = document.getElementById("gn");
   if (gn && g && g.order) { const gs = g.order.filter(u => u !== g.order[g.i]); gn.textContent = `${gs.filter(u => actOf(g, u)).length}/${gs.length}`; }
 }
@@ -735,13 +750,18 @@ function renderGame() {
     if (!playing) body = `<div class="card center"><h2>Están dibujando</h2><p class="muted">Jugarás en la siguiente partida. Listos: <span id="dn"></span></p></div>`;
     else if (!S.sec) body = `<div class="cover"><span class="muted">Repartiendo carta…</span></div>`;
     else body = `
+      ${sent ? "" : turnoFr({ quien: nameOf(me()), color: colorOf(me()), tuyo: true, accion: "Dibuja tu carta antes de que se acabe el tiempo (todos a la vez)", clave: g.k })}
       <div class="top"><span class="timer" data-until="${g.until - 3000}"></span><span class="sp"></span><span class="muted small">Han terminado <span id="dn"></span></span></div>
       ${comboHTML(S.sec)}
       ${sent ? `<div class="card center pop"><h2>¡Entregado!</h2><p class="muted">Esperando a que terminen los demás (<span id="dn"></span>).</p></div>${imgHTML(S.imgs[`${g.gid}_${g.round}_${me()}`])}`
         : `${padHTML()}<button class="btn pink wide" data-on="click:done">He terminado</button>`}`;
   } else if (g.phase === "guess") {
     const d = g.order[g.i], src = img(g.gid, g.round, d), mineDraw = d === me();
-    body = `
+    const faltan = g.order.filter(u => u !== d && !actOf(g, u)).map(nameOf).join(", ");
+    const tf = mineDraw ? turnoFr({ quien: "los demás", color: colorOf(d), tuyo: false, accion: "Están adivinando tu dibujo. ¡Calladito!", clave: g.k })
+      : playing && !mine ? turnoFr({ quien: nameOf(me()), color: colorOf(me()), tuyo: true, accion: `Adivina el dibujo de ${nameOf(d)}`, clave: g.k })
+      : turnoFr({ quien: faltan ? "los que adivinan" : "nadie", color: colorOf(d), tuyo: false, accion: faltan ? `Faltan por responder: ${faltan}` : "Ya han respondido todos", clave: g.k });
+    body = `${tf}
       <div class="top">${av(d)}<b>${esc(nameOf(d))}</b><span class="sp"></span><span class="timer" data-until="${g.until}"></span></div>
       <p class="muted small">Dibujo ${g.i + 1} de ${g.order.length}</p>
       ${imgOrWait(src)}
@@ -873,18 +893,19 @@ function renderLocal() {
   const L = S.L, d = L.drawer, ids = L.names.map((_, i) => i);
   const top = `<div class="top"><button class="btn ghost sm" data-on="click:lquit">Salir</button><span class="sp"></span><span class="chip">RONDA ${L.r}/${L.cfg.rounds}</span></div>`;
   let body = "";
-  if (L.step === "pass") body = `<div class="card center pop"><p class="muted">Dibujo ${L.i + 1} de ${L.order.length}</p><h2 style="font-size:26px">Pasa el móvil a ${esc(lName(d))}</h2>
+  const lt = (i, accion, clave) => turnoFr({ quien: lName(i), color: PCOL[i % PCOL.length], tuyo: null, accion, clave });
+  if (L.step === "pass") { lt(d, "Coge el móvil y mira tu carta", `d${L.r}-${L.i}`); body = `<div class="card center pop"><p class="muted">Dibujo ${L.i + 1} de ${L.order.length}</p><h2 style="font-size:26px">Pasa el móvil a ${esc(lName(d))}</h2>
       <p class="muted">Los demás, no miréis la pantalla.</p></div>
-      <button class="btn pink wide" data-on="click:lsee">Soy ${esc(lName(d))}: ver mi carta</button>`;
-  else if (L.step === "see") body = `<p class="muted center">Esto es lo que tienes que dibujar, ${esc(lName(d))}:</p>${comboHTML(L.cur)}
+      <button class="btn pink wide" data-on="click:lsee">Soy ${esc(lName(d))}: ver mi carta</button>`; }
+  else if (L.step === "see") body = `${lt(d, "Mira tu carta: es lo que vas a dibujar", `d${L.r}-${L.i}`)}<p class="muted center">Esto es lo que tienes que dibujar, ${esc(lName(d))}:</p>${comboHTML(L.cur)}
       <p class="muted small center">Sin letras ni números. Cuando pulses, empieza el reloj (${clock(L.cfg.time * 1000)}).</p>
       <button class="btn pink wide" data-on="click:ldraw">Empezar a dibujar</button>`;
-  else if (L.step === "draw") body = `<div class="top"><span class="timer" data-until="${L.until}"></span><span class="sp"></span>${lAv(d)}<b>${esc(lName(d))}</b></div>
+  else if (L.step === "draw") body = `${lt(d, "Dibuja tu carta antes de que se acabe el tiempo", `d${L.r}-${L.i}`)}<div class="top"><span class="timer" data-until="${L.until}"></span></div>
       ${comboHTML(L.cur, true)}${padHTML()}<button class="btn pink wide" data-on="click:done">He terminado</button>`;
-  else if (L.step === "gpass") { const u = lGuessers()[L.gi]; body = `<div class="card center pop"><p class="muted">Ha dibujado ${esc(lName(d))}</p><h2 style="font-size:26px">Pasa el móvil a ${esc(lName(u))}</h2>
+  else if (L.step === "gpass") { const u = lGuessers()[L.gi]; lt(u, "Coge el móvil para adivinar", `g${L.r}-${L.i}-${L.gi}`); body = `<div class="card center pop"><p class="muted">Ha dibujado ${esc(lName(d))}</p><h2 style="font-size:26px">Pasa el móvil a ${esc(lName(u))}</h2>
       <p class="muted">${L.gi ? "Que no vea lo que han elegido los demás." : `${esc(lName(d))}, no digas nada.`}</p></div>
       <button class="btn pink wide" data-on="click:lgsee">Soy ${esc(lName(u))}: adivinar</button>`; }
-  else if (L.step === "guess") { const u = lGuessers()[L.gi]; body = `<div class="top">${lAv(u)}<b>${esc(lName(u))} adivina</b><span class="sp"></span><span class="muted small">Dibujo de ${esc(lName(d))}</span></div>
+  else if (L.step === "guess") { const u = lGuessers()[L.gi]; body = `${lt(u, `Adivina el dibujo de ${lName(d)}`, `g${L.r}-${L.i}-${L.gi}`)}
       ${imgHTML(L.img)}${optsHTML(L.cur.o, S.sel)}<button class="btn pink wide" data-on="click:guess">Confirmar</button>`; }
   else if (L.step === "show") body = showHTML({ src: L.img, drawer: d, ans: L.cur, res: L.j.res, drinks: L.j.drinks, dp: L.j.dp, nameOf: lName, av: lAv })
       + `<button class="btn pink wide" data-on="click:lnext">${L.i + 1 < L.order.length ? "Siguiente dibujo" : L.r >= L.cfg.rounds ? "Ver el final" : "Fin de la ronda"}</button>`;

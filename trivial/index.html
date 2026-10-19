@@ -20,6 +20,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="../firebase-config.js"></script>
 <script src="../shared/claude-shim.js"></script>
+<script src="../shared/turno.js"></script>
 <script src="preguntas.js"></script>
 <style>
 /* Layout: plató de concurso a una columna — cabecera con marcador, escenario central con la pregunta, mandos grandes abajo */
@@ -162,6 +163,10 @@ label.lbl{display:grid;gap:6px;font-size:13px;font-weight:600;letter-spacing:.08
 @keyframes fall{to{transform:translateY(110vh) rotate(720deg)}}
 .pop{animation:pop .35s cubic-bezier(.2,.8,.3,1.3)}
 @keyframes pop{from{transform:scale(.85);opacity:0}to{transform:none;opacity:1}}
+.turnbar .st-franja{margin:0;font-family:var(--body)}
+.turnbar .st-quien{font-family:var(--display);font-weight:400;letter-spacing:.02em}
+.turnbar.light .st-franja.st-tuyo{color:#1A1240}
+.turnbar.light .st-franja.st-tuyo .st-punto{background:#1A1240;box-shadow:0 0 0 3px rgba(26,18,64,.25)}
 #toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,16px);opacity:0;background:var(--ink);color:#14102E;padding:10px 16px;border-radius:12px;font-weight:800;transition:.2s;pointer-events:none;max-width:calc(100% - 32px);z-index:60}
 #toast.on{opacity:1;transform:translate(-50%,0)}
 @media (prefers-reduced-motion:reduce){.pie,.wheel,.pop,.confetti i{animation:none!important;transition:none!important}}
@@ -526,6 +531,7 @@ function view(html, key) {
   S.lastKey = key; $app.innerHTML = html; return true;
 }
 function renderHome() {
+  window.SalaTurno?.limpiar();
   const html = `
   <div class="hero"><div class="pie" aria-hidden="true"></div><div class="logo">Quesito<small>Show</small></div>
     <p class="muted">El concurso de preguntas para jugar con amigos, cada uno desde su móvil.</p></div>
@@ -547,6 +553,7 @@ function renderHome() {
 }
 function avatar(id, small) { const n = nameOf(id); return `<span class="av" style="--c:${colorOf(id)}"${small ? ' title="' + esc(n) + '"' : ""}>${esc(n.charAt(0).toUpperCase())}</span>`; }
 function renderLobby() {
+  window.SalaTurno?.limpiar();
   const g = S.g, host = isHost(), cfg = g.cfg || S.cfg, inList = S.players.some(p => p.id === me());
   const list = S.players.map(p => `<li>${avatar(p.id)}<span>${esc(p.name)}${p.id === g.host ? " 🎤" : ""}${p.id === me() ? " (tú)" : ""}</span></li>`).join("");
   const html = `
@@ -581,7 +588,7 @@ function top() {
   return `<div class="top"><button class="btn ghost" id="out" style="min-height:40px;font-size:16px">Salir</button><span class="chip">${esc(rnd)}</span><span class="sp"></span>${mine !== undefined ? `<span class="mini">${avatar(me())} ${fmt(mine)}</span>` : `<span class="chip">Público</span>`}</div>`;
 }
 function renderGame() {
-  const g = S.g, key = [g.phase, g.key, g.round, g.seq, !!myAns(), S.ordPick.join(","), S.betPick].join("|");
+  const g = S.g, key = [g.phase, g.key, g.round, g.seq, !!myAns(), S.ordPick.join(","), S.betPick, myAns() ? pendingIds().join(",") : ""].join("|");
   let body = "";
   const p = g.phase;
   if (p === "spin") body = `<div class="wheel-wrap"><div class="pointer"></div><div class="wheel" id="wheel" style="transform:rotate(${(g.spinDeg || 0) - 1440}deg)"></div><h2>¡Gira la ruleta!</h2></div>`;
@@ -591,7 +598,9 @@ function renderGame() {
   else if (p === "round") body = `${hostLine(g.line)}${boardView(true)}`;
   else if (p === "bet") body = betView();
   else if (p === "end") body = endView();
-  const changed = view(top() + `<section class="stage">${body}</section>`, key);
+  const turn = turnState();
+  const changed = view(top() + (turn ? `<div class="turnbar${turn.tuyo ? " light" : ""}">${window.SalaTurno.html(turn)}</div>` : "") + `<section class="stage">${body}</section>`, key);
+  if (turn) window.SalaTurno.marcar(turn); else window.SalaTurno?.limpiar();
   if (!changed) return;
   on("#out", "click", () => leave(""));
   if (p === "spin") requestAnimationFrame(() => requestAnimationFrame(() => { const w = document.getElementById("wheel"); if (w) w.style.transform = `rotate(${g.spinDeg}deg)`; }));
@@ -599,6 +608,20 @@ function renderGame() {
   on("#again", "click", async () => { await put({ status: "lobby", phase: "lobby", round: -1, scores: null, wedges: null, q: null, reveal: null, line: "" }); });
   on("#home", "click", () => leave(""));
   tick();
+}
+/* Indicador de turno (shared/turno.js). Aquí todos responden a la vez: no hay turnos,
+   así que la franja dice si te falta responder a ti o quién falta por responder. */
+const pendingIds = () => { const g = S.g, key = g.phase === "bet" ? "bet" : g.key; return seatIds().filter(id => !(S.answers[id] && S.answers[id].k === key)); };
+function turnState() {
+  const g = S.g;
+  if (!window.SalaTurno || !g || !["q", "bet"].includes(g.phase) || !seatIds().includes(me())) return null;
+  const bet = g.phase === "bet";
+  if (!myAns()) return { quien: nameOf(me()), color: colorOf(me()), tuyo: true, compacta: true, aviso: false, clave: g.key,
+    accion: bet ? "Elige cuánto te juegas" : "Responde antes de que acabe el tiempo" };
+  const left = pendingIds();
+  if (!left.length) return null;
+  return { quien: listNames(left.map(nameOf)), color: left.length === 1 ? colorOf(left[0]) : "#6d5dfc", tuyo: false, compacta: true, clave: g.key,
+    accion: `${left.length === 1 ? "Falta por" : "Faltan por"} ${bet ? "apostar" : "responder"}` };
 }
 function qHead() {
   const g = S.g, t = g.final ? { n: "Doble o nada" } : TYPES[g.q.kind], c = CATS[g.cat] || {};
@@ -619,8 +642,7 @@ function questionView() {
       ${mine ? "" : `<div class="ord-pool">${q.items.filter(x => !S.ordPick.includes(x)).map(x => `<button data-ord="${esc(x)}">${esc(x)}</button>`).join("")}</div>
       <button class="btn gold wide" id="ordgo"${S.ordPick.length === 4 ? "" : " disabled"}>Enviar orden</button>`}`;
   }
-  const waiting = seatIds().filter(id => !(S.answers[id] && S.answers[id].k === g.key)).length;
-  const foot = mine ? `<p class="muted small" style="text-align:center">${waiting ? `Esperando a ${waiting} ${waiting === 1 ? "concursante" : "concursantes"}…` : "¡Todos han respondido!"}</p>` : "";
+  const foot = mine && !pendingIds().length ? `<p class="muted small" style="text-align:center">¡Todos han respondido!</p>` : "";
   return qHead() + timer + ctl + foot;
 }
 function bindQuestion() {

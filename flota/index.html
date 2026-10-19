@@ -11,6 +11,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="../firebase-config.js"></script>
 <script src="../shared/claude-shim.js"></script>
+<script src="../shared/turno.js"></script>
 </head><body>
 <title>Hundir la Flota</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -74,6 +75,8 @@ button{cursor:pointer}
 .vs b{font-family:var(--f-display);font-weight:800;font-size:1.9rem;line-height:1;font-variant-numeric:tabular-nums;color:var(--brass)}
 .vs small{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 
+#turno .st-franja{margin:0;font-family:var(--f-mono)}
+#turno .st-quien{font-family:var(--f-display);font-size:22px;letter-spacing:.03em;text-transform:uppercase}
 .status{display:flex;align-items:center;flex-wrap:wrap;gap:10px 12px;padding:10px 14px;background:var(--sea-2);border:1px solid var(--grid);border-radius:6px;min-height:46px}
 .status .dot{width:10px;height:10px;border-radius:50%;background:var(--brass);flex:none;box-shadow:0 0 0 4px rgba(227,169,75,.15)}
 .status.wait .dot{background:var(--hit);box-shadow:0 0 0 4px rgba(255,91,61,.15);animation:blink 1s infinite}
@@ -243,6 +246,7 @@ button{cursor:pointer}
     <div class="pl r" id="pl1"></div>
   </div>
 
+  <div id="turno" hidden></div>
   <div class="status" id="status"><span class="dot"></span><p id="msg"></p><div class="actions" id="actions"></div></div>
 
   <section id="menu" hidden>
@@ -361,6 +365,7 @@ const app = $("app"), elE = $("enemy"), elM = $("mine");
 const coord = (r,c) => L[r] + (c+1);
 const esc = s => String(s).replace(/[&<>"]/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]));
 const isDone = m => m.result!==null && m.result!==undefined;
+const PCOL = ["#e3a94b","#3fc1e6"]; // J1/anfitrión/Tú · J2/invitado/Máquina
 
 let mode = null;     // 'ai' | 'local' | 'online'
 let G = null;        // partida en curso
@@ -881,6 +886,42 @@ function scoreModel(){
   return {pl:out, round};
 }
 
+// Franja de turno: a quién le toca y qué tiene que hacer (null = sin turno: fin de partida)
+function turnModel(){
+  if(!G || G.phase==="over" || G.phase==="lobby") return null;
+  const fire = canFire();
+  if(mode==="local"){
+    const i = G.phase==="place" ? G.viewer : G.turn;
+    const left = SHIPS.filter(s => !G.sides[i].ships[s.id]).length;
+    const accion = G.phase==="place" ? (left ? `Coloca tu flota · quedan ${left} barcos` : "Flota lista · pulsa Zarpar")
+      : G.busy ? "Agua… se pasa el turno" : sonarArmed ? "Sonar activo: elige el centro de una zona 3×3" : "Dispara sobre aguas enemigas · si aciertas, repites";
+    return {quien:pname(i), color:PCOL[i], tuyo:null, accion, clave:G.phase};
+  }
+  if(G.phase==="place"){
+    const left = SHIPS.filter(s => !G.sides[0].ships[s.id]).length;
+    let accion = left ? `Coloca tu flota · quedan ${left} barcos` : "Flota lista · pulsa Zarpar";
+    if(mode==="online" && O && O.meta && !O.meta.guest) accion += ` · pasa el código ${O.code}`;
+    return {quien:"", color:PCOL[mode==="online" && O && O.role==="guest" ? 1 : 0], tuyo:true, accion, clave:"place"};
+  }
+  if(mode==="ai"){
+    if(G.turn===0) return {quien:"", color:PCOL[0], tuyo:true, clave:"battle",
+      accion: sonarArmed ? "Sonar activo: elige el centro de una zona 3×3" : "Dispara sobre aguas enemigas · si aciertas, repites"};
+    return {quien:"la Máquina", color:PCOL[1], tuyo:false, accion:"Está apuntando…", clave:"battle"};
+  }
+  // online
+  const myCol = PCOL[O.role==="host" ? 0 : 1], foeCol = PCOL[O.role==="host" ? 1 : 0];
+  if(G.phase==="wait"){
+    const hay = O.meta && O.meta.guest;
+    return {quien: hay ? oppName() : "tu rival", color:foeCol, tuyo:false, clave:"wait",
+      accion: hay ? "Está desplegando su flota…" : `Esperando a que entre · pásale el código ${O.code}`};
+  }
+  if(O.turn===O.role) return {quien:"", color:myCol, tuyo:true, clave:"battle",
+    accion: sonarArmed ? "Sonar activo: elige el centro de una zona 3×3"
+      : O.pending ? "Disparo en el aire… esperando respuesta" : O.writing ? "Enviando disparo…"
+      : "Dispara sobre aguas enemigas · si aciertas, repites"};
+  return {quien:oppName(), color:foeCol, tuyo:false, accion:"Está apuntando…", clave:"battle"};
+}
+
 function canFire(){
   if(!G) return false;
   if(mode==="online") return G.phase==="battle" && O.turn===O.role && !O.pending && !O.writing;
@@ -941,6 +982,13 @@ function render(){
 
   const st = $("status"), msg = $("msg"), acts = $("actions");
   st.classList.remove("wait"); acts.innerHTML = "";
+  const T = inGame ? turnModel() : null;
+  $("turno").hidden = !T; st.hidden = !!T;
+  if(T){
+    $("turno").innerHTML = SalaTurno.html(T);
+    // En «pasa el móvil» el aviso sale al pulsar «Soy Jugador N», no detrás de la pantalla de relevo
+    if(mode==="local" && !$("over").hidden) SalaTurno.limpiar(); else SalaTurno.marcar(T);
+  } else SalaTurno.limpiar();
   if(!mode){ msg.innerHTML = "Elige cómo quieres jugar."; return; }
   if(!inGame){
     msg.innerHTML = lobbyState==="connecting" ? "Conectando con el puerto…"

@@ -11,6 +11,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="../firebase-config.js"></script>
 <script src="../shared/claude-shim.js"></script>
+<script src="../shared/turno.js"></script>
 </head><body>
 <title>Parchís de Chupitos</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -83,9 +84,11 @@ h3{margin:0;font-size:12px;text-transform:uppercase;letter-spacing:.14em;color:v
 .tk.on{transform:translate(-50%,-50%) scale(1.3);z-index:2;box-shadow:0 0 0 2px var(--gold)}
 
 .dock{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:10px 16px calc(14px + env(safe-area-inset-bottom,0px))}
-.who{text-align:center}
-.who small{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);font-weight:800}
-.who strong{display:block;font:400 clamp(28px,8vw,40px)/1.05 var(--display);margin-top:2px;text-wrap:balance}
+.turnbar{padding:0 16px;flex:none}
+.turnbar .st-franja{margin-bottom:8px;font-family:var(--body)}
+.turnbar.light .st-franja.st-tuyo{color:var(--on-light)}
+.turnbar.light .st-franja.st-tuyo .st-punto{background:var(--on-light);box-shadow:0 0 0 3px rgba(36,23,47,.25)}
+.turnbar .st-quien{font:400 clamp(20px,5.6vw,26px)/1.1 var(--display);letter-spacing:.01em}
 .roll{display:flex;align-items:center;gap:14px;border:0;background:var(--panel);border-radius:22px;padding:12px 22px 12px 12px;font-weight:800;font-size:18px}
 .roll:disabled{opacity:.6}
 .die{width:64px;height:64px;border-radius:14px;background:var(--ink);display:grid;grid-template:repeat(3,1fr)/repeat(3,1fr);padding:9px;gap:2px;flex:none}
@@ -228,9 +231,9 @@ h3{margin:0;font-size:12px;text-transform:uppercase;letter-spacing:.14em;color:v
     <button class="menu" id="menuBtn" aria-label="Menú">⋯</button>
   </div>
   <button class="timerchip" id="timerChip" hidden></button>
+  <div class="turnbar" id="turnBar"></div>
   <div class="boardwrap"><div class="board" id="board"><div class="tokens" id="tokens"></div></div></div>
   <div class="dock">
-    <div class="who"><small id="whoLbl">Turno de</small><strong id="whoName">—</strong></div>
     <button class="roll" id="rollBtn"><span class="die" id="die"></span><span id="rollTxt">Tirar dado</span></button>
     <div class="last" id="last"></div>
   </div>
@@ -402,7 +405,7 @@ const isMine = p => mode === 'local' || p.owner === dev;
 /* ---------- Pantallas ---------- */
 function show(id){
   for (const s of ['menu','setup','lobby','game','end']) $(s).hidden = s !== id;
-  if (id !== 'game') closeSheet();
+  if (id !== 'game'){ closeSheet(); window.SalaTurno?.limpiar(); }
 }
 function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(toast.t); toast.t=setTimeout(()=>t.classList.remove('show'),2000); }
 
@@ -643,15 +646,33 @@ function renderChips(){
 }
 function renderDock(){
   const p = cur(), act = canAct(), mine = isMine(p);
-  $('whoName').textContent = p.name;
-  $('whoName').style.color = p.color;
   $('last').textContent = st.last || '';
-  $('whoLbl').textContent = p.jail > 0 ? 'En la cárcel' : (mode==='online' && p.owner===dev ? 'Te toca' : 'Turno de');
+  renderTurn();
   let txt;
   if (p.jail > 0) txt = act ? `Pasar turno (${p.jail})` : `Quedan ${p.jail} rondas`;
   else txt = act ? (mine ? 'Tirar dado' : `Tirar por ${p.name}`) : `Esperando a ${p.name}`;
   $('rollTxt').textContent = txt;
   $('rollBtn').disabled = !act || !!st.ev || animating;
+}
+/* Indicador de turno grande (shared/turno.js) */
+function renderTurn(){
+  if (!window.SalaTurno || !st || st.status !== 'playing') return;
+  const p = cur();
+  // Mismo móvil → null; online → true si el jugador es de este móvil (incluidos invitados sin móvil)
+  const tuyo = mode === 'local' ? null : (!readOnly && p.owner === dev);
+  let accion;
+  if (st.ev){
+    const k = info(SQ[st.ev.i]);
+    accion = `${k.e} ${k.t || k.l}: ${tuyo === false ? 'está decidiendo' : 'haz lo que dice la casilla'}`;
+  } else if (p.jail > 0) accion = `💀 En la cárcel · ${p.jail === 1 ? 'queda 1 ronda' : `quedan ${p.jail} rondas`}`;
+  else accion = tuyo === false ? 'Va a tirar el dado' : 'Tira el dado 🎲';
+  const o = {quien: p.name, color: p.color, tuyo, accion, compacta: true};
+  const h = SalaTurno.html(o);
+  // Colores claros (amarillo, blanco…): texto oscuro para que se lea sobre la franja
+  const m = /^#(..)(..)(..)$/.exec(p.color || ''), lum = m ? (0.299*parseInt(m[1],16) + 0.587*parseInt(m[2],16) + 0.114*parseInt(m[3],16)) / 255 : 0;
+  $('turnBar').classList.toggle('light', lum > 0.7);
+  if ($('turnBar').dataset.h !== h){ $('turnBar').dataset.h = h; $('turnBar').innerHTML = h; }
+  SalaTurno.marcar(o);
 }
 function setDie(v, el=$('die')){ el.innerHTML = Array.from({length:9},(_,i)=>`<i class="${({1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]})[v].includes(i)?'p':''}"></i>`).join(''); }
 async function rollVisual(el, v){

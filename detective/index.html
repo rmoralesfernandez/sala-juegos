@@ -20,6 +20,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="../firebase-config.js"></script>
 <script src="../shared/claude-shim.js"></script>
+<script src="../shared/turno.js"></script>
 <script src="casos.js"></script>
 <style>
 /* Layout: expediente policial — cabecera con horas, pestañas (Caso, Investigar, Pistas, Acusar) y fichas de papel sobre fondo oscuro */
@@ -466,6 +467,7 @@ function view(html, key) { if (key && key === S.lastKey) return false; S.lastKey
 function render(force) {
   if (force) S.lastKey = "";
   if (!S.ready) return;
+  if (!(S.code && S.g && S.g.status === "play" && S.g.prop)) SalaTurno.limpiar();
   if (S.L) return renderGame(model());
   if (S.code) {
     if (!S.g) return view(`<div class="hero"><div class="logo"><small>DETECTIVES A DÚO</small>Caso Abierto</div><p class="muted">Entrando en la partida ${esc(S.code)}…</p></div>`, "loading" + S.code);
@@ -544,11 +546,19 @@ function hoursHTML(m) {
   if (m.seat === null) return `<div class="hours"><span>${esc(m.names[0])}: <b>${left(m, 0)} h</b></span><span>${esc(m.names[1])}: <b>${left(m, 1)} h</b></span></div>`;
   return `<div class="hours"><span>Tú</span>${dots(m.seat)}<b>${left(m, m.seat)} h</b><span class="muted">·</span><span>${esc(m.names[p])}: <b>${left(m, p)} h</b></span></div>`;
 }
+/* El juego es cooperativo y simultáneo: el único «turno» es responder a una propuesta de acusación (online). */
+const SEATC = ["#2E86DE", "#D0525F"];
+function turnoInfo(m) {
+  if (m.mode !== "online" || !m.prop || m.status !== "play") return null;
+  const r = 1 - m.prop.by, by = m.names[m.prop.by];
+  if (m.seat === r) return { quien: m.names[r], color: SEATC[r], tuyo: true, accion: `Responde a la propuesta de acusación de ${by}`, clave: m.prop.t };
+  return { quien: m.names[r], color: SEATC[r], tuyo: false, accion: m.seat === m.prop.by ? "Tiene que confirmar o rechazar tu propuesta" : `Tiene que responder a la propuesta de ${by}`, clave: m.prop.t };
+}
 function propHTML(m) {
   if (!m.prop) return "";
   const c = m.caso, s = c.sospechosos.find(x => x.id === m.prop.c);
   const txt = `<b>${esc(s ? s.nombre : "?")}</b>, por <b>${esc(c.motivos[m.prop.m])}</b>. Método: <b>${esc(c.metodos[m.prop.x])}</b>.`;
-  if (m.prop.by === m.seat) return `<div class="banner"><p>Has propuesto acusar a ${txt} Esperando a que ${esc(m.names[partner(m)])} confirme.</p><div class="row"><button class="btn ghost sm" data-a="unprop">Retirar propuesta</button></div></div>`;
+  if (m.prop.by === m.seat) return `<div class="banner"><p>Has propuesto acusar a ${txt}</p><div class="row"><button class="btn ghost sm" data-a="unprop">Retirar propuesta</button></div></div>`;
   if (m.seat === null) return `<div class="banner"><p>${esc(m.names[m.prop.by])} propone acusar a ${txt}</p></div>`;
   return `<div class="banner"><p>${esc(m.names[m.prop.by])} propone acusar a ${txt} ¿Estáis de acuerdo? Si confirmas, se cierra el caso.</p><div class="row"><button class="btn red" data-a="yes">Sí, acusamos</button><button class="btn ghost" data-a="no">Aún no</button></div></div>`;
 }
@@ -556,7 +566,8 @@ function renderGame(m) {
   if (m.status === "done" && m.res) return renderResult(m);
   const key = "cross." + (S.code || "local") + "." + m.gid;
   if (S.crossKey !== key) { S.crossKey = key; S.cross = ls.get(key) || {}; }
-  const facts = visibleFacts(m);
+  const facts = visibleFacts(m), turno = turnoInfo(m);
+  if (turno) SalaTurno.marcar(turno); else SalaTurno.limpiar();
   const tabs = [["caso", "Caso"], ["inv", "Investigar"], ["pistas", "Pistas"], ["acusar", "Acusar"]];
   let body = "";
   if (S.gtab === "caso") body = caseTab(m);
@@ -566,6 +577,7 @@ function renderGame(m) {
   const html = `
   <div class="top"><h1>${esc(m.caso.titulo)}</h1>${S.code ? `<span class="chip">${esc(S.code)}</span>` : ""}<button class="icon-btn" data-a="menu" aria-label="Menú">☰</button></div>
   ${hoursHTML(m)}
+  ${turno ? SalaTurno.html({ ...turno, compacta: true }) : ""}
   ${propHTML(m)}
   <div class="tabs" role="tablist">${tabs.map(([k, n]) => `<button role="tab" data-a="gtab" data-v="${k}" aria-selected="${S.gtab === k}">${n}${k === "pistas" ? `<span class="n">${facts.length}</span>` : ""}</button>`).join("")}</div>
   ${body}`;

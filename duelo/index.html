@@ -20,6 +20,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="../firebase-config.js"></script>
 <script src="../shared/claude-shim.js"></script>
+<script src="../shared/turno.js"></script>
 <script src="motor.js"></script>
 <style>
 /* Layout: mesa de juego a una columna — rival arriba, frente militar y fichas, pirámide de cartas en el centro, tu ciudad abajo; los detalles salen en una hoja inferior */
@@ -145,6 +146,8 @@ details summary::-webkit-details-marker{display:none}
 .bar{background:var(--panel);border-radius:14px;padding:10px 12px;display:flex;align-items:center;gap:10px;box-shadow:0 0 0 1px var(--line);min-height:48px}
 .bar .t{flex:1;font-weight:700;min-width:0}
 .bar.mine{background:linear-gradient(90deg,#5a3f12,#2B2119);box-shadow:0 0 0 2px var(--gold)}
+#turno .st-franja{margin:0}
+.bar{min-height:44px;padding:6px 10px}
 .bar .last{display:block;font-size:12.5px;color:var(--muted);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 /* hoja inferior */
@@ -489,6 +492,7 @@ function quoteHTML(q, pi, c) {
 /* ================= vistas ================= */
 function render() {
   if (!S.ready) return;
+  if (window.SalaTurno && (!S.code || !S.g || S.g.status === "lobby" || !G())) SalaTurno.limpiar();
   if (S.offline) return view(`<div class="hero"><div class="logo"><small>DUELO DE</small>Maravillas</div><p class="muted">No hay conexión con el servidor de partidas. Revisa internet y recarga.</p></div>`, "off");
   if (!S.code) return renderHome();
   if (!S.g) return view(`<div class="hero"><div class="logo"><small>DUELO DE</small>Maravillas</div><p class="muted">Entrando en la partida…</p></div>`, "load");
@@ -686,16 +690,27 @@ const PEND = {
   curia: "desvelar una conspiración con la Curia", coaccion: "cambiar una carta con el rival", oscuro: "sacar una ficha de progreso del juego", vuelco: "descartar cartas de la pirámide", reforma: "mover un decreto"
 };
 const pendText = pen => pen.t === "steal" ? (pen.destroy ? "elegir qué carta destruir" : "elegir qué carta robar") : PEND[pen.t] || "tomar una decisión";
+const SEAT_COL = ["#C7832B", "#8E5BC9"];
+/* franja grande de turno (shared/turno.js) */
+function turnInfo() {
+  const s = G(), a = M.actor(s);
+  if (a === null || a === undefined || s.phase === "end") return null;
+  const mineT = isMyTurn(), pen = s.pending[0];
+  const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+  let acc;
+  if (s.phase === "draft") acc = "Elige una maravilla";
+  else if (pen) acc = cap(pendText(pen));
+  else acc = s.pan && s.age >= 2 ? "Toca una carta libre o un dios" : "Toca una carta libre";
+  const tuyo = S.g.local ? null : myIdx() === null ? false : mineT;
+  if (tuyo === false) acc = s.phase === "draft" ? "Está eligiendo maravilla…" : pen ? `Tiene que ${pendText(pen)}…` : "Está eligiendo carta…";
+  return { quien: nameOf(a), color: SEAT_COL[a], tuyo, accion: acc, clave: s.phase + "|" + (pen ? pen.t : "") };
+}
 function turnBar() {
-  const s = G(), a = M.actor(s), mineT = isMyTurn(), pen = s.pending[0];
-  let t;
-  if (s.phase === "draft") t = mineT ? "Te toca elegir una maravilla" : `${nameOf(a)} está eligiendo maravilla…`;
-  else if (pen) t = mineT ? `Te toca ${pendText(pen)}` : `${nameOf(a)} tiene que ${pendText(pen)}…`;
-  else { const what = s.pan && s.age >= 2 ? "toca una carta libre o un dios" : "toca una carta libre"; t = mineT ? (S.g.local ? `Turno de ${nameOf(a)}: ${what}` : `Tu turno: ${what}`) : `Turno de ${nameOf(a)}…`; }
+  const s = G(), mineT = isMyTurn(), pen = s.pending[0];
   const trig = !pen && mineT && s.phase === "age" && M.canTrigger(s, myIdx());
   const last = s.log.length ? s.log[s.log.length - 1] : null;
   const lastT = last ? `${last.p === null ? "" : nameOf(last.p) + " "}${last.m}` : "";
-  return `<div class="bar${mineT ? " mine" : ""}"><div class="t">${esc(t)}${lastT ? `<span class="last">${esc(lastT)}</span>` : ""}</div>
+  return `<div class="bar"><div class="t"><span class="last">${lastT ? "Último: " + esc(lastT) : "Aún no ha pasado nada."}</span></div>
     <button class="btn ghost sm" id="logb" aria-label="Historial">📜</button>${trig ? `<button class="btn sm" id="trigb">🗝️ Desvelar</button>` : ""}${pen && mineT ? `<button class="btn gold sm" id="penb">Elegir</button>` : ""}</div>`;
 }
 function draftView() {
@@ -724,11 +739,14 @@ function renderGame() {
     if (S.ackActor === undefined) S.ackActor = a;
     if (a !== S.ackActor) {
       closeSheet();
+      if (window.SalaTurno) SalaTurno.limpiar();
       view(`<div class="pass"><div><div class="logo" style="font-size:30px"><small>TURNO DE</small>${esc(nameOf(a))}</div><p class="muted">Pásale el móvil.</p><button class="btn gold" id="ready">Soy ${esc(nameOf(a))}</button></div></div>`, "pass|" + a + "|" + S.g.seq);
       on("#ready", "click", () => { S.ackActor = a; S.lastKey = ""; render(); });
       return;
     }
   }
+  const ti = turnInfo();
+  if (window.SalaTurno) { if (ti) SalaTurno.marcar(ti); else SalaTurno.limpiar(); }
   const key = JSON.stringify([S.g.seq, v, s.log.length, window.innerWidth > 0 ? Math.min(560, window.innerWidth) : 0]);
   let mid;
   if (s.phase === "draft") mid = draftView();
@@ -736,6 +754,7 @@ function renderGame() {
   else mid = militaryTrack() + tokensRow() + panteonRow() + senadoRow() + pyramid();
   const html = `
   <div class="top"><button class="btn ghost sm" id="out">Salir</button>${s.phase === "age" || s.phase === "end" && s.age ? `<span class="chip">ERA ${ROMAN[s.age]}</span>` : `<span class="chip">MARAVILLAS</span>`}<span class="sp"></span><button class="btn ghost sm" id="rulesb" aria-label="Reglas">📖</button><span class="chip">${esc(S.code)}</span></div>
+  ${ti && window.SalaTurno ? `<div id="turno">${SalaTurno.html({ ...ti, compacta: true })}</div>` : ""}
   ${playerStrip(o, false)}${wondersRow(o, false)}
   ${mid}
   ${s.phase !== "end" ? turnBar() : ""}

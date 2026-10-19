@@ -11,6 +11,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="../firebase-config.js"></script>
 <script src="../shared/claude-shim.js"></script>
+<script src="../shared/turno.js"></script>
 </head><body>
 <title>Stop Party</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -67,6 +68,7 @@ body{
   -webkit-tap-highlight-color:transparent;-webkit-font-smoothing:antialiased;
 }
 #app{max-width:560px;margin:0 auto;padding-inline:16px;padding-block:14px 120px;display:grid;gap:16px}
+#app>.st-franja{margin:0}
 button,input,select{font:inherit;color:inherit}
 :focus-visible{outline:3px solid var(--pen);outline-offset:2px}
 h1,h2,h3{margin:0;text-wrap:balance}
@@ -721,6 +723,7 @@ function render() {
     case "room": html = renderRoom(); break;
   }
   app.innerHTML = html;
+  turnoMarca();
   afterRender();
   updateLive();
 }
@@ -1113,6 +1116,21 @@ function localResolve() {
   const L = S.L;
   return G.resolveRound({ players: L.players.map((p) => p.id), cats: L.round.cats, letter: L.round.letter, answers: L.answers, votes: {}, decisions: L.decisions, rulings: L.rulings || {}, cfg: L.cfg, stopBy: localStopBy(), decider: "Grupo" });
 }
+/* indicador de turno común (shared/turno.js). Solo el modo local va por turnos: en la sala online
+   todos escriben y votan a la vez, así que ahí no se marca turno. */
+const TCOL = ["#2F5BEA", "#E8424A", "#1C8550", "#9A3FD6", "#E07B00", "#0F8FA8", "#C2307A", "#6B7F00", "#7A5230", "#4B57C9", "#D14E2B", "#3A8F6E"];
+function localTurno() {
+  const L = S.L;
+  if (S.screen !== "local" || !L || !["handoff", "countdown", "play"].includes(L.phase)) return null;
+  const i = Math.min(L.turn, L.players.length - 1), p = L.players[i];
+  return { quien: p.name, color: TCOL[i % TCOL.length], tuyo: null, clave: L.n + "-" + L.turn,
+    accion: L.phase === "handoff" ? "Coge el móvil y pulsa «empezar»" : "Rellena las categorías con la letra " + L.round.letter };
+}
+function turnoMarca() {
+  if (!window.SalaTurno) return;
+  const t = localTurno();
+  if (t) SalaTurno.marcar(t); else SalaTurno.limpiar();
+}
 function renderLocal() {
   const L = S.L; if (!L) { S.screen = "home"; return renderHome(); }
   const p = L.players[L.turn] || L.players[0];
@@ -1126,7 +1144,7 @@ function renderLocal() {
     case "countdown":
       return `${bar}<section class="big"><span class="lbl">${esc(p.name)}, prepárate</span><div class="num" id="cd">3</div></section>`;
     case "play":
-      return `${bar}${viewPlay({ letter: L.round.letter, cats: L.round.cats, texts: L.cur, end: L.cfg.end, flexAll: L.cfg.flexAll, stopAction: "localStop" })}`;
+      return `${bar}${window.SalaTurno ? SalaTurno.html(Object.assign(localTurno(), { compacta: true })) : ""}${viewPlay({ letter: L.round.letter, cats: L.round.cats, texts: L.cur, end: L.cfg.end, flexAll: L.cfg.flexAll, stopAction: "localStop" })}`;
     case "turnover": {
       const last = L.turn === L.players.length - 1, nx = L.players[L.turn + 1];
       const mine = L.answers[p.id] || [];

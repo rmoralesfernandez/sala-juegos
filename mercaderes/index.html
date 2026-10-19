@@ -20,6 +20,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="../firebase-config.js"></script>
 <script src="../shared/claude-shim.js"></script>
+<script src="../shared/turno.js"></script>
 <script src="motor.js"></script>
 <style>
 /* Layout: mesa de bazar a una columna. Rival arriba, fichas y mercado en el centro, tu rebaño y tu mano abajo, botón de acción fijo bajo la mano */
@@ -158,6 +159,9 @@ button.cardx:disabled{cursor:default}
 .quick button .dot svg{width:17px;height:17px}
 .quick button b{color:var(--gold)}
 .quick button.no{opacity:.6}
+#turno:empty{display:none}
+#turno .st-franja{margin:0}
+.coach:empty{display:none}
 .coach{font-size:14.5px;font-weight:700;text-align:center;min-height:2.8em;color:var(--ink);text-wrap:balance}
 .coach.err{color:#FFB2A8}
 .coach.ok{color:var(--gold)}
@@ -554,6 +558,7 @@ function hint() {
 /* ================= vistas ================= */
 function render() {
   if (!S.ready) return;
+  if (window.SalaTurno && (!S.mode || (S.mode === "online" && (!S.g || S.g.status === "lobby" || !S.g.st)))) SalaTurno.limpiar();
   if (!S.mode) return renderHome();
   if (S.mode === "online") {
     if (!S.g) return view(`<div class="hero"><div class="logo"><small>EL BAZAR DE LOS</small>Mercaderes</div><p class="muted">Entrando en la partida…</p></div>`, "load");
@@ -633,7 +638,9 @@ function share() {
   else toast(url);
 }
 
+const TURN_COL = ["#E07A2E", "#2A9BB0"];
 function renderCover(m) {
+  if (window.SalaTurno) SalaTurno.limpiar();
   const st = m.st, who = m.names[st.turn], last = st.last;
   view(`<div class="top"><button class="btn ghost sm" id="out">Salir</button><span class="sp"></span><span class="chip">MISMO MÓVIL</span></div>
   <div class="cover"><div class="fan" aria-hidden="true">${backHTML("", "width:70px;transform:rotate(-8deg)")}${backHTML("", "width:70px;transform:rotate(8deg)")}</div>
@@ -653,6 +660,7 @@ function buildGame() {
   view(`
   <div class="top"><button class="btn ghost sm" id="out">Salir</button><span class="sp"></span><span class="chip">${chip}</span>
     <button class="icon-btn" id="help" aria-label="Cómo se juega">?</button><button class="icon-btn" id="snd" aria-label="${SFX.on ? "Quitar sonido" : "Activar sonido"}">${snd}</button></div>
+  <div id="turno"></div>
   <div class="pl" id="opp"></div>
   <div class="zone" id="tokz"><div class="zone-h"><span>Fichas del bazar</span><span id="rnd"></span></div><div class="tokens" id="tok"></div><div class="bonusrow" id="bon"></div></div>
   <div class="zone"><div class="zone-h"><span>Mercado</span><span class="deck" id="deck"></span></div><div class="market" id="mk"></div></div>
@@ -748,12 +756,27 @@ function updateGame() {
     if (types.length) q.insertAdjacentHTML("afterbegin", `<span class="small muted" style="align-self:center">Vender:</span>`);
   } else q.innerHTML = "";
 
+  /* franja de turno (shared/turno.js) */
+  const tz = document.getElementById("turno");
+  if (st.over || !window.SalaTurno) { tz.innerHTML = ""; if (window.SalaTurno) SalaTurno.limpiar(); }
+  else {
+    const t = st.turn, ai = m.mode === "ai" && t === 1;
+    const o = {
+      quien: ai ? "la máquina" : m.names[t], color: TURN_COL[t],
+      tuyo: m.mode === "local" ? null : m.me === null ? false : t === m.me,
+      accion: ai ? "Está pensando su jugada…" : "Coge cartas del mercado o vende de tu mano"
+    };
+    if (o.tuyo === false && !ai) o.accion = "Está eligiendo su jugada…";
+    tz.innerHTML = SalaTurno.html({ ...o, compacta: true });
+    SalaTurno.marcar(o);
+  }
+
   /* texto de ayuda y botones */
   const it = intent(m);
   const coach = document.getElementById("coach");
   let ctext = "";
   if (st.over) ctext = "Ronda terminada.";
-  else if (!my) ctext = m.me === null ? `Juega ${esc(m.names[st.turn])}.` : m.mode === "ai" ? `La máquina está pensando<span class="dots">…</span>` : `Turno de ${esc(m.names[st.turn])}. Espera a que juegue.`;
+  else if (!my) ctext = "";
   else ctext = it.err ? esc(it.err) : it.text || "";
   coach.innerHTML = ctext;
   coach.className = "coach" + (my && it.err ? " err" : my && it.a ? " ok" : "");

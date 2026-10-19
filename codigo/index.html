@@ -11,6 +11,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="../firebase-config.js"></script>
 <script src="../shared/claude-shim.js"></script>
+<script src="../shared/turno.js"></script>
 </head><body>
 <title>Operación Dúo</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -170,6 +171,9 @@ button,input{font:inherit;color:inherit}
 .sw.sBot{background:linear-gradient(var(--paper) 0 50%,var(--bys) 50%)}
 .sw.sTop{background:linear-gradient(var(--bys) 0 50%,var(--paper) 50%)}
 
+#turno .st-franja{margin:0;font-family:var(--f-body)}
+#turno .st-quien{font-family:var(--f-card);font-size:22px;letter-spacing:.03em;text-transform:uppercase}
+#turno .st-acc{font-size:14px}
 /* action dock */
 .panel{background:var(--paper);border-radius:14px;padding:14px;box-shadow:inset 0 0 0 1px var(--line);display:grid;gap:12px}
 .ptitle{font-family:var(--f-card);font-weight:700;font-size:21px;line-height:1.1;letter-spacing:.03em;text-transform:uppercase;text-wrap:balance}
@@ -265,6 +269,7 @@ button,input{font:inherit;color:inherit}
       <div class="stat grow"><span class="lbl" id="stTurnsLbl">Turnos</span><div class="pips" id="pips"></div></div>
       <div class="stat" id="stErrWrap" hidden><span class="lbl">Errores</span><span class="stnum" id="stErr">0</span></div>
     </div>
+    <div id="turno" hidden></div>
     <div class="table"><div class="board" id="board"></div></div>
     <div class="legend" id="legend"></div>
     <div class="panel" id="panel" aria-live="polite"></div>
@@ -691,6 +696,45 @@ function renderHist(){
   $("#histList").innerHTML=items.join("")||'<li class="hw">Todavía no hay pistas.</li>';
   $("#histCount").textContent=String(g.log.filter(e=>!e.sd).length);
 }
+/* franja de turno: quién tiene que actuar ahora y qué tiene que hacer */
+const SIDECOL={A:"#2D62D0",B:"#9A3FC0"};
+function turnModel(){
+  const g=S.g;if(!g||isOver(g))return null;
+  const L=S.mode==="local",me=S.side;
+  if(L){
+    if(g.phase==="clue"){
+      const gv=clueGiver();
+      if(!gv)return {quien:"A o B",color:"#566473",tuyo:null,aviso:false,accion:"Elegid quién da la primera pista",clave:"c"+g.turn};
+      return {quien:gv,color:SIDECOL[gv],tuyo:null,accion:`Da la pista · mantén pulsado «Llave ${gv}» para ver tus agentes`,clave:"c"+g.turn};
+    }
+    if(g.phase==="guess"){const gs=other(g.giver);return {quien:gs,color:SIDECOL[gs],tuyo:null,accion:`Adivina con la pista de ${g.giver}: ${cluePlain(curEntry(g))}`,clave:"g"+g.turn}}
+    return {quien:"A y B",color:"var(--danger)",tuyo:null,accion:"Muerte súbita · tocad solo palabras verdes en la llave del otro",clave:"sd"};
+  }
+  if(!me)return null;
+  const pn=partnerName(),o=other(me),fp=forPartner(),ro=S.readOnly;
+  const yo=(accion,clave)=>({quien:"",color:SIDECOL[me],tuyo:true,accion,clave});
+  const el=(accion,clave)=>({quien:pn,color:SIDECOL[o],tuyo:false,accion,clave});
+  if(g.phase==="clue"){
+    if(!g.giver){
+      if(fp&&!S.firstGiver)return yo(`Decidid quién da la primera pista`,"c0");
+      const gv=clueGiver();
+      if(fp&&gv===o)return el("Te dice la primera pista en voz alta: apúntala","c0");
+      return yo(ro?`Da la primera pista en voz alta a ${pn} (o espera la suya)`:`Da la primera pista (o espera la de ${pn})`,"c0");
+    }
+    if(g.giver===me)return yo(ro?`Da la pista en voz alta a ${pn}: la apunta en su móvil`:"Da una pista: palabra y número","c"+g.turn);
+    return el(fp?"Te dice la pista en voz alta: apúntala":"Está pensando la pista…","c"+g.turn);
+  }
+  if(g.phase==="guess"){
+    const clue=cluePlain(curEntry(g));
+    if(other(g.giver)===me)return yo(ro?`Adivina (${clue}) · dile a ${pn} qué palabra tocas`:`Adivina con la pista ${clue}`,"g"+g.turn);
+    return el(fp?`Adivina con tu pista (${clue}) · toca la palabra que te diga`:`Está adivinando con tu pista ${clue}`,"g"+g.turn);
+  }
+  return {quien:"",color:"var(--danger)",tuyo:true,accion:`Muerte súbita (los dos) · toca solo palabras verdes en la llave de ${pn}`,clave:"sd"};
+}
+function renderTurno(){
+  const T=turnModel();$("#turno").hidden=!T;
+  if(T){$("#turno").innerHTML=SalaTurno.html(T);SalaTurno.marcar(T)}else SalaTurno.limpiar();
+}
 function renderGame(){
   const eye=$("#btnEye");
   $("#roomChip").textContent=S.mode==="online"?`SALA ${S.code||""}`:"UN MÓVIL";
@@ -700,9 +744,10 @@ function renderGame(){
     $("#board").innerHTML=Array.from({length:25},()=>'<div class="card ghost"></div>').join("");
     $("#panel").innerHTML='<p class="psub">Cargando partida…</p>';S.lastPanel="";
     $("#who").textContent="";$("#legend").innerHTML="";$("#histList").innerHTML="";$("#pips").innerHTML="";
+    $("#turno").hidden=true;SalaTurno.limpiar();
     return;
   }
-  renderWho();renderStatus();renderBoard();renderLegend();renderPanel();renderHist();
+  renderWho();renderStatus();renderTurno();renderBoard();renderLegend();renderPanel();renderHist();
 }
 
 /* ---------- writes ---------- */
@@ -884,7 +929,7 @@ let wake=null;
 async function keepAwake(){try{if(navigator.wakeLock&&!wake){wake=await navigator.wakeLock.request("screen");wake.addEventListener("release",()=>{wake=null})}}catch(e){wake=null}}
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&S.screen==="game")keepAwake()});
 
-function goHome(){leaveGame();S.mode=null;S.code=null;closeSheet();show("home");renderHome()}
+function goHome(){leaveGame();SalaTurno.limpiar();S.mode=null;S.code=null;closeSheet();show("home");renderHome()}
 
 /* ---------- events ---------- */
 const ACT={
@@ -906,7 +951,7 @@ const ACT={
   confirm(){doTap()},
   stop(){const a=actorSide();if(S.g&&canStop(S.g,a)){S.sel=null;commit(stopTurn(S.g,a));toast("Turno terminado.")}},
   num(t){S.clueN=+t.dataset.n;renderPanel()},
-  pickgiver(t){S.localGiver=t.dataset.s;renderPanel()},
+  pickgiver(t){S.localGiver=t.dataset.s;renderTurno();renderPanel()},
   "m-proxy"(){S.proxy=!S.proxy;S.sel=null;S.clueW="";S.clueN=null;closeSheet();renderGame();toast(S.proxy?"Ahora apuntas tú las jugadas de tu pareja.":"Tu pareja vuelve a jugar desde su móvil.")},
   first(t){S.firstGiver=t.dataset.w==="me"?S.side:other(S.side);renderGame()},
   sd(t){S.sdActor=t.dataset.w;S.sel=null;renderGame()},

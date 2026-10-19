@@ -11,6 +11,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="../firebase-config.js"></script>
 <script src="../shared/claude-shim.js"></script>
+<script src="../shared/turno.js"></script>
 </head><body>
 <title>¿Quién Será?</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -102,6 +103,9 @@ label.lbl{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:upp
 .statusbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding-block:12px 10px}
 .turn{font-family:var(--f-display);font-size:clamp(17px,4.6vw,22px);line-height:1.1;margin:0}
 .turn.me{color:var(--me)} .turn.op{color:var(--op)}
+#turnoBox .st-franja{margin:10px 0 0;font-family:var(--f-body)}
+#turnoBox .st-quien{font-family:var(--f-display);font-weight:400;font-size:19px;letter-spacing:.01em}
+#turnoBox .st-acc{font-size:14px;font-weight:600}
 .counts{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
 .counts b{color:var(--ink)}
 .mysecret{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:4px 10px 4px 4px;font-size:12px;font-weight:700;cursor:pointer}
@@ -227,6 +231,7 @@ label.lbl{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:upp
       <div class="vs">VS</div>
       <div class="pl op"><span class="wins" id="opW">0</span><div><span class="tag" id="opTag">Rival</span><b id="opName"></b></div></div>
     </div>
+    <div id="turnoBox"></div>
     <div class="statusbar">
       <div>
         <p class="turn" id="turn"></p>
@@ -557,9 +562,9 @@ function renderConn(){
 }
 function render(){
   renderConn();
-  if(!S.mode){show('#scrHome');renderHome();closeAll();return}
+  if(!S.mode){show('#scrHome');renderHome();closeAll();SalaTurno.limpiar();return}
   const ph=phase();
-  if(S.mode==='online'&&(ph==='lobby'||roomFull())){show('#scrLobby');renderLobby();closeAll();return}
+  if(S.mode==='online'&&(ph==='lobby'||roomFull())){show('#scrLobby');renderLobby();closeAll();SalaTurno.limpiar();return}
   show('#scrGame');getBoard();renderGame(ph);
 }
 function closeAll(){$('#endWrap').hidden=true;$('#sheetWrap').hidden=true;$('#secretWrap').hidden=true}
@@ -597,6 +602,10 @@ function renderGame(ph){
   const texts={pick:['Elige tu personaje','me'],'wait-pick':[`${o.n} está eligiendo…`,'op'],'rematch-in':['¿Otra ronda?','op'],'rematch-out':['Esperando revancha…','op'],over:[overInfo()?.win?'¡Ronda ganada!':'Ronda perdida',overInfo()?.win?'me':'op']};
   const [tt,tc]=texts[ph]||(mt?['Tu turno','me']:[`Turno de ${o.n}`,'op']);
   t.textContent=tt;t.className='turn '+tc;
+  // Franja de turno (sustituye al texto pequeño mientras hay alguien que tiene que actuar)
+  const T=turnModel(ph,mt);
+  t.hidden=!!T;$('#turnoBox').hidden=!T;
+  if(T){$('#turnoBox').innerHTML=SalaTurno.html(T);SalaTurno.marcar(T)}else SalaTurno.limpiar();
   $('#counts').innerHTML=ph==='play'||ph==='over'?`Te quedan <b>${24-S.elim.size}</b> · A ${esc(o.n)} le quedan <b>${o.e??24}</b>`:`Ronda ${me.r}`;
   const ms=$('#mySecret');
   if(S.secret!=null&&me.h){ms.hidden=false;ms.innerHTML=`<span class="av">${avatar(board[S.secret])}</span><span><small>Tu personaje</small>${esc(board[S.secret].name)}</span>`}else ms.hidden=true;
@@ -624,6 +633,23 @@ function renderLog(){
   for(const q of (o.q||[]))items.push({ord:q.u*2+(st?1:0),mine:false,q,an:ansOf(me,q.u)});
   items.sort((a,b)=>b.ord-a.ord);
   $('#logList').innerHTML=items.length?items.map(it=>`<li><span class="who" style="background:var(${it.mine?'--me':'--op'})"></span><span class="q"><small>${it.mine?'Tú':esc(o.n)}</small>${esc(it.q.x)}</span><span class="ans ${it.an===undefined?'wait':it.an?'yes':'no'}">${it.an===undefined?'…':it.an?'SÍ':'NO'}</span></li>`).join(''):'<li><span class="q empty">Aún no hay preguntas. Tumba fichas tocándolas.</span></li>';
+}
+// A quién le toca y qué tiene que hacer. null = no hay turno (fin de ronda / revancha)
+function turnModel(ph,mt){
+  const o=opp(),me=S.me;if(!o)return null;
+  const yo={quien:me.n,color:'var(--me)',tuyo:true},el={quien:o.n,color:'var(--op)',tuyo:false};
+  if(ph==='pick')return {...yo,accion:'Elige tu personaje secreto',clave:'pick'};
+  if(ph==='wait-pick')return {...el,accion:'Está eligiendo su personaje…',clave:'pick'};
+  if(ph!=='play')return null;
+  if(mt){
+    const q=curQ(),an=q?ansOf(o,q.u):undefined;
+    const accion=me.g?'Comprobando tu respuesta…':S.guessMode?'Toca a quién crees que es':!q?'Haz una pregunta o adivina'
+      :an===undefined?`Esperando respuesta de ${o.n}…`:'Tumba fichas y pasa el turno (o adivina)';
+    return {...yo,accion,clave:'play'};
+  }
+  const oq=(o.q||[]).find(q=>q.u===o.t);
+  if(oq&&!QMAP[oq.k]&&ansOf(me,oq.u)===undefined)return {...yo,color:'var(--me)',accion:`Responde a la pregunta de ${o.n}`,clave:'ans'+oq.u};
+  return {...el,accion:oq?'Está tumbando fichas…':'Está pensando su pregunta…',clave:'play'};
 }
 let dockKey='';
 function renderDock(ph,mt){

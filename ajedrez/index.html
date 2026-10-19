@@ -20,6 +20,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="../firebase-config.js"></script>
 <script src="../shared/claude-shim.js"></script>
+<script src="../shared/turno.js"></script>
 <script src="motor.js"></script>
 <style>
 /* Layout: sala de piedra a una columna — rival arriba, tablero grande en el centro, tú abajo; acciones y jugadas debajo del tablero */
@@ -100,7 +101,7 @@ details summary::-webkit-details-marker{display:none}
 .pl .adv{font-weight:800;font-size:13px;color:var(--muted);margin-left:6px}
 
 /* tablero */
-.board-wrap{width:100%;width:min(100%,calc(100svh - 300px),600px);min-width:min(100%,288px);margin-inline:auto;position:relative}
+.board-wrap{width:100%;width:min(100%,calc(100svh - 360px),600px);min-width:min(100%,288px);margin-inline:auto;position:relative}
 .frame{padding:clamp(6px,1.8vw,12px);border-radius:14px;background:
   linear-gradient(145deg,#3A343B,#1B181D 55%,#2C272E);
   box-shadow:inset 0 2px 0 rgba(255,255,255,.08),inset 0 -3px 0 rgba(0,0,0,.5),0 18px 40px -12px rgba(0,0,0,.8),0 0 0 1px #000}
@@ -152,10 +153,9 @@ details summary::-webkit-details-marker{display:none}
 .banner{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;z-index:9}
 .banner span{font-family:var(--display);font-weight:900;font-size:clamp(28px,9vw,54px);color:var(--gold);text-shadow:0 3px 0 #4A300A,0 0 30px rgba(0,0,0,.9),0 0 60px rgba(227,176,75,.5);text-align:center;line-height:1}
 
-.status{text-align:center;font-weight:800;min-height:1.5em;color:var(--ink)}
-.status.chk{color:#FF8A70}
-.status .dots i{display:inline-block;animation:bl 1.2s infinite both}
-.status .dots i:nth-child(2){animation-delay:.2s}.status .dots i:nth-child(3){animation-delay:.4s}
+#turno:empty{display:none}
+#turno .st-franja{margin:0}
+#turno .st-franja.chk{outline:2px solid #FF6B5E;outline-offset:2px}
 @keyframes bl{0%,80%,100%{opacity:.2}40%{opacity:1}}
 .acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
 .acts .btn{flex:1 1 90px;min-width:0;padding:0 10px}
@@ -240,7 +240,7 @@ details summary::-webkit-details-marker{display:none}
 .graph{width:100%;height:80px;border-radius:10px;display:block;cursor:pointer}
 .errs{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px}
 .er{appearance:none;border:0;border-radius:12px;background:var(--bg);padding:8px 10px;display:grid;gap:2px;text-align:left}
-@media (prefers-reduced-motion:reduce){.sq.chk::before,.status .dots i{animation:none}#toast{transition:none}}
+@media (prefers-reduced-motion:reduce){.sq.chk::before,#turno .st-franja{animation:none}#toast{transition:none}}
 </style>
 </head>
 <body>
@@ -824,6 +824,7 @@ async function sync() {
 /* ================= vistas ================= */
 function render() {
   if (!S.ready) return;
+  if (window.SalaTurno && (!S.mode || S.mode === "school" || (S.mode === "online" && (!S.g || S.g.status === "lobby")))) SalaTurno.limpiar();
   if (!S.mode) return renderHome();
   if (S.mode === "school") return window.AJ_SCHOOL ? AJ_SCHOOL.render() : (S.mode = null, renderHome());
   if (S.mode === "online") {
@@ -916,10 +917,10 @@ function buildGame() {
   view(`
   <div class="top"><button class="btn ghost sm" id="out">Salir</button><span class="sp"></span><span class="chip">${chip}</span>
     <button class="icon-btn" id="snd" aria-label="${SFX.on ? "Quitar sonido" : "Activar sonido"}">${sound}</button></div>
+  <div id="turno"></div>
   <div class="pl" id="plT"></div>
   <div class="board-wrap"><div class="frame"><div class="board" id="bd"><div class="sqs" id="sqs"></div><div class="veins"></div><div class="grain"></div><div class="pcs" id="pcs"></div><div class="fx" id="fx"></div></div></div></div>
   <div class="pl" id="plB"></div>
-  <p class="status" id="stt" role="status" aria-live="polite"></p>
   <div id="extra"></div>
   <div class="acts" id="acts"></div>
   <div class="moves" id="mvs" aria-label="Jugadas"></div>`, "game");
@@ -986,17 +987,21 @@ function updateGame(noHL) {
   elT.innerHTML = plH(top); elB.innerHTML = plH(bottom);
   elT.classList.toggle("turn", !res.over && pos.turn === top); elB.classList.toggle("turn", !res.over && pos.turn === bottom);
 
-  const stt = document.getElementById("stt");
-  let st = "", chkCls = false;
-  if (res.over) st = "Partida terminada";
-  else {
-    const t = pos.turn, chk = gm.out.check;
-    chkCls = chk;
-    if (m.mode === "online") st = m.my === t ? (chk ? "¡Jaque! Tu turno" : "Tu turno") : m.my ? `${chk ? "¡Jaque! " : ""}Turno de ${esc(m.names[t])}…` : `Juegan ${t === "w" ? "blancas" : "negras"} (${esc(m.names[t])})`;
-    else if (m.mode === "ai") st = S.thinking ? `La máquina está pensando<span class="dots"><i>.</i><i>.</i><i>.</i></span>` : chk ? "¡Jaque! Tu turno" : t === m.my ? "Tu turno" : "";
-    else st = `${chk ? "¡Jaque! " : ""}Turno de ${esc(m.names[t])} (${t === "w" ? "blancas" : "negras"})`;
+  const elTurno = document.getElementById("turno");
+  if (res.over) { elTurno.innerHTML = ""; if (window.SalaTurno) SalaTurno.limpiar(); }
+  else if (window.SalaTurno) {
+    const t = pos.turn, chk = gm.out.check, col = t === "w" ? "blancas" : "negras";
+    let o;
+    if (m.mode === "online") o = m.my ? { quien: m.names[t], tuyo: m.my === t } : { quien: m.names[t], tuyo: false, accion: `Juegan las ${col}` };
+    else if (m.mode === "ai") o = t === m.my ? { quien: m.names[t], tuyo: true } : { quien: "la máquina", tuyo: false, accion: S.thinking ? "Está pensando su jugada…" : `Juegan las ${col}` };
+    else o = { quien: m.names[t], tuyo: null };
+    if (!o.accion) o.accion = chk ? `¡Jaque! Salva a tu rey (llevas las ${col})` : `Mueve una pieza ${t === "w" ? "blanca" : "negra"}`;
+    else if (chk) o.accion = "¡Jaque! " + o.accion;
+    o.color = t === "w" ? "#A8803F" : "#6A6585";
+    elTurno.innerHTML = SalaTurno.html({ ...o, compacta: true });
+    if (chk) elTurno.firstElementChild.classList.add("chk");
+    SalaTurno.marcar(o);
   }
-  stt.innerHTML = st; stt.classList.toggle("chk", chkCls);
 
   const ex = document.getElementById("extra");
   let eh = "";

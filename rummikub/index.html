@@ -11,6 +11,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="../firebase-config.js"></script>
 <script src="../shared/claude-shim.js"></script>
+<script src="../shared/turno.js"></script>
 </head><body>
 <title>Ficha a Ficha</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -74,14 +75,20 @@ input.code{text-transform:uppercase;letter-spacing:.3em;font-family:var(--displa
 .top .code{font-family:var(--display);letter-spacing:.15em;font-size:16px}
 .seats{display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:0}
 .seat{display:flex;align-items:center;gap:6px;padding:4px 9px;border-radius:999px;background:rgba(0,0,0,.25);font-size:13px;border:1px solid transparent;white-space:nowrap}
-.seat.turn{border-color:var(--gold);color:var(--gold)}
 .seat b{font-variant-numeric:tabular-nums;font-weight:700;background:var(--bone);color:var(--black);border-radius:4px;padding:0 5px;font-size:12px}
 .pool{font-size:12px;color:var(--ink-dim);white-space:nowrap;font-variant-numeric:tabular-nums}
 
 .table{flex:1;overflow-y:auto;padding-block:14px 18px;padding-inline:16px;display:flex;flex-direction:column;gap:12px}
 .banner{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:baseline;font-size:14px}
 .banner strong{font-weight:700}
-.banner .turnline{color:var(--gold);font-weight:600}
+.banner:not(:has(*)){display:none}
+.turnbar{padding:10px 16px 0}
+.turnbar .st-franja{margin:0;font-family:var(--body)}
+.turnbar .st-quien{font-family:var(--display);font-weight:400;letter-spacing:.3px}
+.turnbar.light .st-franja.st-tuyo{color:#2a1d0a}
+.turnbar.light .st-franja.st-tuyo .st-punto{background:#2a1d0a;box-shadow:0 0 0 3px rgba(42,29,10,.25)}
+.seat i{width:9px;height:9px;border-radius:50%;flex:none}
+.seat.turn{background:color-mix(in srgb,var(--pc) 30%,rgba(0,0,0,.25));border-color:var(--pc);color:var(--ink)}
 .sets{display:flex;flex-wrap:wrap;gap:10px;align-content:flex-start}
 .set{display:flex;align-items:center;gap:3px;padding:5px;border-radius:9px;border:1.5px dashed transparent;background:rgba(0,0,0,.12);min-height:calc(var(--th) + 10px)}
 .set.changed{border-style:solid;border-color:rgba(124,196,255,.55);background:rgba(124,196,255,.10)}
@@ -350,6 +357,9 @@ async function startGame(players){
 
 /* ================= turno ================= */
 const me = () => S.uid;
+// Color estable por asiento (orden de la partida), para el indicador de turno; son claros → texto oscuro cuando te toca
+const SEAT_COLORS = ["#f0b43c","#7cc4ff","#ff7a6b","#7fd8a6"];
+const seatColor = (g, id) => SEAT_COLORS[Math.max(0, g.order.indexOf(id)) % SEAT_COLORS.length];
 const myTurn = () => S.game && S.game.status === "playing" && S.game.order[S.game.turn] === me();
 const amPlayer = () => S.game && S.game.order && S.game.order.includes(me());
 
@@ -497,12 +507,14 @@ function render(){
   if (tb2) tb2.scrollTop = st; if (hd2) hd2.scrollTop = sh;
 }
 function renderNoAccess(){
+  window.SalaTurno?.limpiar();
   $app.innerHTML = `<div class="screen"><div class="home">
     <div class="brand"><h1>Ficha a Ficha</h1>
     <p>No hay conexión con el servidor de partidas. Revisa internet y recarga.</p></div>
   </div></div>`;
 }
 function renderHome(){
+  window.SalaTurno?.limpiar();
   const last = ls.get("faf.last");
   const demo = [26+6, 26+7, 104, 26+9].map(i => tileHTML(i, "locked", "tabindex=-1")).join("");
   $app.innerHTML = `<div class="screen"><div class="home">
@@ -532,6 +544,7 @@ function renderHome(){
   on("#rejoin", "click", () => joinGame(last));
 }
 function renderLobby(){
+  window.SalaTurno?.limpiar();
   const g = S.game, isHost = g.host === me();
   const inList = S.players.some(p => p.id === me());
   const list = S.players.map((p, i) => `<li><span>${esc(p.nick)}${p.id === me() ? " (tú)" : ""}</span>${p.id === g.host ? '<span class="tag">Anfitrión</span>' : i >= 4 ? '<span class="tag">En espera</span>' : ""}</li>`).join("");
@@ -564,7 +577,7 @@ function renderLobby(){
 function renderGame(){
   const g = S.game, d = S.draft, mine = myTurn(), player = amPlayer();
   const cur = g.order[g.turn];
-  const seats = g.order.map((id, i) => `<span class="seat ${i === g.turn && g.status === "playing" ? "turn" : ""}">${esc(g.names[id])}${id === me() ? " (tú)" : ""} <b>${(id === me() && d ? d.hand.length : (g.hands[id] || []).length)}</b></span>`).join("");
+  const seats = g.order.map((id, i) => `<span class="seat ${i === g.turn && g.status === "playing" ? "turn" : ""}" style="--pc:${seatColor(g, id)}"><i style="background:${seatColor(g, id)}"></i>${esc(g.names[id])}${id === me() ? " (tú)" : ""} <b>${(id === me() && d ? d.hand.length : (g.hands[id] || []).length)}</b></span>`).join("");
   const table = d ? d.table : (g.table || []).map(s => s.t);
   const selOn = mine && S.sel.size > 0;
 
@@ -586,8 +599,17 @@ function renderGame(){
     return `<div class="set ${cls}" data-set="${idx}"><button class="grip ${allSel ? "on" : ""}" data-grip="${idx}" ${allPick ? "" : "disabled"} aria-label="Seleccionar o arrastrar el bloque"></button>${tiles}</div>`;
   }).join("");
 
-  let turnLine = "";
-  if (g.status === "playing") turnLine = mine ? "Tu turno" : `Turno de ${esc(g.names[cur])}`;
+  // Indicador de turno grande (shared/turno.js): fijo encima de la mesa
+  let turnHTML = "";
+  if (g.status === "playing" && window.SalaTurno) {
+    const tuyo = player ? mine : false;
+    const accion = mine
+      ? (!g.melded[me()] ? "Baja 30 puntos o roba una ficha" : "Coloca fichas y toca Terminar, o roba")
+      : (player ? "Espera tu turno…" : "Estás mirando la partida");
+    const o = { quien: g.names[cur], color: seatColor(g, cur), tuyo, accion, compacta: true, clave: g.turnNo };
+    turnHTML = `<div class="turnbar ${tuyo ? "light" : ""}">${SalaTurno.html(o)}</div>`;
+    SalaTurno.marcar(o);
+  } else window.SalaTurno?.limpiar();
   let meldLine = "";
   if (mine && d && !g.melded[me()]) meldLine = `<span>Primera bajada: <strong>${newMeldValue().sum}</strong> / 30</span>`;
   const lastLine = last ? `<div class="lastmove"><i></i>Lo último que colocó ${esc(g.names[last.by])}${last.placed.length ? ` (${last.placed.length} ficha${last.placed.length > 1 ? "s" : ""})` : ""}</div>` : "";
@@ -613,8 +635,9 @@ function renderGame(){
     <div class="seats">${seats}</div>
     <span class="pool">Pozo: ${(g.pool || []).length}</span>
   </div>
+  ${turnHTML}
   <div class="table" id="table">
-    <div class="banner"><span class="turnline">${turnLine}</span>${meldLine}
+    <div class="banner">${meldLine}
       ${isHost && !mine && g.status === "playing" ? `<button class="btn ghost small" id="skip">${S.confirmSkip ? `¿Saltar a ${esc(g.names[cur])}? Toca otra vez` : "Saltar turno"}</button>` : ""}
     </div>
     ${lastLine}

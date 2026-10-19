@@ -20,6 +20,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="../firebase-config.js"></script>
 <script src="../shared/claude-shim.js"></script>
+<script src="../shared/turno.js"></script>
 <style>
 /* Layout: una columna — cielo arriba (luna o sol, narrador, temporizador), acción del rol en el centro, aldea y tu carta abajo */
 :root{
@@ -75,6 +76,7 @@ summary{cursor:pointer;font-weight:900}
 .msg{min-height:1.4em;color:var(--accent);text-align:center;font-weight:700}
 .msg.err{color:var(--blood)}
 
+#app>.st-franja{margin:0}
 .top{display:flex;align-items:center;gap:8px}
 .chip{font-family:var(--display);font-weight:700;font-size:14px;letter-spacing:.1em;background:var(--panel);padding:6px 12px;border-radius:999px}
 .top .sp{flex:1}
@@ -580,6 +582,7 @@ function render() {
   if (S.offline) return view(`<div class="hero">${MOON_SVG}<div class="logo"><small>EL PUEBLO</small>DUERME</div><p class="muted">No hay conexión con el servidor de partidas. Revisa internet y recarga.</p></div>`);
   if (!S.code) return renderHome();
   if (!S.g) return view(`<div class="hero"><div class="logo"><small>EL PUEBLO</small>DUERME</div><p class="muted">Llegando al pueblo…</p></div>`);
+  if (S.g.status !== "play") SalaTurno.limpiar();
   if (S.g.status === "lobby") return renderLobby();
   renderGame();
 }
@@ -862,7 +865,15 @@ function renderGame() {
   else if (g.phase === "day") panel = dayPanel(g);
   else if (g.phase === "vote") panel = votePanel(g);
   const roleFirst = g.phase === "reveal";
-  view(`${topBar(g)}${skyHTML(g)}${roleFirst ? roleCardHTML() : ""}${panel}
+  /* Indicador de turno solo en la fase pública del cazador. De noche NO: un móvil que se ilumina
+     o vibra delataría quién es lobo, vidente, bruja… El resto de fases son simultáneas. */
+  let turno = null;
+  if (g.phase === "hunter" && g.hunter) {
+    const mine = g.hunter === me(), done = mine && actOf(g, me());
+    turno = { quien: nameOf(g.hunter), color: colorOf(g.hunter), tuyo: mine, accion: mine ? (done ? "Disparo hecho" : "Elige a quién te llevas contigo") : "El cazador elige a quién dispara", clave: g.k };
+  }
+  if (turno) SalaTurno.marcar(turno); else SalaTurno.limpiar();
+  view(`${topBar(g)}${turno ? SalaTurno.html(turno) : ""}${skyHTML(g)}${roleFirst ? roleCardHTML() : ""}${panel}
     <div class="card"><h2>El pueblo</h2>${villageHTML(g)}</div>${roleFirst ? "" : roleCardHTML()}`);
 }
 function renderEnd() {

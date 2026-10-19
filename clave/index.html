@@ -20,6 +20,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="../firebase-config.js"></script>
 <script src="../shared/claude-shim.js"></script>
+<script src="../shared/turno.js"></script>
 <script src="motor.js"></script>
 <style>
 /* Layout: una columna. Estado de la ronda arriba, código de prueba, verificadores (cada uno con su tarjeta de reglas), acciones y hoja de notas abajo */
@@ -207,6 +208,8 @@ input.code{text-transform:uppercase;letter-spacing:.3em;font-family:var(--displa
 #toast.on{opacity:1;transform:translate(-50%,0)}
 @media (max-width:370px){.pick,.dgrid{grid-template-columns:24px repeat(5,1fr);gap:4px}.vbtn,.res{min-width:74px}.acts .btn{font-size:14px}}
 @media (prefers-reduced-motion:reduce){.res.pop,.rl.hinted,.dgrid button.hinted{animation:none}#toast{transition:none}}
+#turno:empty{display:none}
+#turno .st-franja{margin:0}
 </style>
 </head>
 <body>
@@ -489,19 +492,44 @@ function toggleNote(key) {
   N.set(n); SFX.click(); render();
 }
 
+/* ================= indicador de turno =================
+   Las rondas son simultáneas: «te toca» cuando puedes jugar tu ronda; si no, se indica a quién esperas. */
+const SEATC = ["#2E86DE", "#D0525F"];
+function turnoInfo(m) {
+  if (m.solo || !m.ps || K.result(m.pz, m.ps, m.solo).over) return null;
+  const can = [0, 1].filter(i => m.ps[i] && K.canPlay(m.pz, m.ps, i, false));
+  if (m.kind === "turnos") { const i = m.me; return { quien: m.names[i], color: SEATC[i], tuyo: null, accion: `Ronda ${K.round(m.ps[i])}: monta un código y pruébalo` }; }
+  if (m.kind === "ai") return { quien: m.names[0], color: SEATC[0], tuyo: true, accion: `Ronda ${K.round(m.ps[0])}: monta un código y pruébalo` };
+  if (m.me !== null && can.includes(m.me)) {
+    const r = K.round(m.ps[m.me]);
+    return { quien: m.names[m.me], color: SEATC[m.me], tuyo: true, accion: `Ronda ${r}: haz tus pruebas${can.length > 1 ? " (a la vez que tu rival)" : ""}`, clave: r };
+  }
+  if (!can.length) return null;
+  const i = can.length > 1 ? null : can[0];
+  if (i === null) return { quien: `${m.names[0]} y ${m.names[1]}`, color: "#7C8FA0", tuyo: false, accion: "Juegan la ronda a la vez" };
+  return { quien: m.names[i], color: SEATC[i], tuyo: false, accion: `Está terminando su ronda ${K.round(m.ps[i])}. Espera…` };
+}
+function pintaTurno(m) {
+  const o = turnoInfo(m), el = document.getElementById("turno");
+  if (!o) { if (el) el.innerHTML = ""; SalaTurno.limpiar(); return; }
+  if (el) el.innerHTML = SalaTurno.html(o);
+  SalaTurno.marcar(o);
+}
+
 /* ================= pintar ================= */
 function render() {
   if (!S.ready) return;
-  if (!S.mode) { renderHome(); return; }
-  if (S.mode === "online" && (!S.g || S.g.status === "lobby" || !S.g.cfg)) { renderLobby(); return; }
+  if (!S.mode) { SalaTurno.limpiar(); renderHome(); return; }
+  if (S.mode === "online" && (!S.g || S.g.status === "lobby" || !S.g.cfg)) { SalaTurno.limpiar(); renderLobby(); return; }
   const m = model();
   if (m.kind === "turnos") {
     const res = K.result(m.pz, m.ps);
     if (S.lastActive !== null && S.lastActive !== m.me && !res.over) S.cover = true;
     S.lastActive = m.me;
-    if (S.cover && !res.over) { renderCover(m); return; }
+    if (S.cover && !res.over) { renderCover(m); pintaTurno(m); return; }
   }
   renderGame(m);
+  pintaTurno(m);
   checkEvents(m);
   if (tourI >= 0) showTour();
 }
@@ -616,7 +644,7 @@ function coachText(m, P, can, res) {
   if (res.over) return "Partida terminada.";
   if (m.me === null) return "Estás viendo la partida.";
   if (!m.solo && P.g) return "Te la has jugado. Esperando a que se resuelva la ronda…";
-  if (!can) return `Ronda terminada. Esperando a que ${esc(m.names[o])} acabe la suya… Puedes repasar tus notas.`;
+  if (!can) return "Ronda terminada. Mientras esperas puedes repasar tus notas.";
   if (!K.valid(code)) return P.tests.length ? "Monta otro código de prueba: elige una cifra para cada forma." : "Paso 1: monta un código de prueba eligiendo una cifra para cada forma.";
   if (!done.length) return "Paso 2: pásalo por un verificador. Te dirá ✓ si cumple su regla secreta o ✗ si no.";
   if (done.length < 3) return `Tacha en las tarjetas las reglas que ya no pueden ser. Te ${3 - done.length === 1 ? "queda 1 prueba" : `quedan ${3 - done.length} pruebas`} en esta ronda.`;
@@ -654,6 +682,7 @@ function renderGame(m) {
   for (let k = 1; k <= rounds; k++) { const ts = K.testsIn(P, k); if (!ts.length && !(k === r && showCur)) continue; rows.push(`<tr class="${k === r ? "cur" : ""}"><td>${k}</td><td>${ts.length ? codeMini(ts[0].c) : k === r && K.valid(code) ? codeMini(code) : "–"}</td>${m.pz.fams.map((_, v) => { const t = ts.find(x => x.v === v); return t ? `<td class="${t.ok ? "ok" : "no"}">${t.ok ? "✓" : "✗"}</td>` : `<td class="e">·</td>`; }).join("")}</tr>`); }
   $app.innerHTML = `
     <div class="top"><button class="btn ghost sm" id="out">Salir</button><span class="sp"></span><span class="chip">${chip}</span><button class="icon-btn" id="help" aria-label="Cómo se juega">?</button></div>
+    <div id="turno"></div>
     <div class="stat" id="stat">
       <div><small>Ronda</small><b>${res.over ? res.r || r : r}</b></div>
       <div><small>Pruebas ronda</small><span class="dots">${[0, 1, 2].map(i => `<i class="${i < done.length ? "on" : ""}"></i>`).join("")}</span></div>
