@@ -164,6 +164,7 @@ const ART={
   crown:'<svg class="art" viewBox="0 0 100 100" aria-hidden="true" fill="currentColor"><path d="M10 72 15 28l21 22 14-32 14 32 21-22 5 44z"/><rect x="10" y="76" width="80" height="11" rx="3"/></svg>',
   pencil:'<svg class="art" viewBox="0 0 100 100" aria-hidden="true" fill="currentColor"><path d="M66 10l24 24-46 46-30 8 8-30z"/><path d="M22 66l12 12-14 4z" fill="rgba(0,0,0,.35)"/><path d="M8 94c18-8 30 4 46-6" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" opacity=".6"/></svg>',
   machine:'<svg class="art" viewBox="0 0 100 100" aria-hidden="true"><g fill="currentColor"><rect x="4" y="28" width="28" height="44" rx="6"/><rect x="36" y="28" width="28" height="44" rx="6"/><rect x="68" y="28" width="28" height="44" rx="6"/></g><g fill="rgba(0,0,0,.35)"><path d="M18 40 27 58H9z"/><rect x="42" y="41" width="16" height="16" rx="2"/><circle cx="82" cy="49" r="9"/></g></svg>',
+  gem:'<svg class="art" viewBox="0 0 100 100" aria-hidden="true"><path d="M28 22h44l18 22-40 46-40-46z" fill="currentColor"/><path d="M10 44h80M28 22l10 22 12-22 12 22 10-22M38 44l12 46 12-46" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="4" stroke-linejoin="round"/></svg>',
   lupa:'<svg class="art" viewBox="0 0 100 100" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="9"><circle cx="42" cy="42" r="26"/><path d="M62 62 88 88" stroke-linecap="round" stroke-width="13"/></svg>',
   dice:'<svg class="art" viewBox="0 0 100 100" aria-hidden="true"><rect x="10" y="10" width="80" height="80" rx="16" fill="currentColor"/><g fill="rgba(0,0,0,.35)"><circle cx="30" cy="30" r="8"/><circle cx="70" cy="30" r="8"/><circle cx="50" cy="50" r="8"/><circle cx="30" cy="70" r="8"/><circle cx="70" cy="70" r="8"/></g></svg>'
 };
@@ -194,6 +195,8 @@ const GAMES=[
    desc:"Compra en el mercado, vende antes que tu rival y junta camellos. Trae reglas, visita guiada y pistas para aprender jugando.",meta:["2 jugadores","Online o 1 móvil","Contra la máquina"]},
   {name:"Por el Trono",sub:"Estilo Claim",url:"./trono/",cat:"duelo",kw:"claim bazas",tone:"var(--c14)",art:"crown",tag:"Cartas",
    desc:"Gana bazas para reclutar seguidores y luego úsalos para hacerte con 3 de las 5 facciones del reino. Con reglas, visita guiada y pistas.",meta:["2 jugadores","Online o 1 móvil","Contra la máquina"]},
+  {name:"Duelo de Gemas",sub:"Estilo Splendor Duel",url:"./gemas/",cat:"duelo",kw:"splendor duel joyas gemas cartas fichas coronas pergaminos",tone:"#5B3A9E",art:"gem",tag:"Estrategia",
+   desc:"Coge gemas del tablero, compra cartas de joyas y gana con 20 puntos, 10 coronas o 10 puntos de un color. Con reglas, visita guiada y pistas.",meta:["2 jugadores","Online o 1 móvil","Contra la máquina"]},
   {name:"Survive",sub:"Escapa de la Isla",url:"./survive/",cat:"mesa",kw:"isla escape atlantis",tone:"var(--c9)",art:"isle",tag:"Mesa",
    desc:"La isla se hunde: salva a tus exploradores de tiburones, ballenas y serpientes. Solo tú sabes cuánto vale cada uno.",meta:["2 a 4 jugadores","Cada uno su móvil"]},
   {name:"Hundir la Flota",sub:"Batalla naval",url:"./flota/",cat:"duelo",kw:"barcos battleship",tone:"var(--c3)",art:"ship",tag:"Duelo",
