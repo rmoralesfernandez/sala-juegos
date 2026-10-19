@@ -179,6 +179,67 @@ details summary::-webkit-details-marker{display:none}
 .promo svg{width:100%;height:100%}
 #toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,12px);opacity:0;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:700;font-size:14px;transition:opacity .2s,transform .2s;pointer-events:none;max-width:calc(100% - 32px);z-index:60;text-align:center}
 #toast.on{opacity:1;transform:translate(-50%,0)}
+/* nivel de la máquina y entrenador */
+.lvls{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.lvls button{appearance:none;border:0;min-height:42px;border-radius:10px;background:var(--bg);font-weight:800;font-size:16px;color:var(--muted);box-shadow:inset 0 0 0 1.5px var(--line)}
+.lvls button[aria-pressed="true"]{background:var(--panel2);color:var(--gold);box-shadow:inset 0 0 0 2px var(--gold)}
+.tgl{display:flex;gap:10px;align-items:flex-start;font-size:14px;background:var(--bg);border-radius:12px;padding:10px 12px;cursor:pointer}
+.tgl input{width:20px;height:20px;margin:1px 0 0;accent-color:var(--gold);flex:none}
+/* escuela */
+#sch .top .chip{overflow:hidden;text-overflow:ellipsis;min-width:0}
+#sch .top .btn{flex:none;white-space:nowrap}
+.school{box-shadow:0 0 0 2px var(--gold2),0 14px 30px -18px var(--gold);background:linear-gradient(160deg,#2C2416,var(--panel) 60%)}
+.sch-h{display:flex;gap:12px;align-items:center}
+.sch-i{font-size:34px;line-height:1}
+.gold{color:var(--gold)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.stats div{background:var(--panel);border-radius:14px;padding:10px 4px;text-align:center;display:grid;gap:2px;box-shadow:0 0 0 1px var(--line)}
+.stats b{font-family:var(--display);font-size:20px;color:var(--gold)}
+.stats span{font-size:11.5px;color:var(--muted);font-weight:700}
+.nextb{min-height:64px;text-align:left}
+.nextb span{display:grid;gap:2px}
+.nextb small{font-weight:700;font-size:13px;opacity:.8}
+.plan{list-style:none;margin:0;padding:0;display:grid;gap:6px;font-size:14.5px}
+.plan li{color:var(--muted)}
+.plan li.ok{color:var(--ok)}
+.sec{font-size:18px;margin-top:6px}
+.unit summary{display:flex;gap:10px;align-items:center}
+.unit .un{flex:none;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:var(--bg);font-family:var(--display);font-weight:900;color:var(--gold)}
+.unit .ut{flex:1;display:grid;gap:2px;min-width:0}
+.unit .uc{font-weight:800;color:var(--muted);font-size:13px}
+.ll{display:grid;gap:6px}
+.lsn{appearance:none;border:0;display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:46px;padding:0 12px;border-radius:12px;background:var(--bg);font-weight:700;text-align:left}
+.lsn.nx{box-shadow:inset 0 0 0 2px var(--gold)}
+.tag{font-size:12px;font-weight:800;color:#2A1A04;background:var(--gold);border-radius:999px;padding:3px 8px;white-space:nowrap}
+.stars{white-space:nowrap;font-size:16px;letter-spacing:1px}
+.stars i{font-style:normal;color:var(--line)}
+.stars i.on{color:var(--gold)}
+.end .stars{font-size:30px}
+.spark{width:100%;height:60px;display:block}
+.ltitle{display:grid;gap:8px}
+.ltitle h2{font-size:21px}
+.pbar{height:8px;border-radius:99px;background:var(--panel2);overflow:hidden}
+.pbar i{display:block;height:100%;background:linear-gradient(90deg,var(--gold2),var(--gold));border-radius:99px;transition:width .3s}
+.ltxt{background:var(--panel);border-radius:14px;padding:12px 14px;font-size:15.5px;line-height:1.5;box-shadow:0 0 0 1px var(--line)}
+.ltxt:empty{display:none}
+.ltxt p+p{margin-top:6px}
+.side{display:inline-block;width:14px;height:14px;border-radius:50%;margin-right:6px;vertical-align:-2px;box-shadow:0 0 0 1.5px rgba(0,0,0,.5)}
+.side.w{background:radial-gradient(circle at 35% 30%,#FFFDF6,#BDB29E)}
+.side.b{background:radial-gradient(circle at 35% 30%,#7A7882,#141317)}
+.sch-bd{width:min(100%,calc(100svh - 330px),600px)}
+.arw{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:40;overflow:visible}
+.fb{min-height:1.4em;text-align:center;font-weight:700}
+.fb.ok{color:var(--ok)}
+.fb.bad{color:var(--bad)}
+.opts{display:grid;gap:8px}
+.opt{appearance:none;border:0;min-height:50px;border-radius:12px;background:var(--panel2);font-weight:700;text-align:left;padding:10px 14px;box-shadow:0 3px 0 rgba(0,0,0,.45)}
+.opt.ok{background:#1F4A33;box-shadow:inset 0 0 0 2px var(--ok)}
+.opt.bad{background:#4A2220;box-shadow:inset 0 0 0 2px var(--bad);opacity:.8}
+.cnt{display:flex;flex-wrap:wrap;gap:6px 12px;font-weight:800;font-size:14px}
+.cnt .c1{color:var(--bad)}.cnt .c2{color:var(--gold)}.cnt .c3{color:var(--muted)}
+.graph{width:100%;height:80px;border-radius:10px;display:block;cursor:pointer}
+.errs{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px}
+.er{appearance:none;border:0;border-radius:12px;background:var(--bg);padding:8px 10px;display:grid;gap:2px;text-align:left}
 @media (prefers-reduced-motion:reduce){.sq.chk::before,.status .dots i{animation:none}#toast{transition:none}}
 </style>
 </head>
@@ -203,7 +264,14 @@ function on(sel, ev, fn, root) { (root || $app).querySelectorAll(sel).forEach(el
 const NAME = { p: "peón", n: "caballo", b: "alfil", r: "torre", q: "dama", k: "rey" };
 const ES = { K: "R", Q: "D", R: "T", B: "A", N: "C" };
 const sanES = s => s.replace(/[KQRBN]/g, ch => ES[ch]);
-const LVL = { 1: "Aprendiz", 2: "Mago", 3: "Gran maestro" };
+/* Escalera de 10 niveles: 1-2 con el motor propio, 3-10 con Stockfish (si el móvil lo admite) */
+const LADDER = [null,
+  { n: "Aprendiz", elo: 600, own: 1 }, { n: "Escudero", elo: 850, own: 2 },
+  { n: "Caballero", elo: 1050, skill: 0, depth: 3, own: 3 }, { n: "Duelista", elo: 1250, skill: 3, depth: 5, own: 3 },
+  { n: "Hechicero", elo: 1450, skill: 6, depth: 7, own: 3 }, { n: "Mago", elo: 1650, skill: 9, depth: 9, own: 3 },
+  { n: "Archimago", elo: 1850, skill: 12, depth: 11, own: 3 }, { n: "Maestro", elo: 2050, skill: 15, ms: 800, own: 3 },
+  { n: "Gran maestro", elo: 2300, skill: 18, ms: 1200, own: 3 }, { n: "Leyenda", elo: 2600, skill: 20, ms: 1800, own: 3 }];
+const LVL = i => (LADDER[i] || LADDER[2]).n;
 const other = c => (c === "w" ? "b" : "w");
 
 /* ================= piezas de piedra (SVG) ================= */
@@ -323,7 +391,7 @@ const S = {
   mode: null, code: null, g: null, unsub: null, L: null,
   sel: null, shown: null, anim: false, dirty: false, flip: false, thinking: 0, tip: null,
   homeMsg: "", homeErr: false, busy: false, lastKey: "", cache: { k: null, v: null },
-  homeTab: "online", aiLevel: ls.get("ajedrez.lvl") || 2, aiColor: "w"
+  homeTab: "online", aiLevel: ls.get("ajedrez.lvl10") || 2, aiColor: "w", coach: ls.get("ajedrez.coach") !== false
 };
 const me = () => S.uid;
 window.__aj = { S, C, sync: () => sync() };
@@ -447,20 +515,27 @@ function startLocal(kind) {
     L = { mode: "local", names: swap ? { w: rv, b: S.name } : { w: S.name, b: rv }, moves: [], end: null, auto: false };
   } else {
     const c = S.aiColor === "r" ? (Math.random() < .5 ? "w" : "b") : S.aiColor;
-    ls.set("ajedrez.lvl", S.aiLevel);
-    const bot = `La máquina · ${LVL[S.aiLevel]}`;
-    L = { mode: "ai", human: c, level: S.aiLevel, names: c === "w" ? { w: S.name, b: bot } : { w: bot, b: S.name }, moves: [], end: null };
+    ls.set("ajedrez.lvl10", S.aiLevel); ls.set("ajedrez.coach", S.coach);
+    const bot = `Máquina · ${S.aiLevel}. ${LVL(S.aiLevel)}`;
+    L = { mode: "ai", v2: true, human: c, level: S.aiLevel, coach: S.coach, names: c === "w" ? { w: S.name, b: bot } : { w: bot, b: S.name }, moves: [], end: null };
   }
   S.mode = "local"; S.L = L; S.shown = null; S.flip = false; saveLocal(); render();
 }
 function saveLocal() { if (S.L) ls.set("ajedrez.partida", S.L); }
-function resumeLocal() { const L = ls.get("ajedrez.partida"); if (!L) return; S.mode = "local"; S.L = L; S.shown = null; S.flip = false; render(); }
+function resumeLocal() { const L = ls.get("ajedrez.partida"); if (!L) return; if (L.mode === "ai" && !L.v2) { L.level = { 1: 1, 2: 2, 3: 4 }[L.level] || 2; L.v2 = true; } S.mode = "local"; S.L = L; S.shown = null; S.flip = false; render(); }
 
 /* ================= máquina (Web Worker) ================= */
 let worker = null;
 const pending = new Map();
 let reqId = 0;
 function askEngine(moves, level) {
+  const cfg = LADDER[level] || LADDER[2];
+  if (!cfg.own || cfg.own === 3) {
+    if (window.AJSF) return AJSF.play(moves, cfg).then(r => r || ownEngine(moves, cfg.own || 3));
+  }
+  return ownEngine(moves, cfg.own || 2);
+}
+function ownEngine(moves, level) {
   const id = ++reqId;
   return new Promise(res => {
     if (worker === null) { try { worker = new Worker("motor.js"); worker.onmessage = e => { const f = pending.get(e.data.id); if (f) { pending.delete(e.data.id); f(e.data.r); } }; worker.onerror = () => { worker = false; }; } catch { worker = false; } }
@@ -474,6 +549,23 @@ async function maybeAI() {
   if (result(m, gm).over || gm.pos.turn === m.my) return;
   const tok = Date.now(), key = m.moves.join(" ");
   S.thinking = tok; updateGame();
+  if (S.L.coach && window.AJSF && m.moves.length && S.L.coached !== m.moves.length) {
+    const v = await AJSF.coach(m.moves.slice(0, -1), m.moves[m.moves.length - 1]).catch(() => null);
+    if (S.thinking !== tok || !S.L || S.L.moves.join(" ") !== key) return;
+    S.L.coached = m.moves.length; saveLocal();
+    if (v && v.warn) {
+      S.thinking = 0; updateGame();
+      const undoIt = await new Promise(res => {
+        openSheet(`<h2>🧙 El entrenador avisa</h2><p>${v.html}</p><div class="row"><button class="btn gold" data-u>Deshacer y pensar</button><button class="btn ghost" data-k>Seguir así</button></div>`);
+        on("[data-u]", "click", () => { closeSheet(); res(true); }, $sheet);
+        on("[data-k]", "click", () => { closeSheet(); res(false); }, $sheet);
+        $sheet.querySelector(".scrim").addEventListener("click", () => res(false));
+      });
+      if (undoIt) { S.L.moves.pop(); S.L.coached = S.L.moves.length; S.L.undos = (S.L.undos || 0) + 1; S.shown = null; saveLocal(); sync(); return; }
+      if (S.thinking || !S.L || S.L.moves.join(" ") !== key) return;
+      S.thinking = tok; updateGame();
+    }
+  }
   const [r] = await Promise.all([askEngine(m.moves.slice(), S.L.level), wait(650)]);
   if (S.thinking !== tok || !S.L || S.L.moves.join(" ") !== key) return;
   S.thinking = 0;
@@ -484,7 +576,7 @@ async function hint() {
   const m = model(), gm = getGame(m.moves);
   if (result(m, gm).over) return;
   toast("Consultando a los astros…");
-  const key = m.moves.join(" "), r = await askEngine(m.moves.slice(), 2);
+  const key = m.moves.join(" "), r = window.AJSF ? (await AJSF.best(m.moves.slice())) || await ownEngine(m.moves.slice(), 2) : await ownEngine(m.moves.slice(), 2);
   if (!r || model().moves.join(" ") !== key) return;
   const mv = C.findMove(gm.pos, r.uci);
   S.tip = mv ? [mv.f, mv.t] : null; S.sel = null; SFX.magic(); drawBoard(gm, m);
@@ -733,6 +825,7 @@ async function sync() {
 function render() {
   if (!S.ready) return;
   if (!S.mode) return renderHome();
+  if (S.mode === "school") return window.AJ_SCHOOL ? AJ_SCHOOL.render() : (S.mode = null, renderHome());
   if (S.mode === "online") {
     if (!S.g) return view(`<div class="hero"><div class="logo"><small>AJEDREZ</small>Mágico</div><p class="muted">Entrando en la partida…</p></div>`, "load");
     if (S.g.status === "lobby") return renderLobby();
@@ -751,6 +844,7 @@ function renderHome() {
   <div class="hero"><div class="duo" aria-hidden="true">${pieceSVG("N")}${pieceSVG("k", "mir")}</div><div class="logo"><small>AJEDREZ</small>Mágico</div>
     <p class="muted">Las reglas de siempre, con piezas de piedra que avanzan solas y se hacen añicos al ser capturadas.</p></div>
   <label class="lbl" for="nm">Tu nombre<input id="nm" class="text" maxlength="16" autocomplete="nickname" value="${esc(S.name)}" placeholder="Tu nombre"></label>
+  ${window.AJ_SCHOOL ? AJ_SCHOOL.homeCard() : ""}
   ${canResume ? `<button class="btn gold wide" id="resume">Continuar partida en este móvil</button>` : ""}
   <div class="seg" role="group" aria-label="Modo de juego">${seg("tab", "online", tab, "Online")}${seg("tab", "local", tab, "Mismo móvil")}${seg("tab", "ai", tab, "Máquina")}</div>
   ${tab === "online" ? (S.offline ? `<div class="card"><p class="muted">No hay conexión con el servidor de partidas. Puedes jugar en este móvil o contra la máquina.</p></div>` : `
@@ -761,8 +855,10 @@ function renderHome() {
   ${tab === "local" ? `<div class="card"><h2>Los dos en este móvil</h2><p class="muted small">Se sortean los colores. Os vais pasando el móvil o lo dejáis en medio.</p>
     <input id="rv" class="text" maxlength="16" placeholder="Nombre del rival" aria-label="Nombre del rival"><button class="btn gold wide" id="local">Empezar</button></div>` : ""}
   ${tab === "ai" ? `<div class="card"><h2>Contra la máquina</h2>
-    <span class="lbl">Nivel</span><div class="seg" role="group" aria-label="Nivel">${[1, 2, 3].map(v => seg("lv", v, lv, LVL[v])).join("")}</div>
+    <span class="lbl">Nivel ${lv}: ${esc(LVL(lv))}</span><div class="lvls" role="group" aria-label="Nivel">${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(v => `<button data-lv="${v}" aria-pressed="${lv === v}" title="${esc(LVL(v))}">${v}</button>`).join("")}</div>
+    <p class="muted small">Del 1 (empieza aquí si estás aprendiendo) al 10 (juega como un maestro). ${window.AJ_SCHOOL ? AJ_SCHOOL.ladderHint() : ""}</p>
     <span class="lbl">Juegas con</span><div class="seg" role="group" aria-label="Color">${seg("col", "w", col, "Blancas")}${seg("col", "b", col, "Negras")}${seg("col", "r", col, "Al azar")}</div>
+    <label class="tgl"><input type="checkbox" id="coach"${S.coach ? " checked" : ""}> <span><b>Entrenador</b>: te avisa cuando una jugada tuya es un error y te deja pensarla otra vez.</span></label>
     <button class="btn gold wide" id="ai">Empezar</button></div>` : ""}
   <p class="msg ${S.homeErr ? "err" : ""}" role="status">${esc(S.homeMsg)}</p>
   <details class="card"><summary><b>Cómo se juega</b></summary><div class="how">
@@ -772,7 +868,7 @@ function renderHome() {
     <p><b>Coronación:</b> el peón que llega al final se convierte en dama, torre, alfil o caballo.</p>
     <p><b>Tablas:</b> rey ahogado, triple repetición, 50 jugadas sin capturas ni movimientos de peón, material insuficiente o acuerdo.</p>
     <p class="muted small">Notación: R rey, D dama, T torre, A alfil, C caballo.</p></div></details>`;
-  view(html, "home|" + S.busy + "|" + S.homeMsg + "|" + tab + "|" + lv + "|" + col);
+  view(html, "home|" + S.busy + "|" + S.homeMsg + "|" + tab + "|" + lv + "|" + col + "|" + S.coach + "|" + (window.AJ_SCHOOL ? AJ_SCHOOL.stamp() : ""));
   const keepName = () => { const el = document.getElementById("nm"); if (el) S.name = el.value.trim().slice(0, 16); };
   on("[data-tab]", "click", e => { keepName(); S.homeTab = e.currentTarget.dataset.tab; S.homeMsg = ""; render(); });
   on("[data-lv]", "click", e => { keepName(); S.aiLevel = +e.currentTarget.dataset.lv; render(); });
@@ -784,6 +880,8 @@ function renderHome() {
   on("#local", "click", () => startLocal("local"));
   on("#ai", "click", () => startLocal("ai"));
   on("#resume", "click", resumeLocal);
+  on("#coach", "change", e => { S.coach = e.target.checked; ls.set("ajedrez.coach", S.coach); });
+  on("#school", "click", () => { keepName(); S.mode = "school"; S.lastKey = ""; render(); });
 }
 
 function renderLobby() {
@@ -906,7 +1004,8 @@ function updateGame(noHL) {
     const R2 = { mate: "¡Jaque mate!", ahogado: "Tablas por rey ahogado", material: "Tablas: no queda material para dar mate", 50: "Tablas por la regla de las 50 jugadas", repeticion: "Tablas por triple repetición", rinde: `${m.names[res.by] || ""} se rinde`, acuerdo: "Tablas de mutuo acuerdo" };
     const sub = res.winner ? (m.mode === "online" && m.my ? (res.winner === m.my ? "¡Has ganado!" : `Gana ${m.names[res.winner]}`) : m.mode === "ai" ? (res.winner === m.my ? "¡Has ganado a la máquina!" : "Gana la máquina") : `Gana ${m.names[res.winner]}`) : "Nadie gana esta vez";
     const canRe = m.mode !== "online" || !!m.my;
-    eh = `<div class="end"><h2>${esc(R2[res.reason] || "Fin")}</h2><p>${esc(sub)}</p>${res.reason === "mate" ? whyMateHTML(pos) : ""}<div class="row">${canRe ? `<button class="btn gold" id="re">Revancha</button>` : ""}<button class="btn ghost" id="bye">Salir</button></div>
+    if (S.mode === "local" && S.L.mode === "ai" && !S.L.rec && window.AJ_SCHOOL) { S.L.rec = true; saveLocal(); AJ_SCHOOL.recordGame(S.L, res); }
+    eh = `<div class="end"><h2>${esc(R2[res.reason] || "Fin")}</h2><p>${esc(sub)}</p>${res.reason === "mate" ? whyMateHTML(pos) : ""}<div class="row">${canRe ? `<button class="btn gold" id="re">Revancha</button>` : ""}<button class="btn ghost" id="bye">Salir</button></div>${window.AJ_SCHOOL && m.moves.length > 1 ? `<button class="btn wide" id="rev">🔍 Revisar la partida con el motor</button>` : ""}
       ${canRe ? `<p class="muted small">En la revancha se cambian los colores.</p>` : ""}</div>`;
   } else if (m.mode === "online" && m.offer && m.my) {
     eh = m.offer === m.my ? `<div class="offer"><p>Has ofrecido tablas. Esperando respuesta…</p><button class="btn sm ghost" id="offX">Retirar</button></div>`
@@ -928,6 +1027,7 @@ function updateGame(noHL) {
   mv.scrollTop = mv.scrollHeight;
 
   on("#re", "click", rematch); on("#bye", "click", () => leave());
+  on("#rev", "click", () => AJ_SCHOOL.review({ moves: m.moves.slice(), my: m.mode === "local" && S.L.mode === "local" ? null : m.my, names: m.names, lvl: S.L && S.L.mode === "ai" ? S.L.level : null }));
   on("#dr", "click", draw); on("#rs", "click", resign); on("#un", "click", undo); on("#hi", "click", hint);
   on("#fl", "click", () => { S.flip = !S.flip; updateGame(); });
   on("#au", "click", () => { S.L.auto = !S.L.auto; saveLocal(); updateGame(); });
@@ -969,8 +1069,13 @@ function openSheet(html) { $sheet.innerHTML = `<div class="scrim"></div><div cla
 function closeSheet() { $sheet.classList.remove("on"); $sheet.innerHTML = ""; }
 addEventListener("keydown", e => { if (e.key === "Escape") closeSheet(); });
 
+window.AJ = { S, C, esc, ls, toast, on, view, render, openSheet, closeSheet, confirmSheet, pieceSVG, SFX, buzz, wait, T, animateMove, toppleKing, banner, shake, shatter, disp, NAME, sanES, FEM, pn, listY, whyMateHTML, saveName, leave, LADDER, LVL, startLocal, rng,
+  get app() { return $app; }, get sheet() { return $sheet; } };
 boot();
 })();
 </script>
+<script src="lecciones.js"></script>
+<script src="problemas.js"></script>
+<script src="escuela.js"></script>
 </body>
 </html>

@@ -360,8 +360,9 @@
   }
   const LEVELS = { 1: { depth: 1, ms: 300, noise: 180 }, 2: { depth: 3, ms: 900, noise: 25 }, 3: { depth: 6, ms: 1800, noise: 0 } };
   function bestMove(moves, level) { return search(replay(moves).pos, LEVELS[level] || LEVELS[2]); }
+  const searchPos = (pos, level) => search(pos, LEVELS[level] || LEVELS[2]);
 
-  const api = { START, FILES, VAL, sqName, sqIdx, isW, colorOf, type, fromFEN, toFEN, legalMoves, make, san, explainMate, attackersOf, uciOf, findMove, inCheck, attacked, replay, outcome, captured, material, evaluate, bestMove, pseudo };
+  const api = { START, FILES, VAL, sqName, sqIdx, isW, colorOf, type, fromFEN, toFEN, legalMoves, make, san, explainMate, attackersOf, uciOf, findMove, inCheck, attacked, replay, outcome, captured, material, evaluate, bestMove, searchPos, pseudo };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.Chess = api;
   /* Como Web Worker: piensa la jugada de la máquina sin congelar la pantalla */

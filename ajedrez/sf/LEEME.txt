@@ -1,0 +1,4 @@
+Stockfish 10 compilado a WebAssembly por stockfish.js (https://github.com/nmrugg/stockfish.js),
+paquete npm stockfish@10.0.2. Stockfish es software libre bajo la licencia GNU GPL v3 (ver COPYING.txt).
+Código fuente: https://github.com/official-stockfish/Stockfish y https://github.com/nmrugg/stockfish.js
+Se usa sin modificar.
