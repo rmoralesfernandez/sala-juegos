@@ -1,0 +1,911 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Azulejos</title>
+<meta name="theme-color" content="#0D1726">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="../icons/icon-192.png">
+<link rel="apple-touch-icon" href="../icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,900&family=Manrope:wght@500;700;800&display=swap">
+<script>window.APP_KEY="azulejos"</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="../firebase-config.js"></script>
+<script src="../shared/claude-shim.js"></script>
+<script src="../shared/turno.js"></script>
+<script src="motor.js"></script>
+<style>
+/* Mesa a una columna: rivales arriba, fábricas y centro en medio, tu tablero abajo */
+:root{
+  --bg:#0D1726; --bg2:#1D3254; --panel:#15233A; --panel2:#223858; --line:#2F4A70;
+  --ink:#F6F1E6; --muted:#A9B8CF; --gold:#E9B949; --gold2:#9A7420; --ok:#7CDB9A; --bad:#FF7A6B;
+  --display:"Fraunces",Georgia,serif;
+  --body:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:
+  radial-gradient(70% 40% at 50% -5%,rgba(233,185,73,.13),transparent 70%),
+  radial-gradient(120% 80% at 50% 0%,var(--bg2),var(--bg) 70%) fixed;
+  background-color:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.4;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+#app{max-width:640px;margin:0 auto;min-height:100%;padding-inline:16px;padding-block:calc(12px + env(safe-area-inset-top,0px)) calc(24px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:10px}
+h1,h2,h3{font-family:var(--display);font-weight:700;margin:0;letter-spacing:.01em;text-wrap:balance}
+p{margin:0}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+svg{display:block}
+
+.btn{appearance:none;border:0;border-radius:14px;min-height:50px;padding:0 18px;background:var(--panel2);color:var(--ink);font-weight:800;font-size:16px;box-shadow:0 3px 0 rgba(0,0,0,.45);display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:transform .08s;text-align:center}
+.btn:active{transform:translateY(2px)}
+.btn.gold{background:linear-gradient(180deg,#FFD873,var(--gold));color:#3A2604}
+.btn.ghost{background:transparent;box-shadow:inset 0 0 0 2px var(--line)}
+.btn.sm{min-height:42px;font-size:14px;padding:0 12px;border-radius:11px}
+.btn:disabled{opacity:.42;cursor:default;transform:none}
+.btn.wide{width:100%}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>*{flex:1 1 140px}
+input.text{width:100%;min-height:50px;border-radius:12px;border:2px solid var(--line);background:var(--bg);padding:0 14px;font-size:17px;font-weight:700}
+input.code{text-transform:uppercase;letter-spacing:.3em;font-family:var(--display);font-size:24px;text-align:center}
+label.lbl,.lbl{display:grid;gap:6px;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.card{background:var(--panel);border-radius:18px;padding:16px;display:grid;gap:12px;box-shadow:0 0 0 1px var(--line)}
+.card h2{font-size:21px}
+.msg{min-height:1.4em;color:var(--gold);text-align:center;font-weight:700}
+.msg.err{color:var(--bad)}
+.hero{display:grid;gap:10px;justify-items:center;text-align:center;padding-block:10px 4px}
+.logo{font-family:var(--display);font-weight:900;font-size:clamp(44px,13vw,64px);line-height:1;color:var(--gold);text-shadow:0 3px 0 #6B4708,0 10px 30px rgba(0,0,0,.6)}
+.logo small{display:block;font-family:var(--body);font-weight:800;font-size:.2em;letter-spacing:.4em;color:var(--ink);text-shadow:none;margin-bottom:8px}
+.herob{width:min(220px,62vw);filter:drop-shadow(0 12px 22px rgba(0,0,0,.55))}
+.seg{display:flex;gap:6px;background:var(--bg);border-radius:12px;padding:4px}
+.seg button{flex:1;appearance:none;border:0;background:transparent;border-radius:9px;min-height:40px;font-weight:800;font-size:14px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--panel2);color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--gold2)}
+
+.top{display:flex;align-items:center;gap:8px}
+.top .sp{flex:1}
+.chip{font-weight:800;font-size:12px;letter-spacing:.1em;background:var(--panel);padding:7px 11px;border-radius:999px;box-shadow:0 0 0 1px var(--line);white-space:nowrap}
+.icon-btn{appearance:none;border:0;width:40px;height:40px;border-radius:11px;background:var(--panel);box-shadow:0 0 0 1px var(--line);display:grid;place-items:center;color:var(--ink);font-weight:800;font-size:18px;flex:none}
+.big-code{font-family:var(--display);font-size:52px;letter-spacing:.16em;line-height:1;text-align:center;color:var(--gold)}
+.seats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.seat{background:var(--bg);border-radius:14px;padding:10px;display:grid;gap:4px;text-align:center;min-width:0;align-content:center;min-height:78px}
+.seat b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.seat.empty{color:var(--muted);border:2px dashed var(--line);background:transparent}
+.seat .btn{min-height:34px;font-size:13px;padding:0 8px;border-radius:9px}
+.wait{display:grid;place-items:center;gap:6px;text-align:center;padding:14px;background:var(--panel);border-radius:16px}
+#turno:empty{display:none}
+#turno .st-franja{margin:0}
+
+/* ---------- tableros ---------- */
+.pl{background:var(--panel);border-radius:16px;padding:10px 12px;box-shadow:0 0 0 1px var(--line);display:grid;gap:8px;transition:box-shadow .2s;min-width:0}
+.pl.turn{box-shadow:0 0 0 2px var(--pc,var(--gold)),0 0 22px -6px var(--pc,var(--gold))}
+.pl .hd{display:flex;align-items:center;gap:8px;min-width:0}
+.pl .dot{width:14px;height:14px;border-radius:50%;flex:none;box-shadow:0 0 0 2px rgba(0,0,0,.35)}
+.pl .nm{flex:1;min-width:0;font-weight:800;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pl .pts{font-family:var(--display);font-weight:900;font-size:20px;color:var(--gold);white-space:nowrap}
+.pl .pts small{font-family:var(--body);font-size:11px;font-weight:800;color:var(--muted);margin-left:2px}
+.pl .pv{font-size:12px;font-weight:800;color:var(--muted);white-space:nowrap}
+.pl .pv.neg{color:var(--bad)}
+.pl .pv.pos{color:var(--ok)}
+.fpchip{width:20px;height:20px;flex:none}
+.board{width:100%;height:auto;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+.opps{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.opps .pl{padding:8px 9px;gap:5px;cursor:pointer}
+.opps .pl .nm{font-size:14px}
+.opps .pl .pts{font-size:17px}
+.opps .board{max-width:240px;margin:0 auto}
+.slot{fill:rgba(255,255,255,.05);stroke:rgba(255,255,255,.16);stroke-width:.4}
+.fslot{fill:rgba(255,120,107,.07);stroke:rgba(255,122,107,.35);stroke-width:.4}
+.flab{font:800 3.6px Manrope,sans-serif;fill:#FF9C90;text-anchor:middle}
+.slab{font:800 3.6px Manrope,sans-serif;fill:#A9B8CF;letter-spacing:.3px}
+.tgtr{fill:none;stroke:#E9B949;stroke-width:.9;stroke-dasharray:2 1.1;animation:tgt 1.4s ease-in-out infinite}
+.hintr{fill:none;stroke:#7CDB9A;stroke-width:1.4}
+.wnext{fill:none;stroke:#E9B949;stroke-width:.7;stroke-dasharray:1.4 .9}
+.wpts{font:900 4.4px Manrope,sans-serif;fill:#FFE7A3;text-anchor:middle;paint-order:stroke;stroke:#0D1726;stroke-width:1.2px}
+.wnew{fill:none;stroke:#7CDB9A;stroke-width:.8}
+.ovp{fill:#C8382E}
+.ovt{font:900 4px Manrope,sans-serif;fill:#fff;text-anchor:middle}
+#mine .board [data-l]{cursor:pointer}
+@keyframes tgt{50%{opacity:.45}}
+
+/* ---------- fábricas y centro ---------- */
+.mesa{background:radial-gradient(circle at 50% 40%,#22385A,#132036 80%);border-radius:20px;box-shadow:0 0 0 1px var(--line),inset 0 0 40px rgba(0,0,0,.5);padding:12px;display:grid;gap:10px}
+.facs{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:8px;justify-items:center}
+.fac{width:100%;max-width:92px;aspect-ratio:1;position:relative}
+.fac svg{width:100%;height:100%}
+.fac .fn{position:absolute;left:50%;bottom:-2px;transform:translateX(-50%);font-size:10px;font-weight:800;color:var(--muted)}
+.fac [data-c]{cursor:pointer}
+.ctr{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;min-height:52px;padding:8px;border-radius:14px;background:rgba(0,0,0,.18);box-shadow:inset 0 0 0 1.5px rgba(233,185,73,.25)}
+.ctr .lb{width:100%;text-align:center;font-size:11px;font-weight:800;letter-spacing:.14em;color:var(--muted);text-transform:uppercase}
+.cg{appearance:none;border:0;background:transparent;padding:2px;display:flex;align-items:center;gap:3px;font-weight:900;font-size:16px;color:var(--ink);border-radius:10px;transition:transform .1s}
+.cg svg{width:34px;height:34px}
+.cg.sel{transform:translateY(-3px);box-shadow:0 0 0 2px var(--gold)}
+.cg.fp{cursor:default}
+.pick{filter:drop-shadow(0 0 1.2px #E9B949) drop-shadow(0 0 2.4px #E9B949)}
+.pickr{fill:none;stroke:#E9B949;stroke-width:1.1}
+.coach:empty{display:none}
+.coach{font-size:14.5px;font-weight:700;text-align:center;min-height:2.6em;color:var(--ink);text-wrap:balance}
+.coach.ok{color:var(--gold)}
+.acts{display:flex;gap:8px;flex-wrap:wrap}
+.acts:empty{display:none}
+.acts .btn{flex:1 1 0;min-width:0}
+.acts .btn.main{flex:2.4 1 0}
+.last{display:flex;align-items:center;gap:8px;background:rgba(233,185,73,.1);border-radius:12px;padding:8px 12px;font-size:14px;font-weight:700;box-shadow:inset 0 0 0 1px rgba(233,185,73,.35)}
+.last svg{width:24px;height:24px;flex:none}
+.last.fresh{animation:glow 1.6s ease-out}
+@keyframes glow{0%{background:rgba(233,185,73,.45)}}
+.log{background:var(--panel);border-radius:14px;padding:10px 12px;box-shadow:0 0 0 1px var(--line);font-size:13.5px}
+.log summary{font-weight:800;cursor:pointer}
+.log ol{margin:8px 0 0;padding-left:24px;display:grid;gap:3px;max-height:200px;overflow:auto}
+.log li.rd{list-style:none;margin-left:-20px;font-weight:800;color:var(--gold);padding-top:4px}
+.bagi{display:flex;justify-content:center;gap:14px;font-size:12px;font-weight:700;color:var(--muted)}
+
+/* ---------- hojas ---------- */
+#sheet{position:fixed;inset:0;z-index:50;display:none}
+#sheet.on{display:block}
+#sheet .scrim{position:absolute;inset:0;background:rgba(0,0,0,.62)}
+#sheet .pane{position:absolute;left:0;right:0;bottom:0;max-width:640px;max-height:92svh;overflow:auto;margin:0 auto;background:var(--panel);border-radius:22px 22px 0 0;padding:18px 16px calc(20px + env(safe-area-inset-bottom,0px));display:grid;gap:12px;box-shadow:0 -10px 40px rgba(0,0,0,.6)}
+.end-h{color:var(--gold);font-size:30px;text-align:center}
+.rank{display:grid;gap:8px}
+.rk{display:grid;grid-template-columns:28px 1fr auto;gap:4px 10px;align-items:center;background:var(--bg);border-radius:12px;padding:10px 12px}
+.rk .ps{font-family:var(--display);font-weight:900;font-size:20px;color:var(--muted)}
+.rk.win .ps{color:var(--gold)}
+.rk b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rk .sc{font-family:var(--display);font-weight:900;font-size:22px;color:var(--gold)}
+.rk .dt{grid-column:2 / 4;font-size:12.5px;color:var(--muted);font-weight:700}
+.gl{display:flex;flex-wrap:wrap;gap:6px;grid-column:2 / 4}
+.gl span{display:inline-flex;align-items:center;gap:4px;background:var(--panel2);border-radius:8px;padding:3px 7px;font-size:12.5px;font-weight:800}
+.gl span svg{width:15px;height:15px}
+.gl span.neg{color:var(--bad)}
+.score{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;font-weight:800;font-size:14px;color:var(--muted)}
+.rules{display:grid;gap:14px;font-size:15px}
+.rules h3{font-size:19px;color:var(--gold)}
+.rules section{display:grid;gap:6px}
+.rules ul{margin:0;padding-left:20px;display:grid;gap:4px}
+.rules b{color:var(--gold)}
+.rules .ex{display:grid;grid-template-columns:96px 1fr;gap:10px;align-items:center}
+.rules .ex svg{width:96px;height:auto}
+.tl{display:inline-flex;gap:4px;vertical-align:middle}
+.tl svg{width:20px;height:20px}
+#tour{position:fixed;inset:0;z-index:70;display:none}
+#tour.on{display:block}
+#tour .bub{position:fixed;left:50%;transform:translateX(-50%);width:min(560px,calc(100% - 24px));background:#FFF7E3;color:#2A1A08;border-radius:18px;padding:16px;display:grid;gap:10px;box-shadow:0 20px 50px rgba(0,0,0,.6)}
+#tour .bub h3{font-size:20px;color:#7A4B04}
+#tour .bub .row .btn{flex:1 1 0}
+#tour .bub .btn.ghost{color:#2A1A08;box-shadow:inset 0 0 0 2px #D8C4A0}
+#tour .steps{font-size:12px;font-weight:800;color:#8A6A3A;letter-spacing:.08em}
+#tour .shade{position:fixed;inset:0;background:rgba(0,0,0,.55)}
+.spot{position:relative;z-index:65;box-shadow:0 0 0 4px var(--gold),0 0 0 9999px rgba(0,0,0,.6)!important;border-radius:14px}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,12px);opacity:0;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:700;font-size:14px;transition:opacity .2s,transform .2s;pointer-events:none;max-width:calc(100% - 32px);z-index:80;text-align:center}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+@media (prefers-reduced-motion:reduce){.last.fresh,.tgtr{animation:none}#toast{transition:none}.cg.sel{transform:none}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs id="glyphs"></defs></svg>
+<div id="app"><div class="hero"><div class="logo"><small>EL MURO DEL PALACIO</small>Azulejos</div><p class="muted">Horneando losetas…</p></div></div>
+<div id="sheet"></div>
+<div id="tour"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+"use strict";
+const B = window.Azulejos, NAME = B.NAME, NAMEP = B.NAMEP;
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const ls = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }, del(k) { try { localStorage.removeItem(k); } catch {} } };
+const $app = document.getElementById("app"), $sheet = document.getElementById("sheet"), $tour = document.getElementById("tour");
+let toastT;
+function toast(m, ms) { const t = document.getElementById("toast"); t.textContent = m; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), ms || 3200); }
+function on(sel, ev, fn, root) { (root || $app).querySelectorAll(sel).forEach(el => el.addEventListener(ev, fn)); }
+const LVL = { 1: "Aprendiz", 2: "Oficial", 3: "Maestro" };
+const BOTN = ["Inés", "Duarte", "Leonor"];
+const SEATC = ["#E9B949", "#E46A5E", "#5FC08A", "#B08CF0"];
+const cap = s => s[0].toUpperCase() + s.slice(1);
+const losetas = (k, c) => k === 1 ? `1 loseta ${NAME[c]}` : `${k} losetas ${NAMEP[c]}`;
+
+/* ================= losetas (dibujos propios) ================= */
+const TC = [{ b: "#1F5FAE", d: "#123C73", f: "#DCEBFF" }, { b: "#F2B632", d: "#B77F12", f: "#B5401F" }, { b: "#C8382E", d: "#86201A", f: "#F7D58A" }, { b: "#26272F", d: "#0E0F14", f: "#E9E2D0" }, { b: "#7FD3E0", d: "#3E9BAD", f: "#14607A" }];
+function glyphDefs() {
+  const base = (c, inner) => `<rect x=".6" y=".6" width="18.8" height="18.8" rx="2.6" fill="${TC[c].d}"/><rect x=".6" y=".2" width="18.8" height="18.4" rx="2.6" fill="${TC[c].b}"/>${inner}<rect x="1.4" y="1" width="17.2" height="16.8" rx="2" fill="none" stroke="#fff" stroke-opacity=".28" stroke-width=".6"/>`;
+  const f = c => TC[c].f;
+  const G = [
+    base(0, `<path d="M10 2.6l1.9 5.5 5.5 1.9-5.5 1.9L10 17.4l-1.9-5.5L2.6 10l5.5-1.9z" fill="${f(0)}"/><circle cx="10" cy="10" r="1.7" fill="${TC[0].b}"/><g fill="${f(0)}" opacity=".7"><circle cx="3.2" cy="3" r="1.2"/><circle cx="16.8" cy="3" r="1.2"/><circle cx="3.2" cy="16.8" r="1.2"/><circle cx="16.8" cy="16.8" r="1.2"/></g>`),
+    base(1, `<path d="M10 3.2l6.6 6.6L10 16.4 3.4 9.8z" fill="none" stroke="${f(1)}" stroke-width="1.5"/><path d="M10 6.6l3.2 3.2L10 13l-3.2-3.2z" fill="${f(1)}"/><g stroke="${f(1)}" stroke-width="1" opacity=".75"><path d="M1.6 1.8l3 3M18.4 1.8l-3 3M1.6 17.8l3-3M18.4 17.8l-3-3"/></g>`),
+    base(2, `<circle cx="10" cy="9.8" r="5.2" fill="none" stroke="${f(2)}" stroke-width="1.5"/><circle cx="10" cy="9.8" r="2" fill="${f(2)}"/><g fill="${f(2)}"><circle cx="10" cy="2.4" r="1"/><circle cx="10" cy="17.2" r="1"/><circle cx="2.6" cy="9.8" r="1"/><circle cx="17.4" cy="9.8" r="1"/></g>`),
+    base(3, `<path d="M3 2.8l14 14M17 2.8l-14 14" stroke="${f(3)}" stroke-width="1.2" opacity=".85"/><rect x="6.6" y="6.4" width="6.8" height="6.8" transform="rotate(45 10 9.8)" fill="${TC[3].b}" stroke="${f(3)}" stroke-width="1.3"/><circle cx="10" cy="9.8" r="1.3" fill="${f(3)}"/>`),
+    base(4, `<g fill="${f(4)}"><ellipse cx="10" cy="5.6" rx="2.2" ry="3.4"/><ellipse cx="10" cy="14" rx="2.2" ry="3.4"/><ellipse cx="5.8" cy="9.8" rx="3.4" ry="2.2"/><ellipse cx="14.2" cy="9.8" rx="3.4" ry="2.2"/></g><circle cx="10" cy="9.8" r="1.8" fill="#fff"/>`)
+  ];
+  const fp = `<rect x=".6" y=".6" width="18.8" height="18.8" rx="2.6" fill="#B9B2A2"/><rect x=".6" y=".2" width="18.8" height="18.4" rx="2.6" fill="#FBF6EA"/><text x="10" y="14.6" text-anchor="middle" font-family="Fraunces,Georgia,serif" font-weight="900" font-size="13" fill="#B5401F">1</text>`;
+  document.getElementById("glyphs").innerHTML = G.map((g, i) => `<symbol id="t${i}" viewBox="0 0 20 20">${g}</symbol>`).join("") + `<symbol id="t5" viewBox="0 0 20 20">${fp}</symbol>`;
+}
+const tileIcon = (c, size = 24) => `<svg viewBox="0 0 20 20" width="${size}" height="${size}" aria-hidden="true"><use href="#t${c}"/></svg>`;
+const CS = 10, G = 11, WX = 61, FY = 59;
+const tu = (c, x, y, ex = "") => `<use href="#t${c}" x="${x}" y="${y}" width="${CS}" height="${CS}" ${ex}/>`;
+
+/* Tablero de un jugador: filas de patrón (izquierda), muro (derecha) y suelo (abajo) */
+function boardSVG(st, q, o = {}) {
+  const P = st.pl[q], sel = o.sel;
+  const fresh = new Set((o.newCells || []).map(g => g.r * 5 + B.wallCol(g.r, g.c)));
+  let h = "";
+  /* muro primero, para poder marcar el destino de las filas llenas */
+  const prevW = P.wall.map(r => r.slice());
+  const dest = {};
+  for (let r = 0; r < 5; r++) { const L = P.ln[r]; if (L.n === r + 1) { const cl = B.wallCol(r, L.c); prevW[r][cl] = 1; dest[r * 5 + cl] = B.scoreAt(prevW, r, cl); } }
+  for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) {
+    const x = WX + c * G, y = r * G, col = B.colorAt(r, c);
+    if (P.wall[r][c]) h += tu(col, x, y) + (fresh.has(r * 5 + c) ? `<rect x="${x - .6}" y="${y - .6}" width="${CS + 1.2}" height="${CS + 1.2}" rx="2.6" class="wnew"/>` : "");
+    else {
+      h += `<rect x="${x}" y="${y}" width="${CS}" height="${CS}" rx="2" fill="#0B1424"/>` + tu(col, x, y, 'opacity=".2"');
+      if (dest[r * 5 + c] !== undefined) h += `<rect x="${x + .3}" y="${y + .3}" width="${CS - .6}" height="${CS - .6}" rx="2" class="wnext"/><text x="${x + 5}" y="${y + 6.6}" class="wpts">+${dest[r * 5 + c]}</text>`;
+    }
+  }
+  /* filas de patrón */
+  for (let r = 0; r < 5; r++) {
+    const L = P.ln[r], y = r * G, ok = sel && B.canLine(P, r, sel.c);
+    let row = `<rect x="0" y="${y - .5}" width="${WX - 1}" height="${G}" fill="transparent"/>`;
+    for (let j = 0; j <= r; j++) {
+      const x = (4 - j) * G;
+      row += j < L.n ? tu(L.c, x, y) : `<rect x="${x}" y="${y}" width="${CS}" height="${CS}" rx="1.8" class="slot"/>`;
+    }
+    if (ok) {
+      const put = Math.min(sel.k, r + 1 - L.n), over = sel.k - put;
+      for (let j = L.n; j < L.n + put; j++) row += tu(sel.c, (4 - j) * G, y, 'opacity=".42"');
+      row += `<rect x="${(4 - r) * G - .9}" y="${y - .9}" width="${(r + 1) * G + .8}" height="${CS + 1.8}" rx="2.4" class="${o.hintL === r ? "hintr" : "tgtr"}"/>`;
+      if (over) { const x = (4 - r) * G - (r < 4 ? 6.5 : -1); row += `<rect x="${x}" y="${y + 2}" width="7" height="6" rx="1.6" class="ovp"/><text x="${x + 3.5}" y="${y + 6.3}" class="ovt">+${over}</text>`; }
+    }
+    if (L.n === r + 1) row += `<path d="M${WX - 4.6} ${y + 3.4}l2 1.6-2 1.6" fill="none" stroke="#E9B949" stroke-width=".8" stroke-linecap="round"/>`;
+    h += `<g${o.inter ? ` data-l="${r}"` : ""}>${row}</g>`;
+  }
+  /* suelo */
+  let fl = `<rect x="-1" y="${FY - 1}" width="${7 * G + 1}" height="${CS + 8}" fill="transparent"/>`;
+  for (let i = 0; i < 7; i++) {
+    const x = i * G, t = P.fl[i];
+    fl += t !== undefined ? tu(t, x, FY) : `<rect x="${x}" y="${FY}" width="${CS}" height="${CS}" rx="1.8" class="fslot"/>`;
+    fl += `<text x="${x + 5}" y="${FY + CS + 4.6}" class="flab">${B.FLOOR[i]}</text>`;
+  }
+  if (sel && o.inter) {
+    const extra = (sel.f < 0 && st.ctrFP ? 1 : 0);
+    let i = P.fl.length;
+    if (extra && i < 7) { fl += tu(B.FP, i * G, FY, 'opacity=".42"'); i++; }
+    for (let k = 0; k < sel.k && i < 7; k++, i++) fl += tu(sel.c, i * G, FY, 'opacity=".42"');
+    fl += `<rect x="-.9" y="${FY - .9}" width="${7 * G + .8}" height="${CS + 1.8}" rx="2.4" class="${o.hintL === 5 ? "hintr" : "tgtr"}"/>`;
+  }
+  h += `<g${o.inter ? ' data-l="5"' : ""}>${fl}</g>`;
+  const pen = B.floorPen(P.fl.length);
+  h += `<text x="${WX + 22}" y="${FY + 4.4}" class="slab" text-anchor="middle">SUELO</text><text x="${WX + 22}" y="${FY + 11.4}" text-anchor="middle" font-family="Fraunces,serif" font-weight="900" font-size="7" fill="${pen ? "#FF7A6B" : "#5B6E8C"}">${pen || "0"}</text>`;
+  return `<svg class="board" viewBox="-1.5 -1.5 ${WX + 5 * G + 1.5} ${FY + CS + 8}" role="img" aria-label="Tablero">${h}</svg>`;
+}
+
+/* ================= sonido sintetizado ================= */
+const SFX = {
+  ctx: null, noise: null, on: ls.get("azulejos.sound") !== false,
+  init() {
+    if (this.ctx) { if (this.ctx.state === "suspended") this.ctx.resume().catch(() => {}); return; }
+    try { const A = window.AudioContext || window.webkitAudioContext; if (!A) return; this.ctx = new A();
+      const n = this.ctx.createBuffer(1, this.ctx.sampleRate, this.ctx.sampleRate), d = n.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; this.noise = n; } catch {}
+  },
+  ok() { return this.on && this.ctx && this.ctx.state === "running"; },
+  hiss(freq, dur, g, at = 0, q = 1) {
+    const c = this.ctx, t = c.currentTime + at, s = c.createBufferSource(), f = c.createBiquadFilter(), v = c.createGain();
+    s.buffer = this.noise; f.type = "bandpass"; f.frequency.value = freq; f.Q.value = q;
+    v.gain.setValueAtTime(g, t); v.gain.exponentialRampToValueAtTime(.001, t + dur);
+    s.connect(f).connect(v).connect(c.destination); s.start(t, Math.random() * .5); s.stop(t + dur + .02);
+  },
+  tone(f, dur, g, at = 0, type = "sine") {
+    const c = this.ctx, t = c.currentTime + at, o = c.createOscillator(), v = c.createGain(); o.type = type; o.frequency.value = f;
+    v.gain.setValueAtTime(.0001, t); v.gain.exponentialRampToValueAtTime(g, t + .01); v.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(v).connect(c.destination); o.start(t); o.stop(t + dur + .05);
+  },
+  clacks(n) { if (!this.ok()) return; for (let i = 0; i < Math.min(n, 6); i++) { this.tone(900 + Math.random() * 300, .05, .12, i * .07, "triangle"); this.hiss(3800, .04, .14, i * .07, 2); } },
+  thud() { if (this.ok()) { this.tone(130, .18, .2, 0, "sine"); this.hiss(500, .12, .12); } },
+  chime() { if (this.ok()) [659, 880, 1175].forEach((f, i) => this.tone(f, .5, .07, i * .1, "sine")); },
+  fanfare() { if (this.ok()) [523, 659, 784, 1047].forEach((f, i) => this.tone(f, .6, .09, i * .13, "triangle")); },
+  tick() { if (this.ok()) this.hiss(3200, .03, .08); }
+};
+addEventListener("pointerdown", () => SFX.init(), { capture: true });
+
+/* ================= estado ================= */
+const S = {
+  db: null, uid: null, ready: false, offline: false,
+  name: (localStorage.getItem("sala.nick") || "").slice(0, 16),
+  mode: null, code: null, g: null, unsub: null, L: null,
+  sel: null, hintL: null, seenN: -1, endShown: "", repSeen: null, homeTab: "online", aiLevel: ls.get("azulejos.lvl") || 2, aiN: ls.get("azulejos.rivales") || 1,
+  homeMsg: "", homeErr: false, busy: false, lastKey: "", aiTimer: null, cache: { k: null, v: null }, lcache: { k: null, v: null }, wantSeat: false
+};
+const me = () => S.uid;
+window.__azu = { S, B, render: () => render() };
+
+async function boot() {
+  glyphDefs();
+  try {
+    const [db, user] = await Promise.all(["db", "user"].map(n => window.claude ? claude.use(n).catch(() => null) : null));
+    S.db = db; if (user) S.uid = await user.id();
+  } catch {}
+  if (!S.db || !S.uid) S.offline = true;
+  S.ready = true;
+  const h = (location.hash || "").replace("#", "").toUpperCase(), last = ls.get("azulejos.last");
+  if (!S.offline && /^[A-Z]{4}$/.test(h)) S.prefill = h;
+  else if (!S.offline && last && last.code && Date.now() - last.t < 12 * 3600e3) S.rejoin = last.code;
+  render();
+}
+
+/* ================= modelo común ================= */
+const SEATS = [0, 1, 2, 3];
+function parseSt(str) { if (S.cache.k === str) return S.cache.v; let v = null; try { v = JSON.parse(str); } catch {} S.cache = { k: str, v }; return v; }
+function model() {
+  if (S.mode === "online") {
+    const g = S.g, st = parseSt(g.st), seats = g.seats || {}, order = g.order || SEATS.filter(i => seats[i]);
+    const idx = order.findIndex(i => seats[i] && seats[i].id === me());
+    return { mode: "online", st, names: order.map((i, k) => (seats[i] || {}).name || `Jugador ${k + 1}`), bots: order.map(i => (seats[i] || {}).bot || 0), me: idx < 0 ? null : idx };
+  }
+  const L = S.L;
+  return { mode: L.mode, st: L.st, names: L.names, bots: L.bots, me: L.mode === "ai" ? 0 : L.st.turn };
+}
+const viewer = m => m.me === null ? 0 : m.me;
+const isBot = (m, q) => !!(m.bots && m.bots[q]);
+const canAct = m => !m.st.over && m.me !== null && m.st.turn === m.me && !isBot(m, m.me);
+const youTxt = m => m.mode !== "local";
+function legalOf(st) {
+  const k = st.seed + "|" + st.n;
+  if (S.lcache.k !== k) S.lcache = { k, v: B.legal(st) };
+  return S.lcache.v;
+}
+
+/* ================= online ================= */
+function watch(code) {
+  unwatch(); S.mode = "online"; S.code = code; ls.set("azulejos.last", { code, t: Date.now() });
+  S.unsub = S.db.doc("games/" + code).onSnapshot(snap => {
+    if (!snap.exists) { leave("Esa partida ya no existe."); return; }
+    const prev = S.g; S.g = snap.data(); onRemote(prev); render();
+  }, () => leave("Se ha perdido la conexión con la partida."));
+}
+function unwatch() { if (S.unsub) try { S.unsub(); } catch {} S.unsub = null; S.g = null; S.sel = null; closeSheet(); }
+function leave(msg) {
+  unwatch(); clearTimeout(S.aiTimer); S.aiTimer = null;
+  S.mode = null; S.code = null; S.L = null; S.seenN = -1; S.endShown = ""; S.repSeen = null; S.sel = null; S.hintL = null; S.wantSeat = false;
+  S.homeMsg = msg || ""; S.homeErr = !!msg; history.replaceState(null, "", location.pathname); endTour(); render();
+}
+function onRemote(prev) {
+  const g = S.g;
+  /* dos personas entrando a la vez pueden pisarse el mismo asiento: si me he quedado fuera, pruebo otro */
+  if (S.wantSeat && g.status === "lobby" && !S.joining) {
+    const seats = g.seats || {};
+    if (!SEATS.some(i => seats[i] && seats[i].id === me()) && SEATS.some(i => !seats[i])) { S.joining = true; setTimeout(() => joinOnline(S.code, true), 300 + Math.random() * 500); }
+  }
+  if (!prev || !g || !g.st || prev.st === g.st) return;
+  const a = parseSt(prev.st), b = parseSt(g.st);
+  if (a && b && b.n !== a.n) { S.sel = null; S.hintL = null; }
+}
+function saveName() {
+  const el = document.getElementById("nm"), v = ((el && el.value) || S.name || "").trim().slice(0, 16);
+  if (!v) { S.homeMsg = "Escribe tu nombre."; S.homeErr = true; render(); return false; }
+  S.name = v; try { localStorage.setItem("sala.nick", v); } catch {} return true;
+}
+const genCode = () => { const A = "ABCDEFGHJKLMNPQRSTUVWXYZ"; let c = ""; for (let i = 0; i < 4; i++) c += A[Math.floor(Math.random() * A.length)]; return c; };
+async function freeCode() { let code; for (let i = 0; i < 6; i++) { code = genCode(); if (!(await S.db.doc("games/" + code).get()).exists) break; } return code; }
+const newSeed = () => Math.floor(Math.random() * 2 ** 31);
+async function createOnline() {
+  if (!saveName()) return;
+  S.busy = true; render();
+  try {
+    const code = await freeCode();
+    await S.db.doc("games/" + code).set({ v: 1, status: "lobby", host: me(), createdAt: Date.now(), seats: { 0: { id: me(), name: S.name } }, st: "" });
+    location.hash = code; watch(code);
+  } catch { S.homeMsg = "No se pudo crear la partida. Revisa la conexión."; S.homeErr = true; }
+  S.busy = false; render();
+}
+async function joinOnline(code, retry) {
+  if (!retry && !saveName()) return;
+  code = String(code || "").toUpperCase().replace(/[^A-Z]/g, "");
+  if (code.length !== 4) { S.homeMsg = "El código tiene 4 letras."; S.homeErr = true; render(); return; }
+  if (!retry) { S.busy = true; render(); }
+  S.joining = true;
+  try {
+    const ref = S.db.doc("games/" + code), snap = await ref.get();
+    if (!snap.exists) { S.homeMsg = "No hay ninguna partida con ese código."; S.homeErr = true; }
+    else {
+      const g = snap.data(), seats = g.seats || {};
+      const mine = SEATS.find(i => seats[i] && seats[i].id === me()), free = SEATS.find(i => !seats[i]);
+      if (mine !== undefined) { if (seats[mine].name !== S.name) await ref.update({ seats: { [mine]: { id: me(), name: S.name } } }); }
+      else if (free !== undefined && g.status === "lobby") { S.wantSeat = true; await ref.update({ seats: { [free]: { id: me(), name: S.name } } }); }
+      else if (!retry) toast(g.status === "lobby" ? "La mesa está llena: entras como público." : "La partida ya ha empezado: entras como público.");
+      if (S.code !== code) { location.hash = code; watch(code); }
+    }
+  } catch { S.homeMsg = "No se pudo entrar. Revisa la conexión."; S.homeErr = true; }
+  S.busy = false; S.joining = false; render();
+}
+async function put(patch) {
+  S.g = { ...S.g, ...patch }; render();
+  try { await S.db.doc("games/" + S.code).update(patch); }
+  catch { toast("No se pudo guardar. Reintentando…"); setTimeout(() => S.db.doc("games/" + S.code).update(patch).catch(() => toast("Sin conexión con la partida.")), 1500); }
+}
+
+/* ================= mismo móvil y máquina ================= */
+function startLocal(kind) {
+  if (!saveName()) return;
+  let L;
+  if (kind === "local") {
+    const names = [S.name];
+    for (const id of ["j2", "j3", "j4"]) { const v = (document.getElementById(id).value || "").trim().slice(0, 16); if (v) names.push(v); }
+    if (names.length < 2) { S.homeMsg = "Escribe al menos el nombre de otro jugador."; S.homeErr = true; render(); return; }
+    ls.set("azulejos.nombres", names.slice(1));
+    L = { mode: "local", names, bots: names.map(() => 0) };
+  } else {
+    ls.set("azulejos.lvl", S.aiLevel); ls.set("azulejos.rivales", S.aiN);
+    const names = [S.name], bots = [0];
+    for (let i = 0; i < S.aiN; i++) { names.push(`${BOTN[i]} · ${LVL[S.aiLevel]}`); bots.push(S.aiLevel); }
+    L = { mode: "ai", level: S.aiLevel, names, bots };
+  }
+  L.st = B.newGame(newSeed(), L.names.length, Math.floor(Math.random() * L.names.length));
+  S.mode = "local"; S.L = L; S.seenN = -1; S.endShown = ""; S.repSeen = null; S.sel = null; S.hintL = null; saveLocal(); render();
+}
+function saveLocal() { if (S.L) ls.set("azulejos.partida", S.L); }
+function resumeLocal() { const L = ls.get("azulejos.partida"); if (!L) return; S.mode = "local"; S.L = L; S.seenN = L.st.n; S.endShown = ""; S.repSeen = null; S.sel = null; render(); }
+
+/* ================= jugar ================= */
+function commit(st) {
+  if (S.mode === "online") put({ st: JSON.stringify(st), status: "play" });
+  else { S.L.st = st; saveLocal(); render(); }
+}
+function act(a) {
+  const m = model(), p = m.me;
+  const err = B.check(m.st, p, a);
+  if (err) { toast(err); return false; }
+  const st = B.apply(m.st, p, a);
+  sound(st.last);
+  closeSheet(); S.sel = null; S.hintL = null; commit(st);
+  return true;
+}
+function sound(L) { if (!L) return; if (L.l === 5 && !L.fl) SFX.thud(); else SFX.clacks(L.k); if (L.fl && L.l < 5) setTimeout(() => SFX.thud(), 260); }
+function maybeAI() {
+  if (!S.mode || S.aiTimer || $sheet.classList.contains("on")) return;
+  const m = model(), st = m.st;
+  if (!st || st.over || !isBot(m, st.turn)) return;
+  if (S.mode === "online" && S.g.host !== me()) return;   // las máquinas de una partida online las mueve el móvil del anfitrión
+  S.aiTimer = setTimeout(() => {
+    S.aiTimer = null;
+    const m2 = model();
+    if (!m2.st || m2.st.n !== st.n || m2.st.seed !== st.seed || m2.st.over) return;
+    if ($sheet.classList.contains("on")) return;
+    const p = m2.st.turn, a = B.plan(m2.st, p, m2.bots[p]);
+    if (!a || B.check(m2.st, p, a)) return;
+    const ns = B.apply(m2.st, p, a);
+    sound(ns.last);
+    commit(ns);
+  }, 950);
+}
+function rematch() {
+  const m = model(); if (!m.st.over) return;
+  const st = B.rematch(m.st);
+  closeSheet(); S.sel = null; S.hintL = null; S.endShown = "";
+  if (S.mode === "online") put({ st: JSON.stringify(st) });
+  else { S.L.st = st; saveLocal(); render(); }
+}
+
+/* ================= elegir losetas ================= */
+function pick(f, c) {
+  const m = model(), st = m.st;
+  if (!canAct(m)) { if (!st.over) notYourTurn(m); return; }
+  const k = B.srcCount(st, f, c); if (!k) return;
+  if (S.sel && S.sel.f === f && S.sel.c === c) { S.sel = null; S.hintL = null; updateGame(); return; }
+  S.sel = { f, c, k }; S.hintL = null; SFX.tick(); updateGame();
+}
+function placeTap(l) {
+  const m = model(), st = m.st;
+  if (!canAct(m)) { if (!st.over) notYourTurn(m); return; }
+  if (!S.sel) { toast("Primero toca las losetas de un color en una fábrica o en el centro."); return; }
+  if (l < 5) { const e = B.lineErr(st.pl[m.me], l, S.sel.c); if (e) { toast(e, 3600); return; } }
+  act({ f: S.sel.f, c: S.sel.c, l });
+}
+function notYourTurn(m) {
+  if (m.me === null) toast("Estás mirando la partida.");
+  else if (isBot(m, m.st.turn)) toast("La máquina está pensando…");
+  else toast(`Espera: le toca a ${m.names[m.st.turn]}.`);
+}
+function hint() {
+  const m = model(); if (!canAct(m)) return;
+  toast("Pensando una pista…", 1200);
+  setTimeout(() => {
+    const m2 = model(); if (!canAct(m2) || m2.st.n !== m.st.n) return;
+    const a = B.plan(m2.st, m2.me, 3); if (!a) return;
+    S.sel = { f: a.f, c: a.c, k: B.srcCount(m2.st, a.f, a.c) }; S.hintL = a.l; updateGame();
+    toast(`Pista: coge las ${NAMEP[a.c]} ${a.f < 0 ? "del centro" : "de la fábrica " + (a.f + 1)} y ${a.l === 5 ? "tíralas al suelo" : "ponlas en la fila " + (a.l + 1)} (marcada en verde).`, 4800);
+  }, 60);
+}
+
+/* ================= vistas ================= */
+function render() {
+  if (!S.ready) return;
+  if (window.SalaTurno && (!S.mode || (S.mode === "online" && (!S.g || S.g.status === "lobby" || !S.g.st)))) SalaTurno.limpiar();
+  if (!S.mode) return renderHome();
+  if (S.mode === "online") {
+    if (!S.g) return view(`<div class="hero"><div class="logo"><small>EL MURO DEL PALACIO</small>Azulejos</div><p class="muted">Entrando en la partida…</p></div>`, "load");
+    if (S.g.status === "lobby" || !S.g.st) return renderLobby();
+  }
+  const m = model();
+  if (S.lastKey !== "game" || !document.getElementById("facs")) buildGame();
+  updateGame();
+  maybeAI();
+  if (!ls.get("azulejos.tuto") && m.me !== null) setTimeout(() => startTour(), 400);
+}
+function view(html, key) { if (key && key === S.lastKey) return false; S.lastKey = key; $app.innerHTML = html; return true; }
+
+function heroArt() {
+  const L = [[0, 1, 2, 3], [4, 0, 1, 2], [3, 4, 0, 1], [2, 3, 4, 0]];
+  let h = "";
+  L.forEach((r, y) => r.forEach((c, x) => { h += `<use href="#t${c}" x="${x * 21}" y="${y * 21}" width="20" height="20"/>`; }));
+  return `<svg class="herob" viewBox="-2 -2 87 87" role="img" aria-label="Un mosaico de azulejos">${h}</svg>`;
+}
+function renderHome() {
+  const saved = ls.get("azulejos.partida");
+  const canResume = saved && saved.st && !saved.st.over;
+  const tab = S.homeTab, lv = S.aiLevel, prevN = ls.get("azulejos.nombres") || [];
+  const seg = (name, val, cur, label) => `<button data-${name}="${val}" aria-pressed="${cur === val}">${label}</button>`;
+  const html = `
+  <div class="hero">${heroArt()}
+    <div class="logo"><small>EL MURO DEL PALACIO</small>Azulejos</div>
+    <p class="muted">Elige losetas de las fábricas, llena tus filas y alicata el muro del palacio. Puntúa con cada loseta que coloques junto a otras y evita que se te caigan al suelo. De 2 a 4 jugadores.</p></div>
+  <button class="btn ghost wide" id="rules">🧩 Cómo se juega (léelo si es tu primera vez)</button>
+  <label class="lbl" for="nm">Tu nombre<input id="nm" class="text" maxlength="16" autocomplete="nickname" value="${esc(S.name)}" placeholder="Tu nombre"></label>
+  ${canResume ? `<button class="btn gold wide" id="resume">Continuar partida en este móvil</button>` : ""}
+  <div class="seg" role="group" aria-label="Modo de juego">${seg("tab", "online", tab, "Online")}${seg("tab", "local", tab, "Mismo móvil")}${seg("tab", "ai", tab, "Máquina")}</div>
+  ${tab === "online" ? (S.offline ? `<div class="card"><p class="muted">No hay conexión con el servidor de partidas. Puedes jugar en este móvil o contra la máquina.</p></div>` : `
+  <div class="card"><h2>Nueva partida</h2><p class="muted small">Cada uno desde su móvil, de 2 a 4. Pasa el código a los demás. Si falta gente, puedes sentar a la máquina en la mesa.</p><button class="btn gold wide" id="create"${S.busy ? " disabled" : ""}>Crear partida</button></div>
+  <div class="card"><h2>Unirse</h2>
+    <div class="row"><input id="jc" class="text code" maxlength="4" autocomplete="off" placeholder="ABCD" value="${esc(S.prefill || "")}" aria-label="Código de la partida"><button class="btn" id="join"${S.busy ? " disabled" : ""}>Entrar</button></div>
+    ${S.rejoin ? `<button class="btn ghost" id="rejoin">Volver a la partida ${esc(S.rejoin)}</button>` : ""}</div>`) : ""}
+  ${tab === "local" ? `<div class="card"><h2>Todos en este móvil</h2><p class="muted small">No hay nada secreto: os vais pasando el móvil. Abajo sale siempre el tablero de quien juega.</p>
+    ${[2, 3, 4].map((n, i) => `<input id="j${n}" class="text" maxlength="16" placeholder="Jugador ${n}${n > 2 ? " (opcional)" : ""}" aria-label="Jugador ${n}" value="${esc(prevN[i] || "")}">`).join("")}
+    <button class="btn gold wide" id="local">Empezar</button></div>` : ""}
+  ${tab === "ai" ? `<div class="card"><h2>Contra la máquina</h2><p class="muted small">Ideal para aprender. Empieza por Aprendiz.</p>
+    <span class="lbl">Rivales</span><div class="seg" role="group" aria-label="Rivales">${[1, 2, 3].map(v => seg("an", v, S.aiN, v === 1 ? "1 rival" : v + " rivales")).join("")}</div>
+    <span class="lbl">Nivel</span><div class="seg" role="group" aria-label="Nivel">${[1, 2, 3].map(v => seg("lv", v, lv, LVL[v])).join("")}</div>
+    <button class="btn gold wide" id="ai">Empezar</button></div>` : ""}
+  <p class="msg ${S.homeErr ? "err" : ""}" role="status">${esc(S.homeMsg)}</p>`;
+  view(html, "home|" + S.busy + "|" + S.homeMsg + "|" + tab + "|" + lv + "|" + S.aiN);
+  const keepName = () => { const el = document.getElementById("nm"); if (el) S.name = el.value.trim().slice(0, 16); };
+  on("[data-tab]", "click", e => { keepName(); S.homeTab = e.currentTarget.dataset.tab; S.homeMsg = ""; render(); });
+  on("[data-lv]", "click", e => { keepName(); S.aiLevel = +e.currentTarget.dataset.lv; render(); });
+  on("[data-an]", "click", e => { keepName(); S.aiN = +e.currentTarget.dataset.an; render(); });
+  on("#create", "click", createOnline);
+  on("#join", "click", () => joinOnline(document.getElementById("jc").value));
+  on("#jc", "keydown", e => { if (e.key === "Enter") joinOnline(e.target.value); });
+  on("#rejoin", "click", () => joinOnline(S.rejoin));
+  on("#local", "click", () => startLocal("local"));
+  on("#ai", "click", () => startLocal("ai"));
+  on("#resume", "click", resumeLocal);
+  on("#rules", "click", showRules);
+}
+
+function renderLobby() {
+  const g = S.g, st = g.seats || {}, host = g.host === me(), mine = SEATS.find(i => st[i] && st[i].id === me());
+  const n = SEATS.filter(i => st[i]).length, free = SEATS.some(i => !st[i]);
+  const seatH = i => {
+    const s = st[i];
+    if (!s) return `<div class="seat empty"><span class="small">Sitio libre</span>${host ? `<button class="btn ghost" data-bot="${i}">+ Máquina</button>` : ""}</div>`;
+    if (s.bot) return `<div class="seat"><span class="muted small">Máquina</span><b>${esc(s.name)}</b>${host ? `<button class="btn ghost" data-rm="${i}">Quitar</button>` : ""}</div>`;
+    return `<div class="seat"><span class="muted small">${s.id === g.host ? "Anfitrión" : "Jugador"}</span><b>${esc(s.name)}${s.id === me() ? " (tú)" : ""}</b></div>`;
+  };
+  const seg = (val, label) => `<button data-blv="${val}" aria-pressed="${S.aiLevel === val}">${label}</button>`;
+  const html = `
+  <div class="top"><button class="btn ghost sm" id="out">Salir</button><span class="sp"></span><span class="chip">SALA ${esc(S.code)}</span><button class="icon-btn" id="help" aria-label="Cómo se juega">?</button></div>
+  <div class="hero" style="padding-block:6px 0"><div class="logo" style="font-size:40px"><small>EL MURO DEL PALACIO</small>Azulejos</div></div>
+  <div class="card" style="text-align:center"><p class="muted small">Código de la partida</p><div class="big-code">${esc(S.code)}</div>
+    <button class="btn ghost" id="share">Invitar</button></div>
+  <div class="card"><h2>Jugadores (${n} de 4)</h2><div class="seats">${SEATS.map(seatH).join("")}</div>
+    ${host ? `<span class="lbl">Nivel de las máquinas</span><div class="seg" role="group" aria-label="Nivel de las máquinas">${[1, 2, 3].map(v => seg(v, LVL[v])).join("")}</div><p class="muted small">Las máquinas juegan desde tu móvil: no cierres la partida.</p>` : ""}
+    <p class="muted small">Quién empieza se sortea. Con 2 jugadores hay 5 fábricas, con 3 hay 7 y con 4 hay 9.</p>
+    ${mine === undefined && free ? `<button class="btn gold" id="sit">Sentarme</button>` : ""}</div>
+  ${host ? `<button class="btn gold wide" id="start"${n >= 2 ? "" : " disabled"}>${n >= 2 ? `Empezar con ${n} jugadores` : "Esperando a más jugadores…"}</button>`
+    : `<div class="wait"><p>Esperando a que ${esc((SEATS.map(i => st[i]).find(s => s && s.id === g.host) || {}).name || "el anfitrión")} empiece la partida.</p></div>`}
+  <p class="muted small" style="text-align:center">Mientras esperáis, pulsad <b>?</b> para leer las reglas.</p>`;
+  view(html, "lobby|" + JSON.stringify(st) + host + S.aiLevel);
+  on("#out", "click", () => leave());
+  on("#share", "click", share);
+  on("#help", "click", showRules);
+  on("#sit", "click", () => joinOnline(S.code));
+  on("[data-blv]", "click", e => { S.aiLevel = +e.currentTarget.dataset.blv; ls.set("azulejos.lvl", S.aiLevel); render(); });
+  on("[data-bot]", "click", e => {
+    const i = +e.currentTarget.dataset.bot, used = new Set(SEATS.map(k => st[k] && st[k].bot ? st[k].name.split(" ·")[0] : null));
+    const nm = BOTN.find(b => !used.has(b)) || "Máquina";
+    put({ seats: { ...st, [i]: { bot: S.aiLevel, name: `${nm} · ${LVL[S.aiLevel]}` } } });
+  });
+  on("[data-rm]", "click", e => { const i = +e.currentTarget.dataset.rm; put({ seats: { ...st, [i]: null } }); });
+  on("#start", "click", () => {
+    const seats = S.g.seats || {}, order = SEATS.filter(i => seats[i]);
+    if (order.length < 2) return;
+    put({ status: "play", order, st: JSON.stringify(B.newGame(newSeed(), order.length, Math.floor(Math.random() * order.length))) });
+  });
+}
+function share() {
+  const url = location.origin + location.pathname + "#" + S.code, text = `¿Una partida de Azulejos? Código: ${S.code}`;
+  if (navigator.share) { navigator.share({ title: "Azulejos", text, url }).catch(() => {}); return; }
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(() => toast("Enlace copiado."), () => toast(url));
+  else toast(url);
+}
+
+function buildGame() {
+  const m = model();
+  const chipTxt = S.mode === "online" ? `SALA ${esc(S.code)}` : m.mode === "ai" ? "CONTRA LA MÁQUINA" : "MISMO MÓVIL";
+  const snd = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4z"/>${SFX.on ? '<path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/>' : '<path d="m22 9-6 6M16 9l6 6"/>'}</svg>`;
+  view(`
+  <div class="top"><button class="btn ghost sm" id="out">Salir</button><span class="sp"></span><span class="chip" id="rchip">${chipTxt}</span>
+    <button class="icon-btn" id="help" aria-label="Cómo se juega">?</button><button class="icon-btn" id="snd" aria-label="${SFX.on ? "Quitar sonido" : "Activar sonido"}">${snd}</button></div>
+  <div id="turno"></div>
+  <div class="opps" id="opps"></div>
+  <div id="lastBox"></div>
+  <div class="mesa" id="mesa"><div class="facs" id="facs"></div><div class="ctr" id="ctrBox"></div><div class="bagi" id="bagi"></div></div>
+  <p class="coach" id="coach" role="status" aria-live="polite"></p>
+  <div class="pl" id="mine"></div>
+  <div class="acts" id="acts"></div>
+  <details class="log" id="logBox"><summary>Lo que ha pasado</summary><ol id="log"></ol></details>`, "game");
+  on("#out", "click", () => {
+    const m = model();
+    if (S.mode === "online" && m.me !== null && !m.st.over) confirmSheet("¿Salir de la partida?", S.g.host === me() && m.bots.some(Boolean) ? "Podrás volver con el mismo código. Mientras estés fuera, las máquinas no juegan." : "Podrás volver con el mismo código.", "Salir", () => leave());
+    else leave();
+  });
+  on("#help", "click", showRules);
+  on("#snd", "click", () => { SFX.on = !SFX.on; ls.set("azulejos.sound", SFX.on); SFX.init(); S.lastKey = ""; render(); });
+  document.getElementById("facs").addEventListener("click", e => { const t = e.target.closest("[data-c]"); if (t) pick(+t.dataset.f, +t.dataset.c); else if (S.sel) { S.sel = null; S.hintL = null; updateGame(); } });
+  document.getElementById("ctrBox").addEventListener("click", e => {
+    const t = e.target.closest("[data-c]");
+    if (t) pick(-1, +t.dataset.c);
+    else if (e.target.closest(".fp")) toast("Ficha de inicio: quien coja primero del centro se la lleva. Resta 1 en su suelo, pero empieza la próxima ronda.", 4800);
+  });
+  document.getElementById("mine").addEventListener("click", e => { const t = e.target.closest("[data-l]"); if (t) placeTap(+t.dataset.l); });
+  document.getElementById("opps").addEventListener("click", e => { const t = e.target.closest("[data-q]"); if (t) showBoard(+t.dataset.q); });
+}
+
+function headHTML(m, q, mine) {
+  const st = m.st, P = st.pl[q], pv = B.preview(P);
+  const nm = mine && m.me !== null && m.mode !== "local" ? "Tú" : m.names[q];
+  const fp = !st.over && !st.ctrFP && st.fpBy === q;
+  const pvTxt = st.over || (!pv.rows.length && !pv.pen) ? "" : `<span class="pv ${pv.tot < 0 ? "neg" : "pos"}" title="Lo que sumará al acabar la ronda">${pv.tot >= 0 ? "+" : ""}${pv.tot} al alicatar</span>`;
+  return `<div class="hd"><span class="dot" style="background:${SEATC[q]}"></span><span class="nm">${esc(nm)}</span>${fp ? `<svg class="fpchip" viewBox="0 0 20 20" aria-label="Empieza la próxima ronda"><use href="#t5"/></svg>` : ""}${mine ? pvTxt : ""}<span class="pts">${P.sc}<small>pts</small></span></div>`;
+}
+function facSVG(st, i, sel, hint) {
+  const f = st.fac[i], pos = [[5.6, 5.6], [16.4, 5.6], [5.6, 16.4], [16.4, 16.4]];
+  let h = `<circle cx="16" cy="16" r="15.4" fill="${f.length ? "#E8E0CE" : "#2A3C5A"}" stroke="${f.length ? "#B9AC8F" : "#3A5277"}" stroke-width=".8"/><circle cx="16" cy="16" r="13.4" fill="none" stroke="${f.length ? "#C9BC9E" : "#34496B"}" stroke-width=".5" stroke-dasharray="1.2 1.2"/>`;
+  f.forEach((c, j) => {
+    const [x, y] = pos[j], on = sel && sel.f === i && sel.c === c;
+    h += `<g data-f="${i}" data-c="${c}"${on ? ' class="pick"' : ""}><use href="#t${c}" x="${x}" y="${y - (on ? 1.2 : 0)}" width="${CS}" height="${CS}"/>${on ? `<rect x="${x - .5}" y="${y - 1.7}" width="${CS + 1}" height="${CS + 1}" rx="2.6" class="${hint ? "hintr" : "pickr"}"/>` : ""}</g>`;
+  });
+  return `<svg viewBox="0 0 32 32" role="img" aria-label="Fábrica ${i + 1}: ${f.length ? f.map(c => NAME[c]).join(", ") : "vacía"}">${h}</svg>`;
+}
+
+function updateGame() {
+  if (!document.getElementById("facs")) return;
+  const m = model(), st = m.st, v = m.mode === "local" ? st.turn : viewer(m), my = canAct(m);
+  const fresh = st.last && st.last.n !== S.seenN && S.seenN !== -1;
+  if (!my) { S.sel = null; S.hintL = null; }
+  if (S.sel && !B.srcCount(st, S.sel.f, S.sel.c)) S.sel = null;
+
+  /* rivales */
+  const others = []; for (let i = 1; i < st.np; i++) others.push((v + i) % st.np);
+  document.getElementById("opps").innerHTML = others.map(q => `<div class="pl${!st.over && st.turn === q ? " turn" : ""}" data-q="${q}" style="--pc:${SEATC[q]}" role="button" aria-label="Ver el tablero de ${esc(m.names[q])}">${headHTML(m, q, false)}${boardSVG(st, q, { newCells: repGains(st, q) })}</div>`).join("");
+
+  /* tu tablero */
+  const mine = document.getElementById("mine");
+  mine.innerHTML = headHTML(m, v, true) + boardSVG(st, v, { inter: my, sel: my ? S.sel : null, hintL: S.hintL, newCells: repGains(st, v) });
+  mine.style.setProperty("--pc", SEATC[v]); mine.classList.toggle("turn", !st.over && st.turn === v);
+
+  /* fábricas y centro */
+  document.getElementById("facs").innerHTML = st.fac.map((f, i) => `<div class="fac">${facSVG(st, i, S.sel, S.hintL !== null)}<span class="fn">${i + 1}</span></div>`).join("");
+  let ch = `<span class="lb">Centro de la mesa</span>`;
+  if (st.ctrFP) ch += `<button class="cg fp" aria-label="Ficha de inicio">${tileIcon(5, 34)}</button>`;
+  for (let c = 0; c < 5; c++) if (st.ctr[c]) ch += `<button class="cg${S.sel && S.sel.f < 0 && S.sel.c === c ? " sel" : ""}" data-c="${c}" aria-label="${losetas(st.ctr[c], c)} en el centro">${tileIcon(c, 34)}×${st.ctr[c]}</button>`;
+  if (!st.ctrFP && !st.ctr.some(Boolean)) ch += `<span class="muted small">Vacío</span>`;
+  document.getElementById("ctrBox").innerHTML = ch;
+  const bag = st.bag.reduce((a, b) => a + b, 0), lid = st.lid.reduce((a, b) => a + b, 0);
+  document.getElementById("bagi").innerHTML = `<span>Ronda ${st.round}</span><span>Bolsa: ${bag}</span><span>Caja: ${lid}</span>`;
+
+  /* última jugada */
+  const lb = document.getElementById("lastBox");
+  if (st.last) {
+    const L = st.last, you = L.p === m.me && youTxt(m), who = you ? "Tú" : m.names[L.p];
+    const roundTxt = st.rep && st.rep.n === st.n && !st.over ? ` Fin de la ronda ${st.rep.round}: empieza la ${st.round}.` : "";
+    lb.innerHTML = `<div class="last${fresh && L.p !== m.me ? " fresh" : ""}">${tileIcon(L.c, 24)}<span>${esc(cap(B.describe(L, who, you)))}.${esc(roundTxt)}</span></div>`;
+  } else lb.innerHTML = `<div class="last">${esc(st.turn === m.me && youTxt(m) ? "Empiezas tú. Coge losetas de una fábrica." : `Empieza ${m.names[st.turn]}.`)}</div>`;
+
+  /* franja de turno */
+  const tz = document.getElementById("turno");
+  if (st.over || !window.SalaTurno) { tz.innerHTML = ""; if (window.SalaTurno) SalaTurno.limpiar(); }
+  else {
+    const t = st.turn, ai = isBot(m, t);
+    const o2 = { quien: m.names[t], color: SEATC[t], tuyo: m.mode === "local" ? null : m.me === null ? false : t === m.me, accion: ai ? "La máquina está eligiendo losetas…" : "Coge losetas de una fábrica o del centro y colócalas" };
+    if (o2.tuyo === false && !ai) o2.accion = "Está eligiendo losetas…";
+    tz.innerHTML = SalaTurno.html({ ...o2, compacta: true });
+    SalaTurno.marcar({ ...o2, clave: t + "|" + st.n });
+  }
+
+  /* ayuda y botones */
+  const coach = document.getElementById("coach"), acts = document.getElementById("acts");
+  let ctext = "", ccls = "", bt = "";
+  if (st.over) bt = `<button class="btn gold main" id="seeEnd">Ver el final</button>`;
+  else if (!my) ctext = m.me === null ? "Estás mirando la partida." : isBot(m, st.turn) ? "La máquina está eligiendo…" : `Espera a que juegue ${m.names[st.turn]}.`;
+  else {
+    if (S.sel) {
+      const fpTxt = S.sel.f < 0 && st.ctrFP ? " Eres el primero en coger del centro: te llevas también la ficha de inicio (−1, pero empiezas la próxima ronda)." : "";
+      ctext = `Llevas ${losetas(S.sel.k, S.sel.c)}. Toca la fila donde ponerlas (las que no quepan caen al suelo) o toca el suelo.${fpTxt}`; ccls = "ok";
+    } else ctext = "Toca un color en una fábrica o en el centro: te llevas todas las losetas de ese color.";
+    bt = `<button class="btn sm" id="hi">Pista</button>` + (S.sel ? `<button class="btn ghost sm" id="cancel">Cancelar</button>` : "");
+  }
+  coach.innerHTML = esc(ctext); coach.className = "coach" + (ccls ? " " + ccls : "");
+  acts.innerHTML = bt;
+  on("#hi", "click", hint);
+  on("#cancel", "click", () => { S.sel = null; S.hintL = null; updateGame(); });
+  on("#seeEnd", "click", () => showEnd());
+
+  /* historial */
+  const logEl = document.getElementById("log"), hist = st.hist || [];
+  if (logEl.dataset.k !== st.seed + "|" + st.n) {
+    logEl.dataset.k = st.seed + "|" + st.n;
+    let rd = 0, out = "";
+    for (const x of hist) {
+      if (x.round !== rd) { rd = x.round; out += `<li class="rd">Ronda ${rd}</li>`; }
+      const you = x.p === m.me && youTxt(m); out += `<li>${esc(cap(B.describe(x, you ? "Tú" : m.names[x.p], you)))}</li>`;
+    }
+    logEl.innerHTML = out || `<li class="muted">Todavía nada.</li>`;
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+  if (fresh && st.last.p !== m.me && m.me !== null) sound(st.last);
+  S.seenN = st.last ? st.last.n : 0;
+
+  /* resumen de ronda y final */
+  const rk = st.rep ? st.seed + "|" + st.rep.n : "";
+  if (S.repSeen === null) S.repSeen = rk;
+  if (st.over && S.endShown !== st.seed + "|" + st.n) { S.endShown = st.seed + "|" + st.n; S.repSeen = rk; setTimeout(() => showEnd(), 900); }
+  else if (rk && rk !== S.repSeen) { S.repSeen = rk; setTimeout(() => showRound(), 700); }
+}
+/* Losetas que han entrado en el muro en el último alicatado (se marcan en verde hasta la siguiente jugada) */
+function repGains(st, q) { return st.rep && st.rep.n === st.n && st.rep.pl[q] ? st.rep.pl[q].gains : null; }
+
+/* ================= hojas de tablero, ronda y final ================= */
+function showBoard(q) {
+  const m = model(), st = m.st;
+  openSheet(`<div class="pl" style="--pc:${SEATC[q]}">${headHTML(m, q, false)}${boardSVG(st, q, { newCells: repGains(st, q) })}</div>
+    <p class="muted small">Los huecos marcados con +N son filas ya completas: al acabar la ronda esa loseta pasará al muro y sumará esos puntos.</p>
+    <button class="btn ghost wide" data-x>Cerrar</button>`);
+  on("[data-x]", "click", closeSheet, $sheet);
+}
+function gainsHTML(rp) {
+  const g = rp.gains.map(x => `<span>${tileIcon(x.c, 15)} fila ${x.r + 1}: +${x.pts}</span>`).join("");
+  return g + (rp.pen ? `<span class="neg">suelo ${rp.pen}</span>` : "") + (!rp.gains.length && !rp.pen ? `<span>sin cambios</span>` : "");
+}
+function showRound() {
+  const m = model(), st = m.st, R = st.rep; if (!R || st.over) return;
+  SFX.chime();
+  const rows = R.pl.map((rp, q) => `<div class="rk"><span class="ps" style="color:${SEATC[q]}">●</span><b>${esc(m.names[q])}</b><span class="sc">${rp.sc}</span><div class="gl">${gainsHTML(rp)}</div></div>`).join("");
+  const next = m.names[st.start];
+  openSheet(`<h2 class="end-h" style="font-size:26px">Fin de la ronda ${R.round}</h2><p class="muted" style="text-align:center">Las filas completas pasan al muro y el suelo resta. Empieza la ronda ${st.round} ${esc(st.start === m.me && youTxt(m) ? "tú" : next)}, que tenía la ficha de inicio.</p>
+    <div class="rank">${rows}</div><button class="btn gold wide" data-x>Seguir</button>`);
+  on("[data-x]", "click", closeSheet, $sheet);
+}
+function showEnd() {
+  const m = model(), st = m.st, ov = st.over; if (!ov) return;
+  const R = st.rep, win = ov.win;
+  const youWin = m.me !== null && win.includes(m.me);
+  const title = win.length > 1 ? "¡Victoria compartida!" : m.me === null || m.mode === "local" ? `¡${esc(m.names[win[0]])} gana!` : youWin ? "¡Has ganado!" : `Gana ${esc(m.names[win[0]])}`;
+  const why = ov.tieRows ? "Empate a puntos: gana quien tiene más filas completas en el muro." : win.length > 1 ? "Mismos puntos y mismas filas completas." : "Alguien ha completado una fila del muro y se han sumado los bonus finales.";
+  SFX.fanfare();
+  const rows = ov.order.map((q, i) => {
+    const b = R && R.bonus ? R.bonus[q] : B.bonusOf(st.pl[q]), rp = R && R.pl[q];
+    const bt = [b.rows ? `${b.rows} fila${b.rows > 1 ? "s" : ""} +${b.rows * 2}` : "", b.cols ? `${b.cols} columna${b.cols > 1 ? "s" : ""} +${b.cols * 7}` : "", b.colors ? `${b.colors} color${b.colors > 1 ? "es" : ""} +${b.colors * 10}` : ""].filter(Boolean).join(" · ") || "sin bonus";
+    return `<div class="rk${win.includes(q) ? " win" : ""}"><span class="ps">${i + 1}</span><b>${esc(m.names[q])}</b><span class="sc">${st.pl[q].sc}</span>
+      ${rp ? `<div class="gl">${gainsHTML(rp)}</div>` : ""}<span class="dt">Bonus finales: ${bt}</span></div>`;
+  }).join("");
+  openSheet(`<h2 class="end-h">${title}</h2><p class="muted" style="text-align:center">${why}</p>
+    <div class="rank">${rows}</div>
+    <div class="score">${st.pl.map((P, q) => `<span>${esc(m.names[q])}: ${st.wins[q]} ${st.wins[q] === 1 ? "victoria" : "victorias"}</span>`).join("")}</div>
+    <div class="row">${m.me !== null || m.mode !== "online" ? `<button class="btn gold" id="nx">Revancha</button>` : ""}<button class="btn ghost" id="vt">Ver los muros</button></div>
+    <button class="btn ghost wide" id="bye">Salir</button>`);
+  on("#nx", "click", rematch, $sheet);
+  on("#vt", "click", closeSheet, $sheet);
+  on("#bye", "click", () => { closeSheet(); if (S.mode === "local") ls.del("azulejos.partida"); leave(); }, $sheet);
+}
+
+/* ================= reglas ================= */
+function rulesExample() {
+  const st = { pl: [{ sc: 0, ln: [{ c: -1, n: 0 }, { c: 2, n: 1 }, { c: 0, n: 3 }, { c: -1, n: 0 }, { c: 3, n: 2 }], wall: [[1, 1, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 1, 1, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]], fl: [B.FP, 1] }], ctrFP: false };
+  return boardSVG(st, 0);
+}
+function showRules() {
+  const t = c => tileIcon(c, 20);
+  openSheet(`<div class="rules">
+    <h2 style="font-size:28px;color:var(--gold)">Cómo se juega</h2>
+    <section><h3>El objetivo</h3><p>Sois artesanos decorando el muro del palacio. Gana quien tenga <b>más puntos</b> al final. Se puntúa cada vez que una loseta entra en tu <b>muro</b> (la cuadrícula de la derecha), y más si toca a otras.</p></section>
+    <section><h3>Tu tablero</h3>${rulesExample()}<ul>
+      <li>A la izquierda, las <b>5 filas de patrón</b> (de 1 a 5 huecos): ahí vas juntando losetas.</li>
+      <li>A la derecha, el <b>muro</b>: cada fila tiene un hueco por color (están dibujados en suave).</li>
+      <li>Abajo, el <b>suelo</b>: las losetas que no puedes colocar caen ahí y restan puntos.</li></ul></section>
+    <section><h3>Las losetas</h3><p><span class="tl">${[0, 1, 2, 3, 4].map(t).join("")}</span> Hay 5 colores (azul, amarillo, rojo, negro y celeste), 20 de cada uno, en una bolsa. Cada ronda se reparten 4 en cada fábrica: 5 fábricas con 2 jugadores, 7 con 3 y 9 con 4.</p></section>
+    <section><h3>Tu turno</h3><ul>
+      <li>Coge <b>todas las losetas de un color</b> de una fábrica. Las demás de esa fábrica van al <b>centro</b> de la mesa.</li>
+      <li>O coge todas las de un color del centro. El primero que coge del centro en cada ronda se lleva también la <b>ficha de inicio</b> <span class="tl">${t(5)}</span>: va a su suelo (resta 1), pero empieza la ronda siguiente.</li>
+      <li>Ponlas <b>todas en una fila</b> de patrón. Una fila solo admite un color, y no puedes usar un color que ya tengas en esa fila del muro. Las que no quepan <b>caen al suelo</b>. También puedes tirarlas todas al suelo.</li></ul></section>
+    <section><h3>Fin de la ronda: alicatar</h3><ul>
+      <li>Cuando no quedan losetas ni en las fábricas ni en el centro, cada jugador mira sus filas de patrón de arriba abajo.</li>
+      <li>Cada fila <b>completa</b> pasa una loseta a su hueco del muro y el resto se descarta. Las filas incompletas se quedan para la ronda siguiente.</li>
+      <li>Si la loseta nueva no toca ninguna otra del muro, da <b>1 punto</b>. Si toca a otras, cuenta todas las seguidas en horizontal (incluida ella) y todas las seguidas en vertical, y suma las dos.</li>
+      <li>El suelo resta: <b>−1, −1, −2, −2, −2, −3, −3</b>. Nunca bajas de 0 puntos.</li></ul></section>
+    <section><h3>Final de la partida</h3><ul>
+      <li>La partida acaba al terminar la ronda en la que alguien <b>completa una fila horizontal</b> del muro.</li>
+      <li>Bonus: <b>+2</b> por cada fila completa, <b>+7</b> por cada columna completa y <b>+10</b> por cada color del que tengas las 5 losetas.</li>
+      <li>Si hay empate a puntos, gana quien tenga más filas completas. Si sigue el empate, compartís la victoria.</li></ul></section>
+    <section><h3>Consejos para empezar</h3><ul>
+      <li>Rellena primero las filas cortas de arriba y coloca losetas juntas en el muro: así cada una puntúa más.</li>
+      <li>Antes de coger, cuenta cuántas te caben: cada loseta al suelo duele.</li>
+      <li>Mira qué les falta a los demás: a veces conviene llevarte un color para que no lo cojan ellos.</li>
+      <li>Al final de la ronda nadie quiere el centro lleno: piensa qué te va a tocar coger.</li>
+      <li>En tu tablero, <b>+N</b> en el muro te dice cuántos puntos dará cada fila ya completa. Si dudas, pulsa <b>Pista</b>.</li></ul></section>
+    <div class="row"><button class="btn ghost" id="tourGo">Ver la visita guiada</button><button class="btn gold" data-x>Entendido</button></div></div>`);
+  on("[data-x]", "click", closeSheet, $sheet);
+  on("#tourGo", "click", () => { closeSheet(); if (S.mode && document.getElementById("facs")) startTour(true); else toast("La visita guiada empieza al abrir tu primera partida."); }, $sheet);
+}
+
+/* ================= visita guiada ================= */
+const TOUR = [
+  { el: null, h: "Bienvenido al palacio", t: "Te enseño la mesa en un minuto. Gana quien tenga <b>más puntos</b> al alicatar su muro." },
+  { el: "#facs", h: "Las fábricas", t: "Cada una tiene 4 losetas. <b>Toca un color</b> y te llevas todas las de ese color. Las demás van al centro." },
+  { el: "#ctrBox", h: "El centro", t: "Aquí se acumulan las sobras. También puedes coger de aquí. El primero que lo hace se lleva la ficha de inicio <b>1</b>: resta 1 pero empieza la ronda siguiente." },
+  { el: "#mine", h: "Tu tablero", t: "Con las losetas elegidas, <b>toca una fila</b> de la izquierda. Las que no caben caen al suelo, que resta puntos. Las filas llenas pasan al muro de la derecha al acabar la ronda." },
+  { el: "#opps", h: "Los demás", t: "Sus tableros y puntos. Tócalos para verlos en grande y pensar qué colores necesitan." },
+  { el: "#acts", h: "Pista", t: "Si no sabes qué hacer, <b>Pista</b> te marca una buena jugada en verde." },
+  { el: "#help", h: "¿Dudas?", t: "Aquí tienes las reglas completas con cómo se puntúa. ¡A jugar!" }
+];
+let tourI = -1;
+function startTour(force) {
+  if (tourI >= 0 || (!force && ls.get("azulejos.tuto"))) return;
+  if (!document.getElementById("facs")) return;
+  ls.set("azulejos.tuto", 1); tourI = 0; showTour();
+}
+function showTour() {
+  document.querySelectorAll(".spot").forEach(e => e.classList.remove("spot"));
+  const s = TOUR[tourI]; if (!s) return endTour();
+  let el = s.el && document.querySelector(s.el);
+  if (el && !el.offsetHeight) el = null;
+  if (el) { el.classList.add("spot"); el.scrollIntoView({ block: "center" }); }
+  const r = el ? el.getBoundingClientRect() : null, low = r && r.top + r.height / 2 > innerHeight / 2;
+  $tour.innerHTML = `${el ? "" : '<div class="shade"></div>'}<div class="bub" role="dialog" aria-modal="true" style="${low ? "top:calc(12px + env(safe-area-inset-top,0px))" : "bottom:calc(14px + env(safe-area-inset-bottom,0px))"}">
+    <span class="steps">PASO ${tourI + 1} DE ${TOUR.length}</span><h3>${s.h}</h3><p>${s.t}</p>
+    <div class="row"><button class="btn ghost sm" id="tX">Saltar</button><button class="btn gold sm" id="tN">${tourI === TOUR.length - 1 ? "¡A jugar!" : "Siguiente"}</button></div></div>`;
+  $tour.classList.add("on");
+  $tour.querySelector("#tX").addEventListener("click", endTour);
+  $tour.querySelector("#tN").addEventListener("click", () => { tourI++; showTour(); });
+}
+function endTour() { tourI = -1; $tour.classList.remove("on"); $tour.innerHTML = ""; document.querySelectorAll(".spot").forEach(e => e.classList.remove("spot")); }
+
+/* ================= hojas ================= */
+function confirmSheet(title, text, okLabel, fn) {
+  openSheet(`<h2>${esc(title)}</h2>${text ? `<p class="muted">${esc(text)}</p>` : ""}<div class="row"><button class="btn ghost" data-x>Cancelar</button><button class="btn gold" data-ok>${esc(okLabel)}</button></div>`);
+  on("[data-x]", "click", closeSheet, $sheet);
+  on("[data-ok]", "click", () => { closeSheet(); fn(); }, $sheet);
+}
+function openSheet(html) {
+  document.getElementById("toast").classList.remove("on");
+  $sheet.innerHTML = `<div class="scrim"></div><div class="pane" role="dialog" aria-modal="true">${html}</div>`; $sheet.classList.add("on");
+  $sheet.querySelector(".scrim").addEventListener("click", closeSheet); $sheet.querySelector(".pane").scrollTop = 0;
+}
+function closeSheet() {
+  const was = $sheet.classList.contains("on");
+  $sheet.classList.remove("on"); $sheet.innerHTML = "";
+  if (was && S.mode) setTimeout(() => maybeAI(), 0);   // la máquina espera a que se cierre el resumen de ronda
+}
+addEventListener("keydown", e => { if (e.key === "Escape") { closeSheet(); endTour(); } });
+
+boot();
+})();
+</script>
+</body>
+</html>
