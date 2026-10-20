@@ -1,0 +1,862 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Enjambre</title>
+<meta name="theme-color" content="#16130E">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="../icons/icon-192.png">
+<link rel="apple-touch-icon" href="../icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,900&family=Manrope:wght@500;700;800&display=swap">
+<script>window.APP_KEY="enjambre"</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="../firebase-config.js"></script>
+<script src="../shared/claude-shim.js"></script>
+<script src="../shared/turno.js"></script>
+<script src="motor.js"></script>
+<style>
+/* Mesa a una columna: rival y su reserva arriba, colmena en el centro, tu reserva abajo */
+:root{
+  --bg:#16130E; --bg2:#2E2716; --panel:#231E15; --panel2:#352D1F; --line:#4C412D;
+  --ink:#FBF4E4; --muted:#C9BB9C; --gold:#F0B429; --gold2:#9C6F12; --ok:#7CDB9A; --bad:#FF7A6B;
+  --display:"Fraunces",Georgia,serif;
+  --body:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:
+  radial-gradient(70% 40% at 50% -5%,rgba(240,180,41,.15),transparent 70%),
+  radial-gradient(120% 80% at 50% 0%,var(--bg2),var(--bg) 70%) fixed;
+  background-color:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.4;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+#app{max-width:640px;margin:0 auto;min-height:100%;padding-inline:16px;padding-block:calc(12px + env(safe-area-inset-top,0px)) calc(24px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:10px}
+h1,h2,h3{font-family:var(--display);font-weight:700;margin:0;letter-spacing:.01em;text-wrap:balance}
+p{margin:0}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+svg{display:block}
+
+.btn{appearance:none;border:0;border-radius:14px;min-height:50px;padding:0 18px;background:var(--panel2);color:var(--ink);font-weight:800;font-size:16px;box-shadow:0 3px 0 rgba(0,0,0,.45);display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:transform .08s;text-align:center}
+.btn:active{transform:translateY(2px)}
+.btn.gold{background:linear-gradient(180deg,#FFD873,var(--gold));color:#3A2604}
+.btn.ghost{background:transparent;box-shadow:inset 0 0 0 2px var(--line)}
+.btn.sm{min-height:42px;font-size:14px;padding:0 12px;border-radius:11px}
+.btn:disabled{opacity:.42;cursor:default;transform:none}
+.btn.wide{width:100%}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>*{flex:1 1 140px}
+input.text{width:100%;min-height:50px;border-radius:12px;border:2px solid var(--line);background:var(--bg);padding:0 14px;font-size:17px;font-weight:700}
+input.code{text-transform:uppercase;letter-spacing:.3em;font-family:var(--display);font-size:24px;text-align:center}
+label.lbl,.lbl{display:grid;gap:6px;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.card{background:var(--panel);border-radius:18px;padding:16px;display:grid;gap:12px;box-shadow:0 0 0 1px var(--line)}
+.card h2{font-size:21px}
+.msg{min-height:1.4em;color:var(--gold);text-align:center;font-weight:700}
+.msg.err{color:var(--bad)}
+.hero{display:grid;gap:10px;justify-items:center;text-align:center;padding-block:10px 4px}
+.logo{font-family:var(--display);font-weight:900;font-size:clamp(44px,13vw,64px);line-height:1;color:var(--gold);text-shadow:0 3px 0 #6B4708,0 10px 30px rgba(0,0,0,.6)}
+.logo small{display:block;font-family:var(--body);font-weight:800;font-size:.2em;letter-spacing:.4em;color:var(--ink);text-shadow:none;margin-bottom:8px}
+.herob{width:min(250px,70vw);filter:drop-shadow(0 12px 22px rgba(0,0,0,.55))}
+.seg{display:flex;gap:6px;background:var(--bg);border-radius:12px;padding:4px}
+.seg button{flex:1;appearance:none;border:0;background:transparent;border-radius:9px;min-height:40px;font-weight:800;font-size:14px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--panel2);color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--gold2)}
+
+.top{display:flex;align-items:center;gap:8px}
+.top .sp{flex:1}
+.chip{font-weight:800;font-size:12px;letter-spacing:.1em;background:var(--panel);padding:7px 11px;border-radius:999px;box-shadow:0 0 0 1px var(--line);white-space:nowrap}
+.icon-btn{appearance:none;border:0;width:40px;height:40px;border-radius:11px;background:var(--panel);box-shadow:0 0 0 1px var(--line);display:grid;place-items:center;color:var(--ink);font-weight:800;font-size:18px;flex:none}
+.big-code{font-family:var(--display);font-size:52px;letter-spacing:.16em;line-height:1;text-align:center;color:var(--gold)}
+.seats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.seat{background:var(--bg);border-radius:14px;padding:12px;display:grid;gap:2px;text-align:center;min-width:0}
+.seat b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.seat.empty{color:var(--muted);border:2px dashed var(--line);background:transparent}
+.wait{display:grid;place-items:center;gap:6px;text-align:center;padding:14px;background:var(--panel);border-radius:16px}
+#turno:empty{display:none}
+#turno .st-franja{margin:0}
+
+/* ---------- jugadores y reservas ---------- */
+.pl{background:var(--panel);border-radius:16px;padding:10px 12px;box-shadow:0 0 0 1px var(--line);display:grid;gap:8px;transition:box-shadow .2s}
+.pl.turn{box-shadow:0 0 0 2px var(--pc,var(--gold)),0 0 22px -6px var(--pc,var(--gold))}
+.pl .hd{display:flex;align-items:center;gap:10px}
+.pl .tokn{width:22px;height:22px;flex:none}
+.pl .nm{flex:1;min-width:0;font-weight:800;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pl .nm small{font-weight:700;color:var(--muted);font-size:12.5px;margin-left:6px}
+.qst{font-size:12.5px;font-weight:800;color:var(--muted);white-space:nowrap;display:flex;align-items:center;gap:5px}
+.qst .dots{display:inline-flex;gap:2px}
+.qst .dots i{width:7px;height:7px;border-radius:50%;background:var(--line)}
+.qst .dots i.on{background:var(--bad)}
+.hand{display:flex;gap:6px;overflow-x:auto;padding:2px 2px 4px;scrollbar-width:thin}
+.hp{appearance:none;border:0;background:transparent;padding:0;flex:none;position:relative;display:grid;justify-items:center;gap:1px;color:var(--ink);opacity:1;transition:transform .1s}
+.hp svg{width:100%;max-width:46px;height:auto;aspect-ratio:1}
+.hand.big{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));overflow:visible}
+.hand.mini .hp svg{width:30px;height:30px}
+.hand.big .hp .ct{right:0}
+.hp .ct{position:absolute;right:-3px;top:-2px;min-width:19px;height:19px;border-radius:10px;background:var(--gold);color:#3A2604;font-size:12px;font-weight:900;display:grid;place-items:center;padding:0 4px;box-shadow:0 2px 0 rgba(0,0,0,.4)}
+.hand.mini .hp .ct{min-width:16px;height:16px;font-size:10.5px}
+.hp.zero{opacity:.22}
+.hp.off{opacity:.45}
+.hp.sel{transform:translateY(-4px)}
+.hp.sel svg{filter:drop-shadow(0 0 6px var(--gold)) drop-shadow(0 0 2px var(--gold))}
+.hp.must svg{animation:must 1.2s ease-in-out infinite}
+@keyframes must{50%{filter:drop-shadow(0 0 8px var(--gold))}}
+
+/* ---------- tablero ---------- */
+.boardw{position:relative;background:radial-gradient(circle at 50% 45%,#3A2F1C,#1C170F 75%);border-radius:20px;box-shadow:0 0 0 1px var(--line),inset 0 0 40px rgba(0,0,0,.6);overflow:hidden}
+.board{width:100%;height:min(58svh,92vw,560px);touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.board [data-k]{cursor:pointer}
+.tgt{animation:tgt 1.4s ease-in-out infinite}
+@keyframes tgt{50%{opacity:.55}}
+.zoomb{display:flex;gap:6px;justify-content:flex-end;align-items:center;padding:0 8px 8px;font-size:12px;font-weight:700;color:var(--muted)}
+.zoomb span{flex:1;padding-left:4px}
+.zoomb .icon-btn{width:34px;height:34px;font-size:17px;background:rgba(35,30,21,.9)}
+.coach:empty{display:none}
+.coach{font-size:14.5px;font-weight:700;text-align:center;min-height:2.6em;color:var(--ink);text-wrap:balance}
+.coach.ok{color:var(--gold)}
+.acts{display:flex;gap:8px;flex-wrap:wrap}
+.acts:empty{display:none}
+.acts .btn{flex:1 1 0;min-width:0}
+.acts .btn.main{flex:2.4 1 0}
+.last{display:flex;align-items:center;gap:8px;background:rgba(240,180,41,.1);border-radius:12px;padding:8px 12px;font-size:14px;font-weight:700;box-shadow:inset 0 0 0 1px rgba(240,180,41,.35)}
+.last.fresh{animation:glow 1.6s ease-out}
+@keyframes glow{0%{background:rgba(240,180,41,.45)}}
+.log{background:var(--panel);border-radius:14px;padding:10px 12px;box-shadow:0 0 0 1px var(--line);font-size:13.5px}
+.log summary{font-weight:800;cursor:pointer}
+.log ol{margin:8px 0 0;padding-left:24px;display:grid;gap:3px;max-height:180px;overflow:auto}
+
+/* ---------- hojas ---------- */
+#sheet{position:fixed;inset:0;z-index:50;display:none}
+#sheet.on{display:block}
+#sheet .scrim{position:absolute;inset:0;background:rgba(0,0,0,.62)}
+#sheet .pane{position:absolute;left:0;right:0;bottom:0;max-width:640px;max-height:92svh;overflow:auto;margin:0 auto;background:var(--panel);border-radius:22px 22px 0 0;padding:18px 16px calc(20px + env(safe-area-inset-bottom,0px));display:grid;gap:12px;box-shadow:0 -10px 40px rgba(0,0,0,.6)}
+.end-h{color:var(--gold);font-size:30px;text-align:center}
+.score{display:flex;justify-content:center;gap:18px;font-weight:800;font-size:16px}
+.stackv{display:flex;flex-direction:column-reverse;gap:4px;align-items:center}
+.stackv .it{display:flex;align-items:center;gap:8px;font-weight:700}
+.stackv svg{width:38px;height:38px}
+.rules{display:grid;gap:14px;font-size:15px}
+.rules h3{font-size:19px;color:var(--gold)}
+.rules section{display:grid;gap:6px}
+.rules ul{margin:0;padding-left:20px;display:grid;gap:4px}
+.rules b{color:var(--gold)}
+.bug{display:grid;grid-template-columns:52px 1fr;gap:10px;align-items:center}
+.bug svg{width:52px;height:52px}
+.bug p{font-size:14.5px}
+#tour{position:fixed;inset:0;z-index:70;display:none}
+#tour.on{display:block}
+#tour .bub{position:fixed;left:50%;transform:translateX(-50%);width:min(560px,calc(100% - 24px));background:#FFF7E3;color:#2A1A08;border-radius:18px;padding:16px;display:grid;gap:10px;box-shadow:0 20px 50px rgba(0,0,0,.6)}
+#tour .bub h3{font-size:20px;color:#7A4B04}
+#tour .bub .row .btn{flex:1 1 0}
+#tour .bub .btn.ghost{color:#2A1A08;box-shadow:inset 0 0 0 2px #D8C4A0}
+#tour .steps{font-size:12px;font-weight:800;color:#8A6A3A;letter-spacing:.08em}
+#tour .shade{position:fixed;inset:0;background:rgba(0,0,0,.55)}
+.spot{position:relative;z-index:65;box-shadow:0 0 0 4px var(--gold),0 0 0 9999px rgba(0,0,0,.6)!important;border-radius:14px}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,12px);opacity:0;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:700;font-size:14px;transition:opacity .2s,transform .2s;pointer-events:none;max-width:calc(100% - 32px);z-index:80;text-align:center}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+@media (prefers-reduced-motion:reduce){.last.fresh,.tgt,.hp.must svg{animation:none}#toast{transition:none}.hp.sel{transform:none}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs id="glyphs"></defs></svg>
+<div id="app"><div class="hero"><div class="logo"><small>LA COLMENA SIN TABLERO</small>Enjambre</div><p class="muted">Despertando a los bichos…</p></div></div>
+<div id="sheet"></div>
+<div id="tour"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+"use strict";
+const B = window.Enjambre, NAME = B.NAME;
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const ls = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }, del(k) { try { localStorage.removeItem(k); } catch {} } };
+const $app = document.getElementById("app"), $sheet = document.getElementById("sheet"), $tour = document.getElementById("tour");
+let toastT;
+function toast(m, ms) { const t = document.getElementById("toast"); t.textContent = m; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), ms || 3200); }
+function on(sel, ev, fn, root) { (root || $app).querySelectorAll(sel).forEach(el => el.addEventListener(ev, fn)); }
+const LVL = { 1: "Larva", 2: "Obrera", 3: "Reina" };
+const cap = s => s[0].toUpperCase() + s.slice(1);
+const plural = (n, a, b) => n === 1 ? `${n} ${a}` : `${n} ${b}`;
+
+/* ================= piezas (dibujos propios) ================= */
+const TILE = [{ f: "#F3EAD6", s: "#B9A47E", hi: "#FFFDF6" }, { f: "#2A2520", s: "#0B0907", hi: "#4A4239" }];
+const SEATC = ["#EFE3C4", "#7D8AA0"];   // color de turno de blancas y negras
+const KC = ["#E8A317", "#8E5BC5", "#3FA34D", "#A0612F", "#2F7CD6", "#8593A1", "#D6332F"];
+const MOVE_TXT = [
+  "se mueve 1 casilla, rodeando la colmena.",
+  "se mueve 1 casilla y puede subirse encima de otras piezas (y moverse por encima).",
+  "salta en línea recta por encima de una o más piezas hasta el primer hueco.",
+  "se mueve exactamente 3 casillas rodeando la colmena, sin volver atrás.",
+  "puede ir a cualquier hueco alrededor de la colmena, tan lejos como quiera.",
+  "copia el movimiento de las piezas que toca. Si está encima de la colmena, se mueve como el Escarabajo.",
+  "da 3 pasos exactos: sube a la colmena, avanza 1 por encima y baja a un hueco."
+];
+function glyphDefs() {
+  const D = "#1B1712", L = (c, w = 4) => `stroke="${c}" stroke-width="${w}" fill="none" stroke-linecap="round" stroke-linejoin="round"`;
+  const G = [
+    `<ellipse cx="33" cy="42" rx="18" ry="10" transform="rotate(-25 33 42)" fill="#E3F0FF" opacity=".9" stroke="#8FA9C2" stroke-width="2"/><ellipse cx="67" cy="42" rx="18" ry="10" transform="rotate(25 67 42)" fill="#E3F0FF" opacity=".9" stroke="#8FA9C2" stroke-width="2"/>
+     <ellipse cx="50" cy="61" rx="15" ry="22" fill="${KC[0]}" stroke="${D}" stroke-width="3"/><path d="M36 55h28M36 65h28M39 75h22" stroke="${D}" stroke-width="5"/>
+     <circle cx="50" cy="34" r="9" fill="${D}"/><path d="M41 25l2-12 7 7 7-7 2 12z" fill="${KC[0]}" stroke="${D}" stroke-width="2.5" stroke-linejoin="round"/>`,
+    `<g ${L(KC[1])}><path d="M34 48l-13-8M33 60H17M35 72l-12 9M66 48l13-8M67 60h16M65 72l12 9M45 27l-6-10M55 27l6-10"/></g>
+     <ellipse cx="50" cy="61" rx="18" ry="23" fill="${KC[1]}" stroke="${D}" stroke-width="3"/><path d="M50 40v44" stroke="${D}" stroke-width="3"/>
+     <circle cx="50" cy="33" r="9" fill="${KC[1]}" stroke="${D}" stroke-width="3"/><ellipse cx="42" cy="54" rx="3" ry="6" fill="#EBDDFB" opacity=".75"/>`,
+    `<g ${L(KC[2])}><path d="M58 58 80 32 88 82M40 46 26 62M48 52 40 72M28 24q-6-12-1-20M24 28q-12-4-20 1"/></g>
+     <ellipse cx="53" cy="53" rx="27" ry="10" transform="rotate(45 53 53)" fill="${KC[2]}" stroke="${D}" stroke-width="3"/>
+     <circle cx="31" cy="31" r="9" fill="${KC[2]}" stroke="${D}" stroke-width="3"/><circle cx="29" cy="29" r="2.4" fill="${D}"/><path d="M46 46l20 20" stroke="#BDEBC3" stroke-width="2.5" opacity=".7"/>`,
+    `<g ${L(KC[3])}><path d="M44 50 30 36 20 46M44 56 26 50 13 62M44 62 28 66 20 82M46 66 38 80 34 93M56 50 70 36 80 46M56 56 74 50 87 62M56 62 72 66 80 82M54 66 62 80 66 93"/></g>
+     <circle cx="50" cy="67" r="14" fill="${KC[3]}" stroke="${D}" stroke-width="3"/><circle cx="50" cy="45" r="9" fill="${KC[3]}" stroke="${D}" stroke-width="3"/><path d="M50 59v16M43 67h14" stroke="#F1D2AE" stroke-width="2.5"/>`,
+    `<g ${L(KC[4])}><path d="M45 47 30 39 24 27M44 51H26l-6 8M45 55 32 65 30 79M55 47 70 39 76 27M56 51h18l6 8M55 55 68 65 70 79M46 22 38 12 30 14M54 22 62 12 70 14"/></g>
+     <circle cx="50" cy="27" r="8" fill="${KC[4]}" stroke="${D}" stroke-width="3"/><ellipse cx="50" cy="48" rx="7" ry="8" fill="${KC[4]}" stroke="${D}" stroke-width="3"/><ellipse cx="50" cy="72" rx="12" ry="15" fill="${KC[4]}" stroke="${D}" stroke-width="3"/>`,
+    `<ellipse cx="35" cy="46" rx="19" ry="7" transform="rotate(-22 35 46)" fill="#E9EEF3" opacity=".9" stroke="#9AA6B2" stroke-width="2"/><ellipse cx="65" cy="46" rx="19" ry="7" transform="rotate(22 65 46)" fill="#E9EEF3" opacity=".9" stroke="#9AA6B2" stroke-width="2"/>
+     <g ${L(KC[5], 3)}><path d="M46 54 26 64 16 86M48 58 36 76 34 95M54 58 64 76 66 95M54 54 74 64 84 86M50 27V7"/></g>
+     <ellipse cx="50" cy="63" rx="7" ry="20" fill="${KC[5]}" stroke="${D}" stroke-width="3"/><path d="M44 58h12M44 66h12M45 74h10" stroke="${D}" stroke-width="2"/><circle cx="50" cy="35" r="8" fill="${KC[5]}" stroke="${D}" stroke-width="3"/>`,
+    `<g ${L("#6B5A4A", 3.5)}><path d="M32 48l-11-5M30 61H17M33 73l-9 9M68 48l11-5M70 61h13M67 73l9 9"/></g>
+     <circle cx="50" cy="32" r="10" fill="${D}" stroke="#6B5A4A" stroke-width="2"/><circle cx="45" cy="29" r="2.2" fill="#fff"/><circle cx="55" cy="29" r="2.2" fill="#fff"/>
+     <circle cx="50" cy="60" r="22" fill="${KC[6]}" stroke="${D}" stroke-width="3"/><path d="M50 38v44" stroke="${D}" stroke-width="3"/>
+     <g fill="${D}"><circle cx="40" cy="51" r="4.5"/><circle cx="60" cy="51" r="4.5"/><circle cx="38" cy="67" r="4"/><circle cx="62" cy="67" r="4"/></g><ellipse cx="41" cy="44" rx="4" ry="2.5" fill="#fff" opacity=".45"/>`
+  ];
+  document.getElementById("glyphs").innerHTML = G.map((g, i) => `<symbol id="g${i}" viewBox="0 0 100 100">${g}</symbol>`).join("");
+}
+const HR = 10, SQ3 = Math.sqrt(3);
+const hexPts = (x, y, r) => { let s = ""; for (let i = 0; i < 6; i++) { const a = Math.PI / 180 * (60 * i - 30); s += `${(x + r * Math.cos(a)).toFixed(2)},${(y + r * Math.sin(a)).toFixed(2)} `; } return s; };
+const xy = k => { const q = B.qOf(k), r = B.rOf(k); return [HR * SQ3 * (q + r / 2), HR * 1.5 * r]; };
+function tileSVG(pc, x, y, opt = {}) {
+  const o = pc >> 3, kd = pc & 7, T = TILE[o], r = opt.r || 9.2, g = r * 1.36;
+  return `<polygon points="${hexPts(x, y + .9, r)}" fill="rgba(0,0,0,.45)"/><polygon points="${hexPts(x, y, r)}" fill="${T.f}" stroke="${opt.stroke || T.s}" stroke-width="${opt.sw || .9}" stroke-linejoin="round"/>
+    <polygon points="${hexPts(x, y, r * .82)}" fill="none" stroke="${T.hi}" stroke-width=".5" opacity=".7"/>
+    <use href="#g${kd}" x="${(x - g / 2).toFixed(2)}" y="${(y - g / 2).toFixed(2)}" width="${g.toFixed(2)}" height="${g.toFixed(2)}"/>`;
+}
+const pieceIcon = (pc, size = 46) => `<svg viewBox="-11 -11 22 22" width="${size}" height="${size}" aria-hidden="true">${tileSVG(pc, 0, 0)}</svg>`;
+
+/* ================= sonido sintetizado ================= */
+const SFX = {
+  ctx: null, noise: null, on: ls.get("enjambre.sound") !== false,
+  init() {
+    if (this.ctx) { if (this.ctx.state === "suspended") this.ctx.resume().catch(() => {}); return; }
+    try { const A = window.AudioContext || window.webkitAudioContext; if (!A) return; this.ctx = new A();
+      const n = this.ctx.createBuffer(1, this.ctx.sampleRate, this.ctx.sampleRate), d = n.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; this.noise = n; } catch {}
+  },
+  ok() { return this.on && this.ctx && this.ctx.state === "running"; },
+  hiss(freq, dur, g, at = 0, q = 1) {
+    const c = this.ctx, t = c.currentTime + at, s = c.createBufferSource(), f = c.createBiquadFilter(), v = c.createGain();
+    s.buffer = this.noise; f.type = "bandpass"; f.frequency.value = freq; f.Q.value = q;
+    v.gain.setValueAtTime(g, t); v.gain.exponentialRampToValueAtTime(.001, t + dur);
+    s.connect(f).connect(v).connect(c.destination); s.start(t, Math.random() * .5); s.stop(t + dur + .02);
+  },
+  tone(f, dur, g, at = 0, type = "sine") {
+    const c = this.ctx, t = c.currentTime + at, o = c.createOscillator(), v = c.createGain(); o.type = type; o.frequency.value = f;
+    v.gain.setValueAtTime(.0001, t); v.gain.exponentialRampToValueAtTime(g, t + .01); v.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(v).connect(c.destination); o.start(t); o.stop(t + dur + .05);
+  },
+  clack() { if (!this.ok()) return; this.tone(240, .07, .22, 0, "triangle"); this.hiss(1800, .05, .2, 0, 2); },
+  slide() { if (!this.ok()) return; this.hiss(700, .18, .12, 0, .7); this.tone(260, .06, .18, .16, "triangle"); },
+  buzz() { if (!this.ok()) return; const c = this.ctx, t = c.currentTime, o = c.createOscillator(), v = c.createGain(); o.type = "sawtooth"; o.frequency.setValueAtTime(190, t); o.frequency.linearRampToValueAtTime(230, t + .35); v.gain.setValueAtTime(.0001, t); v.gain.exponentialRampToValueAtTime(.05, t + .03); v.gain.exponentialRampToValueAtTime(.0001, t + .4); o.connect(v).connect(c.destination); o.start(t); o.stop(t + .45); },
+  fanfare() { if (this.ok()) [523, 659, 784, 1047].forEach((f, i) => this.tone(f, .6, .09, i * .13, "triangle")); },
+  tick() { if (this.ok()) this.hiss(3200, .03, .08); }
+};
+addEventListener("pointerdown", () => SFX.init(), { capture: true });
+
+/* ================= estado ================= */
+const S = {
+  db: null, uid: null, ready: false, offline: false,
+  name: (localStorage.getItem("sala.nick") || "").slice(0, 16),
+  mode: null, code: null, g: null, unsub: null, L: null,
+  sel: null, hintTo: null, seenN: -1, endShown: "", homeTab: "online", aiLevel: ls.get("enjambre.lvl") || 2, homeMsg: "", homeErr: false, busy: false, lastKey: "",
+  aiTimer: null, cache: { k: null, v: null }, lcache: { k: null, v: null }, zoom: 1
+};
+const me = () => S.uid;
+window.__enj = { S, B, render: () => render() };
+
+async function boot() {
+  glyphDefs();
+  try {
+    const [db, user] = await Promise.all(["db", "user"].map(n => window.claude ? claude.use(n).catch(() => null) : null));
+    S.db = db; if (user) S.uid = await user.id();
+  } catch {}
+  if (!S.db || !S.uid) S.offline = true;
+  S.ready = true;
+  const h = (location.hash || "").replace("#", "").toUpperCase(), last = ls.get("enjambre.last");
+  if (!S.offline && /^[A-Z]{4}$/.test(h)) S.prefill = h;
+  else if (!S.offline && last && last.code && Date.now() - last.t < 12 * 3600e3) S.rejoin = last.code;
+  render();
+}
+
+/* ================= modelo común ================= */
+const seatOf = id => { const st = (S.g && S.g.seats) || {}; return [0, 1].find(i => st[i] && st[i].id === id); };
+function parseSt(str) { if (S.cache.k === str) return S.cache.v; let v = null; try { v = JSON.parse(str); } catch {} S.cache = { k: str, v }; return v; }
+function model() {
+  if (S.mode === "online") {
+    const g = S.g, st = parseSt(g.st), seats = g.seats || {}, seat = seatOf(me());
+    return { mode: "online", st, names: [(seats[0] || {}).name || "Jugador 1", (seats[1] || {}).name || "Jugador 2"], me: seat === undefined ? null : seat };
+  }
+  const L = S.L;
+  return { mode: L.mode, st: L.st, names: L.names, me: L.mode === "ai" ? 0 : L.st.turn, level: L.level };
+}
+const viewer = m => m.me === null ? 0 : m.me;
+const canAct = m => !m.st.over && m.me !== null && m.st.turn === m.me;
+const youTxt = m => m.mode !== "local";
+const colorName = (st, q) => q === st.white ? "Blancas" : "Negras";
+const ownerTile = (st, q) => q === st.white ? 0 : 1;          // las piezas guardan el asiento; el color sale de quién lleva blancas
+const pcOf = (st, raw) => ownerTile(st, raw >> 3) * 8 + (raw & 7);
+const seatColor = (st, q) => SEATC[ownerTile(st, q)];
+function legalOf(st) {
+  const k = st.seed + "|" + st.n;
+  if (S.lcache.k !== k) S.lcache = { k, v: B.legal(st) };
+  return S.lcache.v;
+}
+
+/* ================= online ================= */
+function watch(code) {
+  unwatch(); S.mode = "online"; S.code = code; ls.set("enjambre.last", { code, t: Date.now() });
+  S.unsub = S.db.doc("games/" + code).onSnapshot(snap => {
+    if (!snap.exists) { leave("Esa partida ya no existe."); return; }
+    const prev = S.g; S.g = snap.data(); onRemote(prev); render();
+  }, () => leave("Se ha perdido la conexión con la partida."));
+}
+function unwatch() { if (S.unsub) try { S.unsub(); } catch {} S.unsub = null; S.g = null; S.sel = null; closeSheet(); }
+function leave(msg) {
+  unwatch(); clearTimeout(S.aiTimer); S.aiTimer = null;
+  S.mode = null; S.code = null; S.L = null; S.seenN = -1; S.endShown = ""; S.sel = null; S.hintTo = null;
+  S.homeMsg = msg || ""; S.homeErr = !!msg; history.replaceState(null, "", location.pathname); endTour(); render();
+}
+function onRemote(prev) {
+  if (!prev || !S.g || !S.g.st || prev.st === S.g.st) return;
+  const a = parseSt(prev.st), b = parseSt(S.g.st);
+  if (a && b && b.n !== a.n) { S.sel = null; S.hintTo = null; }
+}
+function saveName() {
+  const el = document.getElementById("nm"), v = ((el && el.value) || S.name || "").trim().slice(0, 16);
+  if (!v) { S.homeMsg = "Escribe tu nombre."; S.homeErr = true; render(); return false; }
+  S.name = v; try { localStorage.setItem("sala.nick", v); } catch {} return true;
+}
+const genCode = () => { const A = "ABCDEFGHJKLMNPQRSTUVWXYZ"; let c = ""; for (let i = 0; i < 4; i++) c += A[Math.floor(Math.random() * A.length)]; return c; };
+async function freeCode() { let code; for (let i = 0; i < 6; i++) { code = genCode(); if (!(await S.db.doc("games/" + code).get()).exists) break; } return code; }
+const newSeed = () => Math.floor(Math.random() * 2 ** 31);
+async function createOnline() {
+  if (!saveName()) return;
+  S.busy = true; render();
+  try {
+    const code = await freeCode();
+    await S.db.doc("games/" + code).set({ v: 1, status: "lobby", host: me(), createdAt: Date.now(), seats: { 0: { id: me(), name: S.name } }, st: "" });
+    location.hash = code; watch(code);
+  } catch { S.homeMsg = "No se pudo crear la partida. Revisa la conexión."; S.homeErr = true; }
+  S.busy = false; render();
+}
+async function joinOnline(code) {
+  if (!saveName()) return;
+  code = String(code || "").toUpperCase().replace(/[^A-Z]/g, "");
+  if (code.length !== 4) { S.homeMsg = "El código tiene 4 letras."; S.homeErr = true; render(); return; }
+  S.busy = true; render();
+  try {
+    const ref = S.db.doc("games/" + code), snap = await ref.get();
+    if (!snap.exists) { S.homeMsg = "No hay ninguna partida con ese código."; S.homeErr = true; }
+    else {
+      const g = snap.data(), seats = g.seats || {};
+      const mine = [0, 1].find(i => seats[i] && seats[i].id === me());
+      if (mine !== undefined) { if (seats[mine].name !== S.name) await ref.update({ seats: { ...seats, [mine]: { id: me(), name: S.name } } }); }
+      else if (!seats[1] && g.status === "lobby") await ref.update({ seats: { ...seats, 1: { id: me(), name: S.name } } });
+      else toast("La partida está completa: entras como público.");
+      location.hash = code; watch(code);
+    }
+  } catch { S.homeMsg = "No se pudo entrar. Revisa la conexión."; S.homeErr = true; }
+  S.busy = false; render();
+}
+async function put(patch) {
+  S.g = { ...S.g, ...patch }; render();
+  try { await S.db.doc("games/" + S.code).update(patch); }
+  catch { toast("No se pudo guardar. Reintentando…"); setTimeout(() => S.db.doc("games/" + S.code).update(patch).catch(() => toast("Sin conexión con la partida.")), 1500); }
+}
+
+/* ================= mismo móvil y máquina ================= */
+function startLocal(kind) {
+  if (!saveName()) return;
+  let L;
+  const white = Math.random() < .5 ? 0 : 1;
+  if (kind === "local") {
+    const rv = (document.getElementById("rv").value || "").trim().slice(0, 16);
+    if (!rv) { S.homeMsg = "Escribe el nombre del rival."; S.homeErr = true; render(); return; }
+    L = { mode: "local", names: [S.name, rv], st: B.newGame(newSeed(), white) };
+  } else {
+    ls.set("enjambre.lvl", S.aiLevel);
+    L = { mode: "ai", level: S.aiLevel, names: [S.name, `La máquina · ${LVL[S.aiLevel]}`], st: B.newGame(newSeed(), white) };
+  }
+  S.mode = "local"; S.L = L; S.seenN = -1; S.endShown = ""; S.sel = null; S.hintTo = null; S.zoom = 1; saveLocal(); render();
+}
+function saveLocal() { if (S.L) ls.set("enjambre.partida", S.L); }
+function resumeLocal() { const L = ls.get("enjambre.partida"); if (!L) return; S.mode = "local"; S.L = L; S.seenN = L.st.n; S.endShown = ""; S.sel = null; render(); }
+
+/* ================= jugar ================= */
+function commit(st) {
+  if (S.mode === "online") put({ st: JSON.stringify(st), status: "play" });
+  else { S.L.st = st; saveLocal(); render(); }
+}
+function act(a, who) {
+  const m = model(), p = who ?? m.me;
+  const err = B.check(m.st, p, a);
+  if (err) { toast(err); return false; }
+  const st = B.apply(m.st, p, a);
+  sound(st.last);
+  closeSheet(); S.sel = null; S.hintTo = null; commit(st);
+  return true;
+}
+function sound(L) { if (!L) return; if (L.t === "p") SFX.clack(); else if (L.t === "m") { SFX.slide(); if (L.k === B.Q || L.k === B.MOS) setTimeout(() => SFX.buzz(), 120); } }
+function maybeAI() {
+  if (S.mode !== "local" || !S.L || S.L.mode !== "ai" || S.aiTimer) return;
+  const st = S.L.st;
+  if (st.over || st.turn !== 1) return;
+  S.aiTimer = setTimeout(() => {
+    S.aiTimer = null;
+    if (!S.L || S.L.mode !== "ai" || S.L.st !== st) return;
+    const a = B.plan(st, 1, S.L.level);
+    if (!a || B.check(st, 1, a)) return;
+    const ns = B.apply(st, 1, a);
+    sound(ns.last);
+    S.L.st = ns; saveLocal(); render();
+  }, 700);
+}
+function rematch() {
+  const m = model(); if (!m.st.over) return;
+  const st = B.rematch(m.st);
+  closeSheet(); S.sel = null; S.hintTo = null; S.endShown = ""; S.zoom = 1;
+  if (S.mode === "online") put({ st: JSON.stringify(st) });
+  else { S.L.st = st; saveLocal(); render(); }
+}
+
+/* ================= selección y destinos ================= */
+function targets(m) {
+  if (!S.sel || !canAct(m)) return [];
+  const acts = legalOf(m.st);
+  if (S.sel.t === "h") return acts.filter(a => a.t === "p" && a.k === S.sel.k).map(a => a.to);
+  return acts.filter(a => a.t === "m" && a.fr === S.sel.k).map(a => a.to);
+}
+function whyStuck(m, k) {
+  const st = m.st, p = m.me, inf = B.info(st, k);
+  if (!inf) return "";
+  if (st.hand[p][B.Q]) return "No puedes mover piezas hasta que tu Reina esté en el tablero.";
+  if (inf.pinned) return "Esa pieza no se puede mover: partiría la colmena en dos.";
+  return "Esa pieza no tiene ningún movimiento posible ahora mismo (está bloqueada).";
+}
+function stackSheet(m, k) {
+  const inf = B.info(m.st, k); if (!inf) return;
+  const who = q => esc(m.names[q]) + ` (${colorName(m.st, q)})`;
+  openSheet(`<h2>Pila de ${inf.stack.length} piezas</h2><p class="muted small">De arriba abajo. Solo se puede mover la de arriba, y manda su color.</p>
+    <div class="stackv">${inf.stack.map(pc => `<div class="it">${pieceIcon(pcOf(m.st, pc), 38)}<span>${NAME[pc & 7]} de ${who(pc >> 3)}</span></div>`).join("")}</div>
+    <button class="btn ghost wide" data-x>Cerrar</button>`);
+  on("[data-x]", "click", closeSheet, $sheet);
+}
+function boardTap(k, isTarget) {
+  const m = model(), st = m.st;
+  if (isTarget && S.sel) {
+    const a = S.sel.t === "h" ? { t: "p", k: S.sel.k, to: k } : { t: "m", fr: S.sel.k, to: k };
+    act(a); return;
+  }
+  const s = new Map(st.b).get(k);
+  if (!s) { if (S.sel) { S.sel = null; S.hintTo = null; updateGame(); } return; }
+  if (!canAct(m)) { if (s.length > 1) stackSheet(m, k); else if (!st.over) notYourTurn(m); return; }
+  const top = s[s.length - 1];
+  if ((top >> 3) !== m.me) { if (s.length > 1) stackSheet(m, k); else toast(`${cap(B.ART[top & 7])} ${NAME[top & 7]} rival ${MOVE_TXT[top & 7]}`, 4200); return; }
+  if (S.sel && S.sel.t === "b" && S.sel.k === k) { S.sel = null; S.hintTo = null; updateGame(); return; }
+  const has = legalOf(st).some(a => a.t === "m" && a.fr === k);
+  if (!has) { toast(whyStuck(m, k), 4200); return; }
+  S.sel = { t: "b", k }; S.hintTo = null; SFX.tick(); updateGame();
+}
+function handTap(kd) {
+  const m = model(), st = m.st;
+  if (!canAct(m)) { toast(`${cap(B.ART[kd])} ${NAME[kd]} ${MOVE_TXT[kd]}`, 4200); return; }
+  const p = m.me;
+  if (!st.hand[p][kd]) { toast(`Ya no te quedan piezas de ${NAME[kd]} en la reserva.`); return; }
+  if (S.sel && S.sel.t === "h" && S.sel.k === kd) { S.sel = null; S.hintTo = null; updateGame(); return; }
+  const ok = legalOf(st).some(a => a.t === "p" && a.k === kd);
+  if (!ok) { toast(st.hand[p][B.Q] && B.TOTAL - st.hand[p].reduce((a, b) => a + b, 0) === 3 ? "Es tu cuarta pieza: tienes que colocar ya la Reina." : "Ahora mismo no hay sitio donde colocarla."); return; }
+  S.sel = { t: "h", k: kd }; S.hintTo = null; SFX.tick(); updateGame();
+}
+function notYourTurn(m) {
+  if (m.me === null) toast("Estás mirando la partida.");
+  else if (m.mode === "ai") toast("La máquina está pensando…");
+  else toast("Espera a que juegue tu rival.");
+}
+const topKind = (st, k) => new Map(st.b).get(k).slice(-1)[0] & 7;
+function hint() {
+  const m = model(); if (!canAct(m)) return;
+  toast("Pensando una pista…", 1200);
+  setTimeout(() => {
+    const m2 = model(); if (!canAct(m2) || m2.st.n !== m.st.n) return;
+    const a = B.plan(m2.st, m2.me, 3); if (!a) return;
+    if (a.t === "x") { toast("No tienes jugada: toca pasar."); return; }
+    S.sel = a.t === "p" ? { t: "h", k: a.k } : { t: "b", k: a.fr }; S.hintTo = a.to; updateGame();
+    toast(a.t === "p" ? `Pista: coloca ${B.ART[a.k]} ${NAME[a.k]} en la casilla que brilla.` : `Pista: mueve ${B.ART[topKind(m2.st, a.fr)]} ${NAME[topKind(m2.st, a.fr)]} marcad${B.ART[topKind(m2.st, a.fr)] === "la" ? "a" : "o"} a la casilla que brilla.`, 4500);
+  }, 60);
+}
+
+/* ================= vistas ================= */
+function render() {
+  if (!S.ready) return;
+  if (window.SalaTurno && (!S.mode || (S.mode === "online" && (!S.g || S.g.status === "lobby" || !S.g.st)))) SalaTurno.limpiar();
+  if (!S.mode) return renderHome();
+  if (S.mode === "online") {
+    if (!S.g) return view(`<div class="hero"><div class="logo"><small>LA COLMENA SIN TABLERO</small>Enjambre</div><p class="muted">Entrando en la partida…</p></div>`, "load");
+    if (S.g.status === "lobby" || !S.g.st) return renderLobby();
+  }
+  const m = model();
+  if (S.lastKey !== "game" || !document.getElementById("brd")) buildGame();
+  updateGame();
+  maybeAI();
+  if (!ls.get("enjambre.tuto") && m.me !== null) setTimeout(() => startTour(), 400);
+}
+function view(html, key) { if (key && key === S.lastKey) return false; S.lastKey = key; $app.innerHTML = html; return true; }
+
+function heroHive() {
+  const K = B.key, cells = [[0, 0, 0], [1, 0, 8 + 4], [0, 1, 2], [-1, 1, 8 + 1], [1, -1, 6], [2, -1, 8 + 3], [-1, 0, 8 + 0], [0, -1, 5]];
+  let h = "";
+  for (const [q, r, pc] of cells) { const [x, y] = xy(K(q, r)); h += tileSVG(pc, x, y); }
+  return `<svg class="herob" viewBox="-30 -26 66 52" role="img" aria-label="Una colmena de piezas">${h}</svg>`;
+}
+function renderHome() {
+  const saved = ls.get("enjambre.partida");
+  const canResume = saved && saved.st && !saved.st.over;
+  const tab = S.homeTab, lv = S.aiLevel;
+  const seg = (name, val, cur, label) => `<button data-${name}="${val}" aria-pressed="${cur === val}">${label}</button>`;
+  const html = `
+  <div class="hero">${heroHive()}
+    <div class="logo"><small>LA COLMENA SIN TABLERO</small>Enjambre</div>
+    <p class="muted">Coloca y mueve tus bichos para rodear la Reina rival por sus 6 lados antes de que rodeen la tuya. Con Mosquito y Mariquita. Para 2 jugadores.</p></div>
+  <button class="btn ghost wide" id="rules">🐝 Cómo se juega (léelo si es tu primera vez)</button>
+  <label class="lbl" for="nm">Tu nombre<input id="nm" class="text" maxlength="16" autocomplete="nickname" value="${esc(S.name)}" placeholder="Tu nombre"></label>
+  ${canResume ? `<button class="btn gold wide" id="resume">Continuar partida en este móvil</button>` : ""}
+  <div class="seg" role="group" aria-label="Modo de juego">${seg("tab", "online", tab, "Online")}${seg("tab", "local", tab, "Mismo móvil")}${seg("tab", "ai", tab, "Máquina")}</div>
+  ${tab === "online" ? (S.offline ? `<div class="card"><p class="muted">No hay conexión con el servidor de partidas. Puedes jugar en este móvil o contra la máquina.</p></div>` : `
+  <div class="card"><h2>Nueva partida</h2><p class="muted small">Cada uno desde su móvil. Pasa el código a tu rival.</p><button class="btn gold wide" id="create"${S.busy ? " disabled" : ""}>Crear partida</button></div>
+  <div class="card"><h2>Unirse</h2>
+    <div class="row"><input id="jc" class="text code" maxlength="4" autocomplete="off" placeholder="ABCD" value="${esc(S.prefill || "")}" aria-label="Código de la partida"><button class="btn" id="join"${S.busy ? " disabled" : ""}>Entrar</button></div>
+    ${S.rejoin ? `<button class="btn ghost" id="rejoin">Volver a la partida ${esc(S.rejoin)}</button>` : ""}</div>`) : ""}
+  ${tab === "local" ? `<div class="card"><h2>Los dos en este móvil</h2><p class="muted small">No hay nada secreto: os vais pasando el móvil. Abajo sale siempre la reserva de quien juega.</p>
+    <input id="rv" class="text" maxlength="16" placeholder="Nombre del rival" aria-label="Nombre del rival"><button class="btn gold wide" id="local">Empezar</button></div>` : ""}
+  ${tab === "ai" ? `<div class="card"><h2>Contra la máquina</h2><p class="muted small">Ideal para aprender. Empieza por Larva.</p>
+    <span class="lbl">Nivel</span><div class="seg" role="group" aria-label="Nivel">${[1, 2, 3].map(v => seg("lv", v, lv, LVL[v])).join("")}</div>
+    <button class="btn gold wide" id="ai">Empezar</button></div>` : ""}
+  <p class="msg ${S.homeErr ? "err" : ""}" role="status">${esc(S.homeMsg)}</p>`;
+  view(html, "home|" + S.busy + "|" + S.homeMsg + "|" + tab + "|" + lv);
+  const keepName = () => { const el = document.getElementById("nm"); if (el) S.name = el.value.trim().slice(0, 16); };
+  on("[data-tab]", "click", e => { keepName(); S.homeTab = e.currentTarget.dataset.tab; S.homeMsg = ""; render(); });
+  on("[data-lv]", "click", e => { keepName(); S.aiLevel = +e.currentTarget.dataset.lv; render(); });
+  on("#create", "click", createOnline);
+  on("#join", "click", () => joinOnline(document.getElementById("jc").value));
+  on("#jc", "keydown", e => { if (e.key === "Enter") joinOnline(e.target.value); });
+  on("#rejoin", "click", () => joinOnline(S.rejoin));
+  on("#local", "click", () => startLocal("local"));
+  on("#ai", "click", () => startLocal("ai"));
+  on("#resume", "click", resumeLocal);
+  on("#rules", "click", showRules);
+}
+
+function renderLobby() {
+  const g = S.g, st = g.seats || {}, host = g.host === me(), seat = seatOf(me());
+  const seatH = i => st[i] ? `<div class="seat"><span class="muted small">${i === 0 ? "Anfitrión" : "Rival"}</span><b>${esc(st[i].name)}${st[i].id === me() ? " (tú)" : ""}</b></div>` : `<div class="seat empty"><span class="small">Esperando rival…</span></div>`;
+  const html = `
+  <div class="top"><button class="btn ghost sm" id="out">Salir</button><span class="sp"></span><span class="chip">SALA ${esc(S.code)}</span><button class="icon-btn" id="help" aria-label="Cómo se juega">?</button></div>
+  <div class="hero" style="padding-block:6px 0"><div class="logo" style="font-size:40px"><small>LA COLMENA SIN TABLERO</small>Enjambre</div></div>
+  <div class="card" style="text-align:center"><p class="muted small">Código de la partida</p><div class="big-code">${esc(S.code)}</div>
+    <button class="btn ghost" id="share">Invitar</button></div>
+  <div class="card"><h2>Jugadores</h2><div class="seats">${seatH(0)}${seatH(1)}</div>
+    <p class="muted small">El color se sortea al empezar. Las blancas mueven primero.</p>
+    ${seat === undefined && !st[1] ? `<button class="btn gold" id="sit">Sentarme</button>` : ""}</div>
+  ${host ? `<button class="btn gold wide" id="start"${st[1] ? "" : " disabled"}>${st[1] ? "Empezar la partida" : "Esperando a tu rival…"}</button>`
+    : `<div class="wait"><p>Esperando a que ${esc((st[0] || {}).name || "el anfitrión")} empiece la partida.</p></div>`}
+  <p class="muted small" style="text-align:center">Mientras esperáis, pulsad <b>?</b> para leer las reglas.</p>`;
+  view(html, "lobby|" + JSON.stringify(st) + host);
+  on("#out", "click", () => leave());
+  on("#share", "click", share);
+  on("#help", "click", showRules);
+  on("#sit", "click", () => joinOnline(S.code));
+  on("#start", "click", () => { if (S.g.seats[1]) put({ status: "play", st: JSON.stringify(B.newGame(newSeed(), Math.random() < .5 ? 0 : 1)) }); });
+}
+function share() {
+  const url = location.origin + location.pathname + "#" + S.code, text = `Te reto a una partida de Enjambre. Código: ${S.code}`;
+  if (navigator.share) { navigator.share({ title: "Enjambre", text, url }).catch(() => {}); return; }
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(() => toast("Enlace copiado."), () => toast(url));
+  else toast(url);
+}
+
+function buildGame() {
+  const m = model();
+  const chipTxt = S.mode === "online" ? `SALA ${esc(S.code)}` : m.mode === "ai" ? "CONTRA LA MÁQUINA" : "MISMO MÓVIL";
+  const snd = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4z"/>${SFX.on ? '<path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/>' : '<path d="m22 9-6 6M16 9l6 6"/>'}</svg>`;
+  view(`
+  <div class="top"><button class="btn ghost sm" id="out">Salir</button><span class="sp"></span><span class="chip">${chipTxt}</span>
+    <button class="icon-btn" id="help" aria-label="Cómo se juega">?</button><button class="icon-btn" id="snd" aria-label="${SFX.on ? "Quitar sonido" : "Activar sonido"}">${snd}</button></div>
+  <div id="turno"></div>
+  <div class="pl" id="opp"></div>
+  <div id="lastBox"></div>
+  <div class="boardw" id="bw"><svg class="board" id="brd" role="img" aria-label="La colmena"></svg>
+    <div class="zoomb"><span>Toca una pila para ver qué esconde</span><button class="icon-btn" id="zo" aria-label="Alejar">−</button><button class="icon-btn" id="zi" aria-label="Acercar">+</button></div></div>
+  <p class="coach" id="coach" role="status" aria-live="polite"></p>
+  <div class="pl" id="mine"></div>
+  <div class="acts" id="acts"></div>
+  <details class="log" id="logBox"><summary>Lo que ha pasado</summary><ol id="log"></ol></details>
+  <button class="btn ghost sm" id="resign" style="align-self:center">Rendirse</button>`, "game");
+  on("#out", "click", () => {
+    const m = model();
+    if (S.mode === "online" && m.me !== null && !m.st.over) confirmSheet("¿Salir de la partida?", "Podrás volver con el mismo código.", "Salir", () => leave());
+    else leave();
+  });
+  on("#help", "click", showRules);
+  on("#snd", "click", () => { SFX.on = !SFX.on; ls.set("enjambre.sound", SFX.on); SFX.init(); S.lastKey = ""; render(); });
+  on("#zi", "click", () => { S.zoom = Math.min(2.4, S.zoom * 1.25); updateBoard(); });
+  on("#zo", "click", () => { S.zoom = Math.max(1, S.zoom / 1.25); updateBoard(); });
+  on("#resign", "click", () => {
+    const m = model(); if (m.st.over || m.me === null) return;
+    const who = m.mode === "local" ? m.names[m.st.turn] : "tú";
+    confirmSheet(m.mode === "local" ? `¿Se rinde ${who}?` : "¿Rendirte?", "La partida la gana el rival.", "Rendirse", () => act({ t: "r" }));
+  });
+  const brd = document.getElementById("brd");
+  brd.addEventListener("click", e => {
+    const g = e.target.closest("[data-k]");
+    if (!g) { if (S.sel) { S.sel = null; S.hintTo = null; updateGame(); } return; }
+    boardTap(+g.dataset.k, g.dataset.t === "1");
+  });
+  document.getElementById("mine").addEventListener("click", e => { const b = e.target.closest("[data-h]"); if (b) handTap(+b.dataset.h); });
+  document.getElementById("opp").addEventListener("click", e => { const b = e.target.closest("[data-h]"); if (b) { const kd = +b.dataset.h; toast(`${cap(B.ART[kd])} ${NAME[kd]} ${MOVE_TXT[kd]}`, 4200); } });
+}
+
+function queenTxt(st, q) {
+  if (st.hand[q][B.Q]) return `<span class="qst">Reina en la reserva</span>`;
+  const n = B.queenNb(st, q);
+  return `<span class="qst" title="Lados ocupados alrededor de su Reina">${pieceIcon(pcOf(st, q * 8), 18)}<span class="dots">${[0, 1, 2, 3, 4, 5].map(i => `<i class="${i < n ? "on" : ""}"></i>`).join("")}</span>${n}/6</span>`;
+}
+function playerHTML(m, q, mine) {
+  const st = m.st, my = mine && canAct(m);
+  const nm = mine ? (m.me === null || m.mode === "local" ? m.names[q] : "Tú") : m.names[q];
+  const placed = B.TOTAL - st.hand[q].reduce((a, b) => a + b, 0);
+  const mustQ = my && st.hand[q][B.Q] && placed === 3;
+  const can = my ? new Set(legalOf(st).filter(a => a.t === "p").map(a => a.k)) : null;
+  const items = st.hand[q].map((n, kd) => {
+    const cls = "hp" + (n ? "" : " zero") + (my && n && !can.has(kd) ? " off" : "") + (S.sel && S.sel.t === "h" && S.sel.k === kd && mine ? " sel" : "") + (mustQ && kd === B.Q ? " must" : "");
+    return `<button class="${cls}" data-h="${kd}" aria-label="${NAME[kd]}: quedan ${n}">${pieceIcon(ownerTile(st, q) * 8 + kd, mine ? 46 : 30)}${n ? `<span class="ct">${n}</span>` : ""}</button>`;
+  }).join("");
+  return `<div class="hd"><svg class="tokn" viewBox="-11 -11 22 22" aria-hidden="true"><polygon points="${hexPts(0, 0, 10)}" fill="${TILE[ownerTile(st, q)].f}" stroke="#C9BB9C" stroke-width="1.6" stroke-linejoin="round"/></svg><span class="nm">${esc(nm)}<small>${colorName(st, q)}</small></span>${queenTxt(st, q)}</div>
+    <div class="hand${mine ? " big" : " mini"}" aria-label="Reserva de ${esc(nm)}">${items}</div>`;
+}
+
+function updateBoard() {
+  const m = model(), st = m.st, svg = document.getElementById("brd"); if (!svg) return;
+  const mp = new Map(st.b), tg = targets(m), tset = new Set(tg);
+  /* encuadre: la colmena y su anillo de huecos, para que no salte al elegir pieza */
+  const cells = new Set(mp.size ? [] : [B.ORIGIN]);
+  for (const k of mp.keys()) { cells.add(k); for (const d of B.DK) cells.add(k + d); }
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const k of cells) { const [x, y] = xy(k); x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+  const R = svg.getBoundingClientRect(), asp = R.width && R.height ? R.width / R.height : 1;
+  let w = x1 - x0 + HR * 2.4, h = y1 - y0 + HR * 2.6;
+  w = Math.max(w, HR * SQ3 * 5.5); h = Math.max(h, HR * 1.5 * 5.5);
+  if (w / h < asp) w = h * asp; else h = w / asp;
+  w /= S.zoom; h /= S.zoom;
+  let cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  if (S.zoom > 1) { const focus = S.sel && S.sel.t === "b" ? S.sel.k : st.last && st.last.to !== undefined ? st.last.to : null; if (focus !== null) { const [fx, fy] = xy(focus); cx = fx; cy = fy; } }
+  svg.setAttribute("viewBox", `${(cx - w / 2).toFixed(1)} ${(cy - h / 2).toFixed(1)} ${w.toFixed(1)} ${h.toFixed(1)}`);
+  let out = "";
+  /* casillas vacías de alrededor (fondo suave) */
+  for (const k of cells) if (!mp.has(k)) { const [x, y] = xy(k); out += `<polygon points="${hexPts(x, y, 9.2)}" fill="rgba(255,255,255,.025)" stroke="rgba(255,255,255,.06)" stroke-width=".5"/>`; }
+  const L = st.last;
+  if (L && L.t === "m" && !mp.has(L.fr)) { const [x, y] = xy(L.fr); out += `<polygon points="${hexPts(x, y, 8.6)}" fill="none" stroke="${seatColor(st, L.p)}" stroke-width=".8" stroke-dasharray="2 1.4" opacity=".75"/>`; }
+  /* piezas: orden de arriba abajo en pantalla para que los bordes se solapen bien */
+  const keys = [...mp.keys()].sort((a, b) => xy(a)[1] - xy(b)[1] || xy(a)[0] - xy(b)[0]);
+  for (const k of keys) {
+    const s = mp.get(k), [x, y] = xy(k), hgt = s.length;
+    const isSel = S.sel && S.sel.t === "b" && S.sel.k === k, isT = tset.has(k);
+    let g = "";
+    for (let i = 0; i < hgt; i++) {
+      const oy = y - i * 1.7, last = i === hgt - 1;
+      g += last ? tileSVG(pcOf(st, s[i]), x, oy, isSel ? { stroke: "#F0B429", sw: 1.8 } : {}) : `<polygon points="${hexPts(x, oy + .9, 9.2)}" fill="rgba(0,0,0,.4)"/><polygon points="${hexPts(x, oy, 9.2)}" fill="${TILE[ownerTile(st, s[i] >> 3)].f}" stroke="${TILE[ownerTile(st, s[i] >> 3)].s}" stroke-width=".9"/>`;
+    }
+    if (hgt > 1) g += `<circle cx="${x + 6.6}" cy="${y - (hgt - 1) * 1.7 - 6}" r="3.1" fill="#F0B429" stroke="#3A2604" stroke-width=".5"/><text x="${x + 6.6}" y="${y - (hgt - 1) * 1.7 - 4.9}" font-size="3.6" font-weight="900" text-anchor="middle" fill="#3A2604" font-family="Manrope,sans-serif">${hgt}</text>`;
+    if (L && L.to === k && L.t !== "x" && L.t !== "r") g += `<polygon points="${hexPts(x, y - (hgt - 1) * 1.7, 10)}" fill="none" stroke="${seatColor(st, L.p)}" stroke-width="1" opacity=".9"/>`;
+    if (isT) g += `<polygon class="tgt" points="${hexPts(x, y - hgt * 1.7, 8)}" fill="rgba(240,180,41,.28)" stroke="#F0B429" stroke-width="1.3" stroke-dasharray="2.2 1.2"/>` + (S.hintTo === k ? `<polygon points="${hexPts(x, y - hgt * 1.7, 10.4)}" fill="none" stroke="#7CDB9A" stroke-width="1.6"/>` : "");
+    out += `<g data-k="${k}" data-t="${isT ? 1 : 0}">${g}</g>`;
+  }
+  for (const k of tg) if (!mp.has(k)) {
+    const [x, y] = xy(k);
+    let ghost = "";
+    if (S.sel && S.sel.t === "h") ghost = `<g opacity=".38">${tileSVG(ownerTile(st, m.me) * 8 + S.sel.k, x, y)}</g>`;
+    out += `<g data-k="${k}" data-t="1"><polygon points="${hexPts(x, y, 9.2)}" fill="rgba(0,0,0,0)"/>${ghost}<polygon class="tgt" points="${hexPts(x, y, 8.4)}" fill="rgba(240,180,41,.2)" stroke="#F0B429" stroke-width="1.2" stroke-dasharray="2.2 1.2"/>${S.hintTo === k ? `<polygon points="${hexPts(x, y, 10.2)}" fill="none" stroke="#7CDB9A" stroke-width="1.6"/>` : ""}</g>`;
+  }
+  if (!mp.size && !tg.length) { const [x, y] = xy(B.ORIGIN); out += `<text x="${x}" y="${y + 1.2}" font-size="3.4" text-anchor="middle" fill="#C9BB9C" font-family="Manrope,sans-serif" font-weight="700">La colmena empieza aquí</text>`; }
+  svg.innerHTML = out;
+}
+
+function updateGame() {
+  if (!document.getElementById("brd")) return;
+  const m = model(), st = m.st, p = viewer(m), o = 1 - p, my = canAct(m);
+  const fresh = st.last && st.last.n !== S.seenN && S.seenN !== -1;
+  if (!my) { S.sel = null; S.hintTo = null; }
+
+  /* jugadores */
+  const oppEl = document.getElementById("opp"), mineEl = document.getElementById("mine");
+  oppEl.innerHTML = playerHTML(m, o, false); oppEl.style.setProperty("--pc", seatColor(st, o)); oppEl.classList.toggle("turn", !st.over && st.turn === o);
+  mineEl.innerHTML = playerHTML(m, p, true); mineEl.style.setProperty("--pc", seatColor(st, p)); mineEl.classList.toggle("turn", !st.over && st.turn === p);
+
+  /* última jugada */
+  const lb = document.getElementById("lastBox");
+  if (st.last) {
+    const L = st.last, you = L.p === m.me && youTxt(m), who = you ? "Tú" : m.names[L.p];
+    lb.innerHTML = `<div class="last${fresh && L.p !== m.me ? " fresh" : ""}">${st.last.k !== undefined ? pieceIcon(pcOf(st, L.p * 8 + L.k), 26) : ""}<span>${esc(cap(B.describe(L, who, you)))}.</span></div>`;
+  } else lb.innerHTML = `<div class="last">${esc(st.turn === m.me && youTxt(m) ? "Llevas blancas: empiezas tú. Coloca tu primera pieza." : `${m.names[st.turn]} lleva blancas y empieza.`)}</div>`;
+
+  updateBoard();
+
+  /* franja de turno */
+  const tz = document.getElementById("turno");
+  if (st.over || !window.SalaTurno) { tz.innerHTML = ""; if (window.SalaTurno) SalaTurno.limpiar(); }
+  else {
+    const t = st.turn, ai = m.mode === "ai" && t === 1;
+    const o2 = { quien: ai ? "la máquina" : m.names[t], color: seatColor(st, t), tuyo: m.mode === "local" ? null : m.me === null ? false : t === m.me, accion: ai ? "Está pensando su jugada…" : "Coloca una pieza o mueve una de las tuyas", clave: st.n };
+    if (o2.tuyo === false && !ai) o2.accion = "Está pensando su jugada…";
+    tz.innerHTML = SalaTurno.html({ ...o2, compacta: true });
+    SalaTurno.marcar({ ...o2, clave: t + "|" + st.n });
+  }
+
+  /* ayuda y botones */
+  const coach = document.getElementById("coach"), acts = document.getElementById("acts");
+  let ctext = "", ccls = "", bt = "";
+  if (st.over) bt = `<button class="btn gold main" id="seeEnd">Ver el final</button>`;
+  else if (!my) ctext = m.me === null ? "Estás mirando la partida." : m.mode === "ai" ? "La máquina está eligiendo…" : "Espera a que juegue tu rival.";
+  else {
+    const lg = legalOf(st), placed = B.TOTAL - st.hand[p].reduce((a, b) => a + b, 0);
+    if (lg.length === 1 && lg[0].t === "x") { ctext = "No tienes ninguna jugada posible: te toca pasar."; bt = `<button class="btn gold main" id="pass">Pasar turno</button>`; }
+    else {
+      if (S.sel && S.sel.t === "h") { ctext = `Toca una casilla marcada para colocar ${B.ART[S.sel.k]} ${NAME[S.sel.k]}. Las piezas nuevas solo pueden tocar piezas de tu color.`; ccls = "ok"; }
+      else if (S.sel && S.sel.t === "b") { const top = new Map(st.b).get(S.sel.k).slice(-1)[0] & 7; ctext = `${cap(B.ART[top])} ${NAME[top]} ${MOVE_TXT[top]} Toca una casilla marcada.`; ccls = "ok"; }
+      else if (st.hand[p][B.Q] && placed === 3) ctext = "Es tu cuarta pieza: tienes que colocar ya la Reina.";
+      else if (!st.b.length) ctext = "Toca una pieza de tu reserva para colocar la primera pieza de la colmena.";
+      else if (st.hand[p][B.Q]) ctext = "Coloca una pieza de tu reserva. Hasta que tu Reina esté en juego no puedes mover.";
+      else ctext = "Toca una pieza de tu reserva para colocarla, o una de tus piezas del tablero para moverla.";
+      bt = `<button class="btn sm" id="hi">Pista</button>` + (S.sel ? `<button class="btn ghost sm" id="cancel">Cancelar</button>` : "");
+    }
+  }
+  coach.innerHTML = esc(ctext); coach.className = "coach" + (ccls ? " " + ccls : "");
+  acts.innerHTML = bt;
+  document.getElementById("resign").hidden = !!st.over || m.me === null;
+  on("#pass", "click", () => act({ t: "x" }));
+  on("#hi", "click", hint);
+  on("#cancel", "click", () => { S.sel = null; S.hintTo = null; updateGame(); });
+  on("#seeEnd", "click", () => showEnd());
+
+  /* historial */
+  const logEl = document.getElementById("log"), hist = st.hist || [];
+  if (logEl.dataset.k !== st.seed + "|" + st.n) {
+    logEl.dataset.k = st.seed + "|" + st.n;
+    logEl.innerHTML = hist.length ? hist.map(x => { const you = x.p === m.me && youTxt(m); return `<li>${esc(cap(B.describe(x, you ? "Tú" : m.names[x.p], you)))}</li>`; }).join("") : `<li class="muted">Todavía nada.</li>`;
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+  if (fresh && st.last.p !== m.me && m.me !== null) sound(st.last);
+  S.seenN = st.last ? st.last.n : 0;
+  if (st.over && S.endShown !== st.seed + "|" + st.n) { S.endShown = st.seed + "|" + st.n; setTimeout(() => showEnd(), 900); }
+}
+addEventListener("resize", () => { if (document.getElementById("brd") && S.mode) updateBoard(); });
+
+/* ================= final ================= */
+function showEnd() {
+  const m = model(), st = m.st, ov = st.over; if (!ov) return;
+  const draw = ov.win === -1, youWin = ov.win === m.me;
+  const title = draw ? "¡Tablas!" : m.me === null || m.mode === "local" ? `¡${esc(m.names[ov.win])} gana!` : youWin ? "¡Has ganado!" : "Has perdido";
+  const why = ov.why === "reina" ? `La Reina de ${esc(m.names[1 - ov.win])} está rodeada por sus 6 lados.`
+    : ov.why === "reinas" ? "Las dos Reinas han quedado rodeadas en la misma jugada."
+    : ov.why === "repeticion" ? "La misma posición se ha repetido tres veces."
+    : `${esc(m.names[1 - ov.win])} se ha rendido.`;
+  SFX.fanfare();
+  openSheet(`<h2 class="end-h">${title}</h2><p class="muted" style="text-align:center">${why}</p><p class="muted small" style="text-align:center">En la revancha os cambiáis los colores.</p>
+    <div class="score">${[0, 1].map(q => `<span>${esc(m.names[q])}: ${st.wins[q]}</span>`).join("<span>·</span>")}</div>
+    <div class="row">${m.me !== null || m.mode !== "online" ? `<button class="btn gold" id="nx">Revancha</button>` : ""}<button class="btn ghost" id="vt">Ver la colmena</button></div>
+    <button class="btn ghost wide" id="bye">Salir</button>`);
+  on("#nx", "click", rematch, $sheet);
+  on("#vt", "click", closeSheet, $sheet);
+  on("#bye", "click", () => { closeSheet(); if (S.mode === "local") ls.del("enjambre.partida"); leave(); }, $sheet);
+}
+
+/* ================= reglas ================= */
+function showRules() {
+  const bug = kd => `<div class="bug">${pieceIcon(kd, 52)}<p><b>${NAME[kd]}</b> (${B.COUNT[kd]}) ${MOVE_TXT[kd]}</p></div>`;
+  openSheet(`<div class="rules">
+    <h2 style="font-size:28px;color:var(--gold)">Cómo se juega</h2>
+    <section><h3>El objetivo</h3><p>Gana quien <b>rodee por completo la Reina rival</b>: sus 6 lados ocupados por piezas de cualquier color. Si las dos Reinas quedan rodeadas a la vez, son tablas. No hay tablero: las piezas forman la colmena.</p></section>
+    <section><h3>Tu turno</h3><p>Haces <b>una</b> de estas dos cosas:</p><ul>
+      <li><b>Colocar</b> una pieza de tu reserva. Las blancas empiezan; la segunda pieza de la partida va pegada a la primera. Después, cada pieza nueva tiene que tocar <b>solo piezas de tu color</b>: no puede tocar ninguna rival.</li>
+      <li><b>Mover</b> una de tus piezas que ya esté en la colmena.</li></ul></section>
+    <section><h3>La Reina</h3><ul>
+      <li>No puedes mover ninguna pieza hasta que tu Reina esté en la colmena.</li>
+      <li>Tienes que colocarla como muy tarde con tu <b>cuarta pieza</b>.</li></ul></section>
+    <section><h3>Reglas de movimiento</h3><ul>
+      <li><b>Una sola colmena</b>: nunca puede quedar partida en dos, ni siquiera mientras una pieza se está moviendo. Si quitar una pieza la parte, esa pieza no se puede mover.</li>
+      <li><b>Libertad de movimiento</b>: las piezas se deslizan. Si un hueco es tan estrecho que la pieza no cabe al deslizarse (dos piezas a los lados), no puede pasar. El Saltamontes salta y no le afecta.</li>
+      <li>Si no puedes colocar ni mover nada, pasas turno. Si puedes jugar, tienes que hacerlo.</li></ul></section>
+    <section><h3>Los bichos</h3>${[0, 1, 2, 3, 4, 5, 6].map(bug).join("")}</section>
+    <section><h3>Pilas</h3><p>El Escarabajo (y el Mosquito copiándolo) puede subirse encima de otras piezas. La pieza de abajo queda atrapada y la casilla pasa a ser del color de la de arriba, también para colocar piezas nuevas. Toca una pila para ver qué hay dentro. Las piezas nuevas nunca se colocan encima.</p></section>
+    <section><h3>Consejos para empezar</h3><ul>
+      <li>Saca pronto tu Reina y deja huecos libres a su alrededor.</li>
+      <li>Las Hormigas son muy útiles para bloquear piezas rivales y ocupar huecos junto a su Reina.</li>
+      <li>Una pieza que bloquea la colmena (que la partiría al moverse) está clavada: intenta clavar las del rival.</li>
+      <li>El Escarabajo encima de la Reina rival la deja inmóvil.</li>
+      <li>Si dudas, pulsa <b>Pista</b>.</li></ul></section>
+    <div class="row"><button class="btn ghost" id="tourGo">Ver la visita guiada</button><button class="btn gold" data-x>Entendido</button></div></div>`);
+  on("[data-x]", "click", closeSheet, $sheet);
+  on("#tourGo", "click", () => { closeSheet(); if (S.mode && document.getElementById("brd")) startTour(true); else toast("La visita guiada empieza al abrir tu primera partida."); }, $sheet);
+}
+
+/* ================= visita guiada ================= */
+const TOUR = [
+  { el: null, h: "Bienvenido a la colmena", t: "Te enseño la mesa en un minuto. Gana quien <b>rodee la Reina rival</b> por sus 6 lados." },
+  { el: "#mine", h: "Tu reserva", t: "Tus 13 bichos. <b>Toca uno</b> y se marcan las casillas donde puedes colocarlo. La Reina tiene que salir como muy tarde en tu cuarta pieza." },
+  { el: "#bw", h: "La colmena", t: "Aquí se juntan las piezas. Toca una tuya para ver adónde se puede mover y toca la casilla marcada. Con <b>+</b> y <b>−</b> acercas la vista." },
+  { el: "#opp", h: "Tu rival", t: "Su reserva y cómo de rodeada está su Reina (los puntos rojos). Toca un bicho para recordar cómo se mueve." },
+  { el: "#acts", h: "Pista", t: "Si no sabes qué hacer, <b>Pista</b> te marca una buena jugada." },
+  { el: "#help", h: "¿Dudas?", t: "Aquí tienes las reglas completas y cómo se mueve cada bicho. ¡A jugar!" }
+];
+let tourI = -1;
+function startTour(force) {
+  if (tourI >= 0 || (!force && ls.get("enjambre.tuto"))) return;
+  if (!document.getElementById("brd")) return;
+  ls.set("enjambre.tuto", 1); tourI = 0; showTour();
+}
+function showTour() {
+  document.querySelectorAll(".spot").forEach(e => e.classList.remove("spot"));
+  const s = TOUR[tourI]; if (!s) return endTour();
+  let el = s.el && document.querySelector(s.el);
+  if (el && !el.offsetHeight) el = null;
+  if (el) { el.classList.add("spot"); el.scrollIntoView({ block: "center" }); }
+  const r = el ? el.getBoundingClientRect() : null, low = r && r.top + r.height / 2 > innerHeight / 2;
+  $tour.innerHTML = `${el ? "" : '<div class="shade"></div>'}<div class="bub" role="dialog" aria-modal="true" style="${low ? "top:calc(12px + env(safe-area-inset-top,0px))" : "bottom:calc(14px + env(safe-area-inset-bottom,0px))"}">
+    <span class="steps">PASO ${tourI + 1} DE ${TOUR.length}</span><h3>${s.h}</h3><p>${s.t}</p>
+    <div class="row"><button class="btn ghost sm" id="tX">Saltar</button><button class="btn gold sm" id="tN">${tourI === TOUR.length - 1 ? "¡A jugar!" : "Siguiente"}</button></div></div>`;
+  $tour.classList.add("on");
+  $tour.querySelector("#tX").addEventListener("click", endTour);
+  $tour.querySelector("#tN").addEventListener("click", () => { tourI++; showTour(); });
+}
+function endTour() { tourI = -1; $tour.classList.remove("on"); $tour.innerHTML = ""; document.querySelectorAll(".spot").forEach(e => e.classList.remove("spot")); }
+
+/* ================= hojas ================= */
+function confirmSheet(title, text, okLabel, fn) {
+  openSheet(`<h2>${esc(title)}</h2>${text ? `<p class="muted">${esc(text)}</p>` : ""}<div class="row"><button class="btn ghost" data-x>Cancelar</button><button class="btn gold" data-ok>${esc(okLabel)}</button></div>`);
+  on("[data-x]", "click", closeSheet, $sheet);
+  on("[data-ok]", "click", () => { closeSheet(); fn(); }, $sheet);
+}
+function openSheet(html) {
+  document.getElementById("toast").classList.remove("on");
+  $sheet.innerHTML = `<div class="scrim"></div><div class="pane" role="dialog" aria-modal="true">${html}</div>`; $sheet.classList.add("on");
+  $sheet.querySelector(".scrim").addEventListener("click", closeSheet); $sheet.querySelector(".pane").scrollTop = 0;
+}
+function closeSheet() { $sheet.classList.remove("on"); $sheet.innerHTML = ""; }
+addEventListener("keydown", e => { if (e.key === "Escape") { closeSheet(); endTour(); } });
+
+boot();
+})();
+</script>
+</body>
+</html>
