@@ -468,7 +468,8 @@ async function judge(pos, u, ex) {
   const lu = r.lines.find(l => l.pv[0] === u), le = r.lines.find(l => l.pv[0] === ex);
   if (!lu || !le) return null;
   const san = sanOf(pos, u), su = SCORE(lu), se = SCORE(le);
-  if (le.mate > 0 && lu.mate > 0) return { ok: true, lu, msg: lu.mate <= le.mate ? `✓ <b>${san} también vale</b>: da jaque mate igual de rápido que la solución del problema.` : `✓ <b>${san} también gana</b>: das mate en ${lu.mate}. Aun así, había un mate más rápido, en ${le.mate}.` };
+  if (le.mate > 0 && lu.mate > 0 && lu.mate <= le.mate) return { ok: true, lu, msg: `✓ <b>${san} también vale</b>: da jaque mate igual de rápido (en ${le.mate}) que la solución del problema.` };
+  if (le.mate > 0 && lu.mate > 0) return { ok: false, lu, msg: `<b>${san} también acaba dando mate, pero en ${lu.mate} jugadas, y aquí hay mate en ${le.mate}.</b> El objetivo es el mate más rápido: ${le.mate === 1 ? "busca un jaque que deje al rey sin ninguna casilla." : "busca jugadas que obliguen al rival (jaques, capturas, amenazas) y no le dejen respirar."}` };
   if (le.mate == null && (lu.mate > 0 || wp(su) >= wp(se) - 4)) return { ok: true, lu, msg: `✓ <b>${san} también vale</b>: con ella ${evalWords(lu)}, igual que con la jugada del problema.` };
   const p1 = C.make(pos, m), rr = await AJSF.go(C.toFEN(p1), { depth: 12 }), rl = rr && rr.lines[0];
   const rep = rl && rl.pv[0] ? sanOf(p1, rl.pv[0]) : null;
@@ -689,7 +690,9 @@ function runPuzzle(k, tok, done) {
     }
   };
   newBoard(pos, { bottom: side, user: null, onMove, me: side });
-  txtEl(`<p><span class="side ${side}"></span><b>Juegas con ${side === "w" ? "blancas" : "negras"}.</b> Mira la jugada que acaba de hacer el rival (te la explico debajo del tablero): ha cometido un error. Encuentra la mejor respuesta.</p>`);
+  const nMate = (() => { let p = pos; for (const u of moves) p = C.make(p, C.findMove(p, u)); return isMate(p) ? Math.ceil((moves.length - 1) / 2) : 0; })();
+  const goal = nMate ? `<b>Objetivo: jaque mate en ${nMate}</b>${nMate > 1 ? " (contando tus jugadas)" : ""}.` : "<b>Objetivo:</b> encuentra la jugada que gana material o deja la partida ganada.";
+  txtEl(`<p><span class="side ${side}"></span><b>Juegas con ${side === "w" ? "blancas" : "negras"}.</b> Mira la jugada que acaba de hacer el rival (te la explico debajo del tablero): ha cometido un error. ${goal}</p>`);
   fb("");
   const ready = wait(600).then(async () => { if (tok !== gen) return; await play(moves[0]); if (tok !== gen) return; p1 = B.pos; B.user = side; });
   return {
