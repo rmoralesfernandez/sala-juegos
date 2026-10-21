@@ -237,7 +237,7 @@ function describe(pos, m) {
   if (m.k) out.push("El rey se esconde en una esquina, detrás de sus peones, y la torre sale a jugar.");
   if (m.c) out.push(`Come ${elLa(C.type(m.c))} ${NAME[C.type(m.c)]} (${pts(PV[C.type(m.c)])}).`);
   if (m.pr) out.push(`¡El peón llega al final del tablero y se convierte en ${NAME[C.type(m.pr)]}!`);
-  if (mate) out.push("<b>¡Jaque mate!</b> El rey está atacado y no tiene ninguna forma de salvarse.");
+  if (mate) out.push("<b>¡Jaque mate!</b> " + mateWhy(p1));
   else if (chk) out.push("<b>Da jaque</b>: el rival está obligado a salvar a su rey antes de hacer otra cosa.");
   if (!mate) {
     const tg = [];
@@ -283,11 +283,36 @@ function describe(pos, m) {
   }
   return { head: moveWords(m), txt: out.join(" "), arrows };
 }
+/* Por qué es mate: cada casilla de escape y quién la vigila */
+function mateWhy(pos) {
+  const ex = C.explainMate(pos), k = C.sqName(ex.king), L = [];
+  const by = {}, own = [];
+  for (const e of ex.escapes) {
+    if (e.why === "own") { own.push(C.sqName(e.sq)); continue; }
+    if (ex.checkers.some(c => c.sq === e.sq)) continue;
+    const b = e.by && e.by[0]; if (!b) continue;
+    const key = pAt(b.p, b.sq); (by[key] = by[key] || []).push(C.sqName(e.sq) + (e.why === "defended" ? ` (comiendo ${pAt(e.p, e.sq)})` : ""));
+  }
+  if (ex.checkers.length > 1) L.push(`Es un <b>doble jaque</b> (${A.listY(ex.checkers.map(c => pAt(c.p, c.sq)))}): solo podría salvarse moviendo el rey.`);
+  else {
+    const ch = ex.checkers[0], cp = ex.capture, lo = A.FEM(C.type(ch.p)) ? "la" : "lo";
+    L.push(`${Cap(pAt(ch.p, ch.sq))} ataca al rey de ${k}.`);
+    if (cp.kingNext && cp.defenders.length) L.push(`El rey no puede comer${lo}: está protegid${ao(C.type(ch.p))} por ${A.listY(cp.defenders.map(d => pAt(d.p, d.sq)))}.`);
+    L.push(cp.pinned.length ? `${Cap(A.listY(cp.pinned.map(a => pAt(a.p, a.sq))))} podría comer${lo}, pero está clavad${cp.pinned.length > 1 ? "os" : "o"}.` : `Ninguna pieza puede comer${lo}.`);
+    L.push(C.type(ch.p) === "n" ? "El jaque de caballo no se puede tapar." : !ex.block.between.length ? "No hay hueco entre medias para tapar el jaque." : `Nadie puede ponerse en medio (${A.listY(ex.block.between.map(C.sqName))}).`);
+  }
+  const esc2 = Object.entries(by).map(([pc, sqs]) => `${sqs.length > 1 ? A.listY(sqs) + " las vigila" : sqs[0] + " la vigila"} ${pc}`);
+  if (esc2.length) L.push(`Casillas de escape: ${esc2.join("; ")}.`);
+  if (own.length) L.push(`${A.listY(own)} ${own.length > 1 ? "están ocupadas" : "está ocupada"} por sus propias piezas.`);
+  if (B) { const mk = {}; ex.escapes.forEach(e => { if (e.why !== "own") mk[C.sqName(e.sq)] = "x"; }); ex.checkers.forEach(c => { mk[C.sqName(c.sq)] = "r"; }); B.mateMarks = mk; }
+  return L.join(" ");
+}
 function comment(pos, m) {
   const el = $("#cm"); if (!el || !B) return;
   const d = describe(pos, m), c = pos.turn;
   const who = B.me ? (c === B.me ? "Tú" : B.opp) : c === "w" ? "Blancas" : "Negras";
   B.arrows = d.arrows;
+  if (B.mateMarks) { B.marks = B.mateMarks; B.mateMarks = null; }
   el.innerHTML = `<p><span class="side ${c}"></span><b>${who}: ${esc(d.head)}.</b> ${d.txt}</p>${d.arrows.length ? `<p class="small muted">Flecha roja: amenaza · azul: defensa.</p>` : ""}`;
 }
 /* Resumen de una secuencia: por qué es la mejor */
@@ -654,8 +679,8 @@ function pickPuzzles(n, o = {}) {
 /* Problema: el primer movimiento es el error del rival; luego tú encuentras la mejor */
 function runPuzzle(k, tok, done) {
   const [fen, mv] = PZ[k], moves = mv.split(" "), pos = C.fromFEN(fen), side = other(pos.turn);
-  let j = 1, failed = false, over = false, hl = 0, p1 = null, free = false, left = 0, extra = 0, note = "", busyJ = false;
-  const end = () => { over = true; B.user = null; done(!failed); if (note) fb2(note); fb2(free ? whyLine(p1, moves.slice(1)).replace("¿Por qué es la mejor?", `La jugada del problema era ${sanOf(p1, moves[1])}:`).replace(" Cualquier otra jugada no gana tanto.", "").replace(" y cualquier otra jugada le deja respirar", "") : whyLine(p1, moves.slice(1))); addReplay(p1, moves.slice(1), tok); };
+  let whyF = "", j = 1, failed = false, over = false, hl = 0, p1 = null, free = false, left = 0, extra = 0, note = "", busyJ = false;
+  const end = () => { over = true; B.user = null; done(!failed, { solved: true, why: whyF }); if (note) fb2(note); fb2(free ? whyLine(p1, moves.slice(1)).replace("¿Por qué es la mejor?", `La jugada del problema era ${sanOf(p1, moves[1])}:`).replace(" Cualquier otra jugada no gana tanto.", "").replace(" y cualquier otra jugada le deja respirar", "") : whyLine(p1, moves.slice(1))); addReplay(p1, moves.slice(1), tok); };
   const bestNow = async () => { const r = await AJSF.go(C.toFEN(B.pos), { depth: 14 }); return r && r.best; };
   const fb2 = h => { const el = $("#fb"); if (el) el.insertAdjacentHTML("beforeend", `<span class="why2">${h}</span>`); };
   const onMove = async u => {
@@ -674,8 +699,8 @@ function runPuzzle(k, tok, done) {
       const ex = free ? await bestNow() : exp;
       const v = ex === u ? { ok: true, lu: null, msg: "" } : await judge(B.pos, u, ex).catch(() => null);
       busyJ = false; if (tok !== gen || over) return;
-      if (!v) { B.user = side; failed = true; wrong(); fb("No es la mejor. Prueba otra vez.", "bad"); return; }
-      if (!v.ok) { B.user = side; failed = true; wrong(); fb(v.msg + " Prueba otra vez.", "bad"); return; }
+      if (!v) { B.user = side; failed = true; whyF = whyF || `primero probaste ${sanOf(B.pos, u)}`; wrong(); fb("No es la mejor. Prueba otra vez.", "bad"); return; }
+      if (!v.ok) { B.user = side; failed = true; whyF = whyF || `primero probaste ${sanOf(B.pos, u)}`; wrong(); fb(v.msg + " Prueba otra vez.", "bad"); return; }
       if (!free) { free = true; left = Math.ceil((moves.length - j) / 2); note = v.msg; }
       left--;
       await play(u); if (tok !== gen) return;
@@ -697,15 +722,15 @@ function runPuzzle(k, tok, done) {
   const ready = wait(600).then(async () => { if (tok !== gen) return; await play(moves[0]); if (tok !== gen) return; p1 = B.pos; B.user = side; });
   return {
     async hint() {
-      await ready; if (tok !== gen || over || B.busy || !B.user) return; failed = true; hl = Math.min(3, hl + 1);
+      await ready; if (tok !== gen || over || B.busy || !B.user) return; failed = true; whyF = whyF || "pediste una pista"; hl = Math.min(3, hl + 1);
       const ex = free ? await bestNow() : moves[j]; if (tok !== gen || !ex) return; fb(hintFor(B.pos, ex, hl));
     },
     async solve() {
       await ready; while (B && B.busy && tok === gen) await wait(100);
-      if (tok !== gen || over || !B.user) return; failed = true; over = true; B.user = null;
+      if (tok !== gen || over || !B.user) return; failed = true; whyF = whyF || "viste la solución"; over = true; B.user = null;
       if (free) { for (let i = 0; i < 8 && !isMate(B.pos); i++) { const r = await bestNow(); if (tok !== gen || !r) break; await play(r); if (tok !== gen) return; await wait(1100); if (B.pos.turn === side && left-- <= 0 && i > 0) break; } }
       else while (j < moves.length) { await play(moves[j]); if (tok !== gen) return; j++; await wait(1100); }
-      done(false); fb2(whyLine(p1, moves.slice(1))); addReplay(p1, moves.slice(1), tok);
+      done(false, { solved: false, why: whyF }); fb2(whyLine(p1, moves.slice(1))); addReplay(p1, moves.slice(1), tok);
     }
   };
 }
@@ -715,8 +740,8 @@ function stepPool(st, tok) {
   if (!pl.list.length) { txtEl(`<p>${st.txt}</p>`); fb("No hay problemas de este tipo todavía."); return nextBtn(); }
   const k = pl.list[pl.k];
   const head = () => `<p class="small muted">${esc(st.txt)} · Problema ${pl.k + 1} de ${pl.list.length}${st.exam ? ` · aciertos: ${pl.good}` : ""}</p>`;
-  const ctl = runPuzzle(k, tok, ok => {
-    if (ok) { pl.good++; fb(`✓ ¡Resuelto! ${themeLine(k)}`, "ok"); SFX.magic(); } else { V.err++; fb(`Fallado. ${themeLine(k)}`, "bad"); }
+  const ctl = runPuzzle(k, tok, (ok, inf) => {
+    if (ok) { pl.good++; fb(`✓ ¡Resuelto a la primera! ${themeLine(k)}`, "ok"); SFX.magic(); } else { V.err++; fb(`${failText(inf)} ${themeLine(k)}`, "bad"); }
     markSeen(k, ok, true);
     pl.k++;
     if (pl.k < pl.list.length) setActs(`<button class="btn gold wide" id="pn">Siguiente problema</button>`, { "#pn": () => renderStep() });
@@ -728,6 +753,7 @@ function stepPool(st, tok) {
   $("#lt").insertAdjacentHTML("afterbegin", head());
   setActs(`<button class="btn sm" id="ph">Pista</button><button class="btn sm ghost" id="ps">Ver solución</button>`, { "#ph": () => ctl.hint(), "#ps": () => ctl.solve() });
 }
+const failText = inf => inf && inf.solved ? `Resuelto, pero no a la primera${inf.why ? ` (${inf.why})` : ""}: cuenta como fallo.` : `No resuelto${inf && inf.why ? ` (${inf.why})` : ""}.`;
 const themeLine = k => { const t = pzTh(PZ[k]).filter(x => TH[x] && x !== "mate").map(x => TH[x]); return t.length ? `Tema: ${t.join(", ")}.` : ""; };
 function markSeen(k, ok, rated) {
   P.seen.push(k); if (P.seen.length > Math.min(600, PZ.length * .7)) P.seen.splice(0, P.seen.length - Math.floor(PZ.length * .5));
@@ -764,10 +790,10 @@ function renderTactics(force) {
     <div class="ltxt" id="lt"></div>${boardHTML()}<div class="cm" id="cm"></div><p class="fb" id="fb" role="status" aria-live="polite"></p><div class="acts" id="la"></div>`);
   A.on("#bk", "click", goHome);
   if (k == null) { fb("No hay problemas."); return; }
-  const ctl = runPuzzle(k, tok, ok => {
+  const ctl = runPuzzle(k, tok, (ok, inf) => {
     const d = markSeen(k, ok, true);
     if (ok) SFX.magic();
-    fb(`${ok ? "✓ ¡Resuelto!" : "✗ Fallado."} Nivel ${P.pr} (${d >= 0 ? "+" : ""}${d}). ${themeLine(k)}`, ok ? "ok" : "bad");
+    fb(`${ok ? "✓ ¡Resuelto a la primera!" : failText(inf)} Nivel ${P.pr} (${d >= 0 ? "+" : ""}${d}). ${themeLine(k)}`, ok ? "ok" : "bad");
     setActs(`<button class="btn gold wide" id="pn">Siguiente problema</button>`, { "#pn": () => renderTactics() });
   });
   setActs(`<button class="btn sm" id="ph">Pista</button><button class="btn sm ghost" id="ps">Ver solución</button>`, { "#ph": () => ctl.hint(), "#ps": () => ctl.solve() });
