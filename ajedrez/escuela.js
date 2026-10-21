@@ -847,7 +847,7 @@ async function analyse() {
     const acc = Math.max(0, Math.min(100, 103.1668 * Math.exp(-0.04354 * loss) - 3.1669));
     const best = ev[k].line && ev[k].line.pv[0];
     const cl = best === h.uci ? "" : CLS(loss);
-    return { h, k, c, loss, acc, cl, best, pos: pos_[k], expl: cl === "??" || cl === "?" ? explain(pos_[k], C.findMove(pos_[k], h.uci), ev[k].line, ev[k + 1].line ? { ...ev[k + 1].line } : null, true) : "" };
+    return { h, k, c, loss, acc, cl, best, pos: pos_[k], expl: cl ? reviewExpl(pos_[k], h.uci, ev[k].line, ev[k + 1].line, ev[k + 1].s * sg) : "" };
   });
   const accOf = c => { const a = mv.filter(x => x.c === c); return a.length ? Math.round(a.reduce((s, x) => s + x.acc, 0) / a.length) : null; };
   me.an = { ev, mv, pos: pos_, acc: { w: accOf("w"), b: accOf("b") } };
@@ -857,6 +857,19 @@ async function analyse() {
   const first = mv.find(x => (!my || x.c === my) && (x.cl === "??" || x.cl === "?"));
   me.k = first ? first.k : 0;
   if (V === me) renderReview();
+}
+/* Explicación de un error en la revisión: cuánto cambia, qué hacía la buena y qué permite la jugada */
+function reviewExpl(pos, uci, bl, rl, sAfter) {
+  const m = C.findMove(pos, uci); if (!m || !bl || !bl.pv[0]) return "";
+  const lb = bl, la = rl ? (rl.mate != null ? { mate: -rl.mate, cp: null } : { cp: -rl.cp, mate: null }) : { cp: sAfter, mate: null };
+  const bm = C.findMove(pos, bl.pv[0]), bs = sanOf(pos, bl.pv[0]), out = [];
+  if (wp(SCORE(la)) >= 62) out.push(`No es mala: con ella ${evalWords(la)}. Pero con <b>${bs}</b> ${evalWords(lb)}, todavía más.`);
+  else out.push(`Con ella ${evalWords(la)}, y con <b>${bs}</b> ${evalWords(lb)}.`);
+  if (bm) { const d = describe(pos, bm).txt; if (d) out.push(`¿Qué hace ${bs}? ${d}`); }
+  if (wp(SCORE(la)) < 62) { const e = explain(pos, m, null, rl, false); if (e) out.push(e); }
+  const back = !m.c && (pos.turn === "w" ? (m.t >> 3) < (m.f >> 3) : (m.t >> 3) > (m.f >> 3));
+  if (bm && back && C.attackersOf(pos.b, m.f, other(pos.turn)).length && m.f !== bm.f) out.push("Consejo: antes de retirar una pieza atacada, mira si puedes <b>contraatacar</b> algo o si el cambio te conviene.");
+  return out.join(" ");
 }
 function renderReview() {
   const g = V.g, an = V.an, my = g.my;
@@ -896,7 +909,7 @@ function renderReview() {
       const bad = x.cl === "??" || x.cl === "?";
       B.arrows.push([x.h.uci.slice(0, 2), x.h.uci.slice(2, 4), bad ? "r" : "y"]);
       if (x.cl && x.best && x.best !== x.h.uci) B.arrows.push([x.best.slice(0, 2), x.best.slice(2, 4), "g"]);
-      t = `<p><b>${Math.floor(x.k / 2) + 1}.${x.c === "b" ? ".." : ""} ${esc(sanES(x.h.san))}${x.cl}</b> ${x.cl ? `<span class="muted">${CLSN[x.cl]}.</span> ` : ""}${x.expl || (x.cl === "?!" && x.best ? `Era mejor <b>${sanOf(x.pos, x.best)}</b>.` : x.cl ? "" : "Buena jugada.")}</p><p class="small muted">Flecha ${bad ? "roja" : "dorada"}: lo que se jugó${x.cl && x.best !== x.h.uci ? " · verde: lo que recomienda el motor" : ""}.</p>`;
+      t = `<p><b>${Math.floor(x.k / 2) + 1}.${x.c === "b" ? ".." : ""} ${esc(sanES(x.h.san))}${x.cl}</b> ${x.cl ? `<span class="muted">${CLSN[x.cl]}.</span> ` : ""}${x.expl || (x.cl ? "" : "Buena jugada.")}</p><p class="small muted">Flecha ${bad ? "roja" : "dorada"}: lo que se jugó${x.cl && x.best !== x.h.uci ? " · verde: lo que recomienda el motor" : ""}.</p>`;
     } else t = `<p><b>Posición final.</b></p>`;
     txtEl(t); draw();
     const gc = $("#gcur"); if (gc) { const X = ((V.k + (x ? 1 : 0)) / Math.max(1, an.ev.length - 1)) * 300; gc.setAttribute("x1", X); gc.setAttribute("x2", X); }
