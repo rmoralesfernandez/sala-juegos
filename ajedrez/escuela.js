@@ -47,7 +47,8 @@ const AJSF = (() => {
         }
       };
       w.postMessage("position fen " + fen);
-      w.postMessage(o.depth ? "go depth " + o.depth : "go movetime " + (o.ms || 300));
+      const sm = o.searchmoves ? " searchmoves " + o.searchmoves.join(" ") : "";
+      w.postMessage((o.depth ? "go depth " + o.depth : "go movetime " + (o.ms || 300)) + sm);
       const lim = o.depth ? 5000 + o.depth * 1500 : (o.ms || 300) + 5000;
       t1 = setTimeout(() => { if (w) w.postMessage("stop"); }, lim);
       t2 = setTimeout(() => { kill(); fin(null); }, lim + 3000);
@@ -455,6 +456,29 @@ function stepQuiz(st) {
     }
   });
 }
+/* ================= juzgar una jugada distinta a la del problema ================= */
+function evalWords(l) {
+  if (l.mate != null) return l.mate > 0 ? `das jaque mate en ${l.mate} jugada${l.mate > 1 ? "s" : ""}` : "el rival te da jaque mate";
+  const c = l.cp;
+  return c >= 700 ? "quedas ganando con muchísima ventaja" : c >= 300 ? "quedas ganando claramente (como tener una pieza de más)" : c >= 120 ? "quedas algo mejor" : c >= -120 ? "la partida queda igualada" : c >= -300 ? "quedas peor" : "quedas perdiendo";
+}
+async function judge(pos, u, ex) {
+  const m = C.findMove(pos, u); if (!m || !ex || u === ex) return null;
+  const r = await AJSF.go(C.toFEN(pos), { depth: 14, multipv: 2, searchmoves: [u, ex] }); if (!r) return null;
+  const lu = r.lines.find(l => l.pv[0] === u), le = r.lines.find(l => l.pv[0] === ex);
+  if (!lu || !le) return null;
+  const san = sanOf(pos, u), su = SCORE(lu), se = SCORE(le);
+  if (le.mate > 0 && lu.mate > 0) return { ok: true, lu, msg: lu.mate <= le.mate ? `✓ <b>${san} también vale</b>: da jaque mate igual de rápido que la solución del problema.` : `✓ <b>${san} también gana</b>: das mate en ${lu.mate}. Aun así, había un mate más rápido, en ${le.mate}.` };
+  if (le.mate == null && (lu.mate > 0 || wp(su) >= wp(se) - 4)) return { ok: true, lu, msg: `✓ <b>${san} también vale</b>: con ella ${evalWords(lu)}, igual que con la jugada del problema.` };
+  const p1 = C.make(pos, m), rr = await AJSF.go(C.toFEN(p1), { depth: 12 }), rl = rr && rr.lines[0];
+  const rep = rl && rl.pv[0] ? sanOf(p1, rl.pv[0]) : null;
+  let msg;
+  if (wp(su) >= 65 && !(le.mate > 0)) msg = `<b>${san} no es mala, pero hay algo más fuerte.</b> Con tu jugada ${evalWords(lu)}; con la mejor, ${evalWords(le)}.${rep ? ` El rival respondería <b>${rep}</b>.` : ""} Busca jaques, capturas y amenazas más fuertes.`;
+  else if (le.mate > 0) msg = `<b>${san} no es la mejor.</b> Había un <b>jaque mate en ${le.mate}</b>, pero con tu jugada ya no lo hay${wp(su) >= 65 ? " (aunque sigues mejor)" : ""}. ${explain(pos, m, null, rl, false) || (rep ? `el rival se defendería con <b>${rep}</b>.` : "")} Busca jugadas que den jaque y quiten casillas al rey.`;
+  else msg = `<b>${san} no es la mejor.</b> Con tu jugada ${evalWords(lu)}; con la mejor, ${evalWords(le)}. ${explain(pos, m, le, rl, false)}`;
+  return { ok: false, lu, msg };
+}
+
 function stepPz(st, tok) {
   const pos = C.fromFEN(st.fen), side = pos.turn;
   txtEl(`<p><span class="side ${side}"></span><b>Juegan ${side === "w" ? "blancas" : "negras"}.</b> ${st.txt || ""}</p>`);
@@ -474,10 +498,20 @@ function stepPz(st, tok) {
       await wait(900); await play(st.sol[j + 1]); if (tok !== gen) return;
       j += 2; hl = 0; if (j >= st.sol.length) finish(true); else fb("¡Bien! Lee qué ha hecho el rival (debajo del tablero) y sigue.", "ok");
     } else {
-      miss++; if (miss === 1) V.err++;
-      wrong(); fb(miss >= 2 ? "Tampoco. Usa la pista si te atascas." : "No es esa. Prueba otra vez.", "bad");
+      if (busyJ) return; busyJ = true; B.user = null; fb("Comprobando tu jugada con el motor…");
+      const v = await judge(B.pos, u, exp).catch(() => null); busyJ = false;
+      if (tok !== gen || over) return;
+      if (v && v.ok) {
+        await play(u); if (tok !== gen) return;
+        over = true; B.user = null; SFX.magic();
+        fb(`${v.msg}<span class="why2">La idea del ejercicio: ${st.ok || ""}</span>`, "ok");
+        nextBtn(); addReplay(pos, st.sol, tok); return;
+      }
+      B.user = side; miss++; if (miss === 1) V.err++;
+      wrong(); fb(v ? v.msg + (miss >= 2 ? " Si te atascas, usa la pista." : "") : (miss >= 2 ? "Tampoco. Usa la pista si te atascas." : "No es esa. Prueba otra vez."), "bad");
     }
   };
+  let busyJ = false;
   newBoard(pos, { bottom: side, user: side, onMove, me: side });
   setActs(`<button class="btn sm" id="ph">Pista</button><button class="btn sm ghost" id="ps">Ver solución</button>`, {
     "#ph": () => { if (over || B.busy) return; if (!hl) V.err++; hl = Math.min(3, hl + 1); fb(hintFor(B.pos, st.sol[j], hl)); },
@@ -619,13 +653,14 @@ function pickPuzzles(n, o = {}) {
 /* Problema: el primer movimiento es el error del rival; luego tú encuentras la mejor */
 function runPuzzle(k, tok, done) {
   const [fen, mv] = PZ[k], moves = mv.split(" "), pos = C.fromFEN(fen), side = other(pos.turn);
-  let j = 1, failed = false, over = false, hl = 0, p1 = null;
-  const end = () => { over = true; B.user = null; done(!failed); fb2(whyLine(p1, moves.slice(1))); addReplay(p1, moves.slice(1), tok); };
+  let j = 1, failed = false, over = false, hl = 0, p1 = null, free = false, left = 0, extra = 0, note = "", busyJ = false;
+  const end = () => { over = true; B.user = null; done(!failed); if (note) fb2(note); fb2(free ? whyLine(p1, moves.slice(1)).replace("¿Por qué es la mejor?", `La jugada del problema era ${sanOf(p1, moves[1])}:`).replace(" Cualquier otra jugada no gana tanto.", "").replace(" y cualquier otra jugada le deja respirar", "") : whyLine(p1, moves.slice(1))); addReplay(p1, moves.slice(1), tok); };
+  const bestNow = async () => { const r = await AJSF.go(C.toFEN(B.pos), { depth: 14 }); return r && r.best; };
   const fb2 = h => { const el = $("#fb"); if (el) el.insertAdjacentHTML("beforeend", `<span class="why2">${h}</span>`); };
   const onMove = async u => {
-    if (over || B.busy) return;
-    const exp = moves[j], last = j === moves.length - 1;
-    if (u === exp || ((last || mates(B.pos, exp)) && mates(B.pos, u))) {
+    if (over || B.busy || busyJ) return;
+    const exp = free ? null : moves[j], last = j === moves.length - 1;
+    if (!free && (u === exp || ((last || mates(B.pos, exp)) && mates(B.pos, u)))) {
       B.user = null;
       await play(u); if (tok !== gen) return;
       if (j + 1 >= moves.length || isMate(B.pos)) return end();
@@ -633,18 +668,40 @@ function runPuzzle(k, tok, done) {
       await wait(900); await play(moves[j + 1]); if (tok !== gen) return;
       j += 2; hl = 0; B.user = side; fb("¡Bien! Lee qué ha hecho el rival (debajo del tablero) y sigue.", "ok");
       if (j >= moves.length) end();
-    } else { failed = true; wrong(); fb("No es la mejor. Prueba otra vez.", "bad"); }
+    } else {
+      busyJ = true; B.user = null; fb("Comprobando tu jugada con el motor…");
+      const ex = free ? await bestNow() : exp;
+      const v = ex === u ? { ok: true, lu: null, msg: "" } : await judge(B.pos, u, ex).catch(() => null);
+      busyJ = false; if (tok !== gen || over) return;
+      if (!v) { B.user = side; failed = true; wrong(); fb("No es la mejor. Prueba otra vez.", "bad"); return; }
+      if (!v.ok) { B.user = side; failed = true; wrong(); fb(v.msg + " Prueba otra vez.", "bad"); return; }
+      if (!free) { free = true; left = Math.ceil((moves.length - j) / 2); note = v.msg; }
+      left--;
+      await play(u); if (tok !== gen) return;
+      const stillMate = v.lu && v.lu.mate > 0;
+      if (isMate(B.pos) || (left <= 0 && (!stillMate || extra >= 3))) return end();
+      if (left <= 0) extra++;
+      fb(`${v.msg || "¡Bien!"} Mira cómo responde el rival…`, "ok");
+      const r = await bestNow(); if (tok !== gen) return;
+      if (!r) return end();
+      await wait(700); await play(r); if (tok !== gen) return;
+      hl = 0; B.user = side; fb("¡Bien! Lee qué ha hecho el rival (debajo del tablero) y sigue.", "ok");
+    }
   };
   newBoard(pos, { bottom: side, user: null, onMove, me: side });
   txtEl(`<p><span class="side ${side}"></span><b>Juegas con ${side === "w" ? "blancas" : "negras"}.</b> Mira la jugada que acaba de hacer el rival (te la explico debajo del tablero): ha cometido un error. Encuentra la mejor respuesta.</p>`);
   fb("");
   const ready = wait(600).then(async () => { if (tok !== gen) return; await play(moves[0]); if (tok !== gen) return; p1 = B.pos; B.user = side; });
   return {
-    async hint() { await ready; if (tok !== gen || over || B.busy || !B.user) return; failed = true; hl = Math.min(3, hl + 1); fb(hintFor(B.pos, moves[j], hl)); },
+    async hint() {
+      await ready; if (tok !== gen || over || B.busy || !B.user) return; failed = true; hl = Math.min(3, hl + 1);
+      const ex = free ? await bestNow() : moves[j]; if (tok !== gen || !ex) return; fb(hintFor(B.pos, ex, hl));
+    },
     async solve() {
       await ready; while (B && B.busy && tok === gen) await wait(100);
       if (tok !== gen || over || !B.user) return; failed = true; over = true; B.user = null;
-      while (j < moves.length) { await play(moves[j]); if (tok !== gen) return; j++; await wait(1100); }
+      if (free) { for (let i = 0; i < 8 && !isMate(B.pos); i++) { const r = await bestNow(); if (tok !== gen || !r) break; await play(r); if (tok !== gen) return; await wait(1100); if (B.pos.turn === side && left-- <= 0 && i > 0) break; } }
+      else while (j < moves.length) { await play(moves[j]); if (tok !== gen) return; j++; await wait(1100); }
       done(false); fb2(whyLine(p1, moves.slice(1))); addReplay(p1, moves.slice(1), tok);
     }
   };
@@ -697,8 +754,8 @@ function finishLesson() {
 }
 
 /* ---------- entrenamiento de táctica ---------- */
-function renderTactics() {
-  const k = pickPuzzles(1, { lo: P.pr - 150, hi: P.pr + 150 })[0];
+function renderTactics(force) {
+  const k = Number.isInteger(force) ? force : pickPuzzles(1, { lo: P.pr - 150, hi: P.pr + 150 })[0];
   const tok = show(`${topBar("← Escuela", "TÁCTICA")}
     <div class="ltitle"><h2>Tu nivel: <span class="gold">${P.pr}</span></h2><p class="muted small">Problemas de partidas jugadas por el motor. Si aciertas a la primera sube tu nivel; si fallas o pides pista, baja.</p></div>
     <div class="ltxt" id="lt"></div>${boardHTML()}<div class="cm" id="cm"></div><p class="fb" id="fb" role="status" aria-live="polite"></p><div class="acts" id="la"></div>`);
@@ -708,7 +765,7 @@ function renderTactics() {
     const d = markSeen(k, ok, true);
     if (ok) SFX.magic();
     fb(`${ok ? "✓ ¡Resuelto!" : "✗ Fallado."} Nivel ${P.pr} (${d >= 0 ? "+" : ""}${d}). ${themeLine(k)}`, ok ? "ok" : "bad");
-    setActs(`<button class="btn gold wide" id="pn">Siguiente problema</button>`, { "#pn": renderTactics });
+    setActs(`<button class="btn gold wide" id="pn">Siguiente problema</button>`, { "#pn": () => renderTactics() });
   });
   setActs(`<button class="btn sm" id="ph">Pista</button><button class="btn sm ghost" id="ps">Ver solución</button>`, { "#ph": () => ctl.hint(), "#ps": () => ctl.solve() });
 }
@@ -849,7 +906,7 @@ window.AJ_SCHOOL = {
   },
   ladderHint() { const r = recLevel(), w = (P.lad[r] || {}).w || 0; return `Tu escalón: <b>nivel ${r}</b>${w ? ` (te falta ${2 - w} victoria)` : ""}.`; },
   stamp: () => `${doneCount()}|${P.pr}|${recLevel()}`,
-  recordGame, review, _dbg: () => ({ B: B && { user: B.user, busy: B.busy, turn: B.pos.turn, fen: C.toFEN(B.pos) }, V })
+  recordGame, review, _pz: k => { V = { v: "tactics" }; renderTactics(k); }, _dbg: () => ({ B: B && { user: B.user, busy: B.busy, turn: B.pos.turn, fen: C.toFEN(B.pos) }, V })
 };
 if (S.ready && !S.mode) { S.lastKey = ""; A.render(); }
 })();
