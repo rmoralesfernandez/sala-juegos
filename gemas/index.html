@@ -156,7 +156,7 @@ button.jc{appearance:none;border:0;padding:0;cursor:pointer;transition:transform
 .pl.turn{box-shadow:0 0 0 2px var(--gold),0 0 22px -6px var(--gold)}
 .pl .hd{display:flex;align-items:center;gap:8px;min-width:0}
 .pl .hd b.nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:16px}
-.goals{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.goals{appearance:none;border:0;padding:0;background:none;color:inherit;width:100%;text-align:left;cursor:pointer;display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
 .goal{background:var(--bg);border-radius:10px;padding:5px 8px;display:grid;gap:3px;font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.04em}
 .goal span b{color:var(--ink);font-size:15px;font-family:var(--display)}
 .goal .bar{height:5px;border-radius:9px;background:var(--line);overflow:hidden}
@@ -407,11 +407,41 @@ const canAct = m => !m.st.over && m.me !== null && m.st.turn === m.me && !(m.mod
 /* ================= online ================= */
 function watch(code) {
   unwatch(); S.mode = "online"; S.code = code; ls.set("gemas.last", { code, t: Date.now() });
-  S.unsub = S.db.doc("games/" + code).onSnapshot(snap => {
-    if (!snap.exists) { leave("Esa partida ya no existe."); return; }
-    const prev = S.g; S.g = snap.data(); onRemote(prev); render();
-  }, () => leave("Se ha perdido la conexión con la partida."));
+  listen();
 }
+function listen() {
+  if (S.unsub) try { S.unsub(); } catch {}
+  const code = S.code;
+  S.unsub = S.db.doc("games/" + code).onSnapshot(snap => {
+    if (S.code !== code) return;
+    if (!snap.exists) { leave("Esa partida ya no existe."); return; }
+    if (S.putting) return; // llega lo nuestro al terminar de guardar
+    adopt(snap.data());
+  }, () => { S.unsub = null; setTimeout(resync, 2000); });
+}
+function adopt(d) {
+  const prev = S.g;
+  if (prev && prev.st === d.st && prev.status === d.status && JSON.stringify(prev.seats) === JSON.stringify(d.seats)) return;
+  S.g = d; onRemote(prev); render();
+}
+/* Red de seguridad: un móvil que vuelve de segundo plano o pierde la escucha
+   vuelve a leer la partida del servidor y se pone al día solo. */
+async function resync() {
+  if (S.mode !== "online" || !S.code || S.putting) return;
+  const code = S.code;
+  try {
+    const snap = await S.db.doc("games/" + code).get();
+    if (S.code !== code || S.putting) return;
+    if (!snap.exists) { leave("Esa partida ya no existe."); return; }
+    const d = snap.data(), stale = !S.g || S.g.st !== d.st;
+    adopt(d);
+    if (stale || !S.unsub) listen();
+  } catch {}
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden) resync(); });
+addEventListener("online", () => resync());
+addEventListener("pageshow", () => resync());
+setInterval(() => { if (!document.hidden) resync(); }, 6000);
 function unwatch() { if (S.unsub) try { S.unsub(); } catch {} S.unsub = null; S.g = null; clearSel(); closeSheet(); }
 function leave(msg) {
   unwatch(); clearTimeout(S.aiTimer); S.aiTimer = null; S.aiPlan = null;
@@ -462,9 +492,16 @@ async function joinOnline(code) {
   S.busy = false; render();
 }
 async function put(patch) {
-  S.g = { ...S.g, ...patch }; render();
-  try { await S.db.doc("games/" + S.code).update(patch); }
-  catch { toast("No se pudo guardar. Reintentando…"); setTimeout(() => S.db.doc("games/" + S.code).update(patch).catch(() => toast("Sin conexión con la partida.")), 1500); }
+  const code = S.code, ref = S.db.doc("games/" + code);
+  S.putting = (S.putting || 0) + 1; S.g = { ...S.g, ...patch }; render();
+  let ok = false;
+  for (let i = 0; i < 3 && !ok; i++) {
+    try { await ref.update(patch); ok = true; }
+    catch { if (i === 0) toast("No se pudo guardar. Reintentando…"); await new Promise(r => setTimeout(r, 1200)); }
+  }
+  S.putting--;
+  if (!ok) toast("Sin conexión con la partida: vuelvo a cargarla del servidor.", 4000);
+  resync(); // nunca nos quedamos con una versión que el servidor no tiene
 }
 
 /* ================= mismo móvil y máquina ================= */
@@ -520,10 +557,18 @@ function maybeAI() {
     S.L.st = ns; saveLocal(); render();
   }, st.q.length ? 800 : 1100);
 }
-function rematch() {
-  const m = model(); if (!m.st.over) return;
-  const st = B.rematch(m.st);
-  closeSheet(); clearSel(); S.endShown = ""; S.pendShown = ""; S.aiPlan = null;
+async function rematch() {
+  const m = model(); closeSheet();
+  if (!m.st.over) return;
+  if (S.mode === "online") {
+    /* Antes de crear la revancha, mirar el servidor: si el rival ya la ha empezado, nos unimos a la suya */
+    try {
+      const snap = await S.db.doc("games/" + S.code).get(), d = snap.exists ? snap.data() : null, cur = d && parseSt(d.st);
+      if (!cur || !cur.over || cur.seed !== m.st.seed) { if (d) adopt(d); clearSel(); return; }
+    } catch { toast("Sin conexión con la partida. Inténtalo otra vez."); return; }
+  }
+  const st = B.rematch(model().st);
+  clearSel(); S.endShown = ""; S.pendShown = ""; S.aiPlan = null;
   if (S.mode === "online") put({ st: JSON.stringify(st) });
   else { S.L.st = st; S.cover = S.L.mode === "local"; saveLocal(); render(); }
 }
@@ -618,7 +663,7 @@ function startReserve(r) {
 }
 function openPending(force) {
   const m = model(), st = m.st, h = st.q[0]; if (!h || !canAct(m)) return;
-  const key = st.n + "|" + h.t;
+  const key = st.seed + "|" + st.n + "|" + h.t;
   if (!force && S.pendShown === key) return;
   S.pendShown = key;
   const p = m.me, pl = st.P[p], op = st.P[1 - p];
@@ -790,6 +835,7 @@ function buildGame() {
   document.getElementById("pyr").addEventListener("click", e => { const b = e.target.closest("[data-lv]"); if (b) { if (S.resGold) { S.resGold = null; } openCard({ lv: +b.dataset.lv, k: +b.dataset.k }); } });
   document.getElementById("decks").addEventListener("click", e => { const b = e.target.closest("[data-d]"); if (b) openCard({ deck: true, lv: +b.dataset.d }); });
   document.getElementById("mine").addEventListener("click", e => { const b = e.target.closest("[data-r]"); if (b) openCard({ from: "r", k: +b.dataset.r }); });
+  ["opp", "mine"].forEach(id => document.getElementById(id).addEventListener("click", e => { const b = e.target.closest("[data-pts]"); if (b) showPoints(+b.dataset.pts); }));
   document.getElementById("roys").addEventListener("click", e => {
     const b = e.target.closest("[data-roy]"); if (!b) return;
     const m = model(), h = m.st.q[0];
@@ -805,7 +851,7 @@ function playerHTML(m, q, mine) {
   const colH = c => {
     const isG = GEMS.includes(c);
     return `<div class="col">${isG ? `<span class="bn${b[c] ? "" : " z"}" style="background:${COST_BG[c]};color:${COST_TX[c] || "#fff"}" aria-label="Bonus ${N1[c]}: ${b[c]}">${b[c]}</span>` : `<span class="bn" style="visibility:hidden">0</span>`}
-      <span class="tk${pl.t[c] ? "" : " z"}" aria-label="${N[c]}: ${pl.t[c]} fichas">${chip(c)}<b>${pl.t[c]}</b></span><small>${isG && cp[c] ? cp[c] + " pt" : ""}</small></div>`;
+      <span class="tk${pl.t[c] ? "" : " z"}" aria-label="${N[c]}: ${pl.t[c]} fichas">${chip(c)}<b>${pl.t[c]}</b></span><small>${isG && cp[c] ? cp[c] + (cp[c] === 1 ? " pto" : " ptos") : ""}</small></div>`;
   };
   const nm = mine ? (m.me === null ? m.names[q] : m.mode === "local" ? m.names[q] : "Tú") : m.names[q];
   const roys = pl.roy.map(id => `<span class="rch" title="Carta real">${CROWN}${B.ROYALS[id].pts}</span>`).join("");
@@ -813,7 +859,7 @@ function playerHTML(m, q, mine) {
     ? pl.res.map((id, k) => cardHTML(id, (B.canBuy(st, q, id) ? "can " : "") + (S.hintCard === "r" + k ? "sel" : ""), "button", `data-r="${k}" aria-label="Carta reservada ${k + 1}"`)).join("")
     : pl.res.map(id => backHTML(B.card(id).lv)).join("");
   return `<div class="hd"><b class="nm">${esc(nm)}</b>${roys}<span class="scroll" aria-label="${pl.priv} pergaminos">${SCROLL}<b>${pl.priv}</b></span><span class="small muted">Fichas <b style="color:var(--ink)">${B.ntok(pl)}</b>/10</span></div>
-    <div class="goals">${goal("Puntos", pts, 20)}${goal("Coronas", cr, 10)}${goal(mc ? cap(N1[best]) : "Un color", mc, 10)}</div>
+    <button class="goals" data-pts="${q}" aria-label="Ver cómo se cuentan los puntos">${goal("Puntos", pts, 20)}${goal("Coronas", cr, 10)}${goal(mc ? "Puntos " + N1[best] : "Un color", mc, 10)}</button>
     <div class="cols">${TOK.map(colH).join("")}</div>
     ${pl.res.length ? `<div class="ft"><span>Reservadas ${pl.res.length}/3${mine && m.me !== null ? " (tócalas para comprar)" : ""}:</span></div><div class="resv${mine && m.me !== null ? " mine" : ""}">${res}</div>` : ""}`;
 }
@@ -921,8 +967,33 @@ function updateGame() {
   if (fresh && st.last.p !== m.me && m.me !== null) sound(st.last);
   S.seenN = st.last ? st.last.n : 0;
 
+  if (!st.over && S.endOpen) closeSheet();
   if (my && h && h.t !== "pick") setTimeout(() => openPending(false), fresh ? 500 : 50);
   if (st.over && S.endShown !== st.seed + "|" + st.n) { S.endShown = st.seed + "|" + st.n; setTimeout(() => showEnd(), 700); }
+}
+
+/* ================= cómo van los puntos ================= */
+function showPoints(q) {
+  const m = model(), st = m.st, pl = st.P[q], cp = B.colorPts(pl), b = B.bonus(pl);
+  const nm = m.mode !== "local" && q === m.me ? "Tus puntos" : `Puntos de ${esc(m.names[q])}`;
+  const by = {}; let plain = 0, plainN = 0;
+  for (const x of pl.cards) { const cd = B.card(x.id); if (x.c) { (by[x.c] = by[x.c] || []).push(cd.pts); } else { plain += cd.pts; plainN++; } }
+  const roy = pl.roy.reduce((a, id) => a + B.ROYALS[id].pts, 0), total = B.points(pl), cr = B.crowns(pl);
+  const rows = GEMS.filter(c => by[c]).map(c => `<tr><td><span style="display:inline-flex;align-items:center;gap:6px"><span style="width:22px">${chip(c)}</span>${cap(N1[c])}</span></td><td>${by[c].length}</td><td>${b[c]}</td><td class="${cp[c] >= 7 ? "w" : ""}">${by[c].join(" + ")} = <b>${cp[c]}</b></td></tr>`).join("");
+  const mc = Math.max(0, ...GEMS.map(c => cp[c]));
+  openSheet(`<h2>${nm}</h2>
+    <p class="muted small">Las <b>fichas</b> (gemas, perlas y oro) <b>no dan puntos</b>: son el dinero para comprar cartas. Los puntos son el número grande de arriba a la izquierda de cada carta comprada, más las cartas reales.</p>
+    ${rows || plainN ? `<table class="res"><thead><tr><th>Color</th><th>Cartas</th><th>Bonus</th><th>Puntos</th></tr></thead><tbody>${rows}
+      ${plainN ? `<tr><td>Sin color</td><td>${plainN}</td><td>–</td><td>${plain}</td></tr>` : ""}
+      ${roy ? `<tr><td>Cartas reales</td><td>${pl.roy.length}</td><td>–</td><td>${roy}</td></tr>` : ""}
+      <tr><td><b>Total</b></td><td></td><td></td><td><b>${total}</b> de 20</td></tr></tbody></table>` : `<p>Todavía no hay cartas compradas: 0 puntos.</p>`}
+    <div style="display:grid;gap:6px;font-size:14.5px">
+      <p>🏆 <b>Puntos totales:</b> ${total}/20. Se suman todas las cartas, de cualquier color, y las reales.</p>
+      <p>🎨 <b>Mejor color:</b> ${mc}/10. Solo cuentan los puntos de las cartas de <b>ese</b> color (los comodines cuentan para el color al que los uniste). Las cartas sin color y las reales no cuentan aquí.</p>
+      <p>👑 <b>Coronas:</b> ${cr}/10. Se cuentan aparte; no son puntos.</p>
+      <p class="muted small">El <b>bonus</b> no son puntos: es el descuento fijo que te hacen tus cartas de ese color cada vez que compras.</p></div>
+    <button class="btn gold wide" data-x>Entendido</button>`);
+  on("[data-x]", "click", closeSheet, $sheet);
 }
 
 /* ================= final ================= */
@@ -944,6 +1015,7 @@ function showEnd() {
     </tbody></table>
     <div class="row">${m.me !== null || m.mode !== "online" ? `<button class="btn gold" id="nx">Revancha</button>` : ""}<button class="btn ghost" id="vt">Ver la mesa</button></div>
     <button class="btn ghost wide" id="bye">Salir</button>`);
+  S.endOpen = true;
   on("#nx", "click", rematch, $sheet);
   on("#vt", "click", closeSheet, $sheet);
   on("#bye", "click", () => { closeSheet(); if (S.mode === "local") ls.del("gemas.partida"); leave(); }, $sheet);
@@ -968,6 +1040,13 @@ function showRules() {
       <ul><li><b>Coger fichas</b>: hasta 3 gemas o perlas <b>seguidas en línea recta</b> (fila, columna o diagonal), sin huecos ni oro en medio. Si coges 3 del mismo color o las 2 perlas, tu rival gana un pergamino.</li>
         <li><b>Reservar</b>: coges 1 <b>oro</b> del tablero y te guardas una carta de la pirámide (o la primera de un mazo, a ciegas). Máximo 3 reservadas. El oro vale como cualquier ficha al pagar.</li>
         <li><b>Comprar</b> una carta de la pirámide o de tus reservas: pagas su coste menos tus bonus de cada color. Las fichas pagadas van a la bolsa.</li></ul></section>
+    <section><h3>Cómo se cuentan los puntos</h3><ul>
+      <li>Las <b>fichas no valen puntos</b>: solo sirven para pagar cartas.</li>
+      <li>Cada carta comprada te da los puntos de su número grande (arriba a la izquierda). Las cartas reales también dan puntos.</li>
+      <li><b>Total</b>: se suma todo. Ejemplo: un rubí de 3, un zafiro de 2 y una real de 3 = <b>8 puntos</b>.</li>
+      <li><b>Por color</b>: solo las cartas de ese color. En el ejemplo, rubí = 3 y zafiro = 2. Si juntas 10 en un solo color, ganas aunque no llegues a 20.</li>
+      <li>El <b>bonus</b> de una carta es un descuento, no puntos: con 2 cartas rubí, todo lo que cueste rubíes te sale 2 más barato.</li></ul>
+      <p class="muted small">Toca las barras de puntos de cualquier jugador para ver su cuenta carta a carta.</p></section>
     <section><h3>Las cartas</h3>
       <div class="ex">${cardHTML(43)}<span style="flex:1;min-width:160px">Arriba a la izquierda, los <b>puntos</b>; debajo, las <b>coronas</b>. Arriba a la derecha, el <b>bonus</b> que te da. Abajo, lo que cuesta. Las cartas con borde verde son las que ya puedes comprar.</span></div>
       <div class="abl">${["turn", "gem", "steal", "priv", "wild"].map(abRow).join("")}</div></section>
@@ -1023,11 +1102,12 @@ function confirmSheet(title, text, okLabel, fn) {
   on("[data-ok]", "click", () => { closeSheet(); fn(); }, $sheet);
 }
 function openSheet(html, sticky) {
+  S.endOpen = false;
   document.getElementById("toast").classList.remove("on");
   $sheet.innerHTML = `<div class="scrim"></div><div class="pane" role="dialog" aria-modal="true">${html}</div>`; $sheet.classList.add("on");
   $sheet.querySelector(".scrim").addEventListener("click", closeSheet); $sheet.querySelector(".pane").scrollTop = 0;
 }
-function closeSheet() { $sheet.classList.remove("on"); $sheet.innerHTML = ""; }
+function closeSheet() { S.endOpen = false; $sheet.classList.remove("on"); $sheet.innerHTML = ""; }
 addEventListener("keydown", e => { if (e.key === "Escape") { closeSheet(); endTour(); } });
 
 boot();
