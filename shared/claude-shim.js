@@ -32,9 +32,39 @@
       const nick = ls.get(NICK_KEY);
       if (nick) fs.doc(`profiles/${user.uid}`).set({ name: nick }).catch(() => {});
       const rtdb = firebase.database();
+      watchdog(fs, user.uid);
       return { uid: user.uid, fs, rtdb, serverNow: serverClock(rtdb) };
     })();
     return ready;
+  }
+
+  /* Vigilante de conexión: en el móvil, al volver de segundo plano o tras un corte, la escucha de
+     Firestore puede quedarse colgada sin dar error y el juego se queda con una jugada vieja.
+     Si el móvil estuvo un rato en segundo plano, o una lectura de prueba no responde, se reinicia
+     la conexión; las escuchas abiertas se reenganchan solas y traen el estado del servidor. */
+  function watchdog(fs, uid) {
+    let busy = false, last = Date.now(), hiddenAt = 0;
+    const reset = async () => { try { await fs.disableNetwork(); await fs.enableNetwork(); } catch {} };
+    const probe = async force => {
+      if (busy || document.hidden || navigator.onLine === false) return;
+      if (!force && Date.now() - last < 25000) return;
+      busy = true; last = Date.now();
+      try {
+        const ok = await Promise.race([
+          fs.doc(`profiles/${uid}`).get({ source: "server" }).then(() => true, e => !!e && e.code !== "unavailable"),
+          new Promise(res => setTimeout(() => res(false), 6000))
+        ]);
+        if (!ok && navigator.onLine !== false) await reset();
+      } catch {} finally { busy = false; }
+    };
+    document.addEventListener("visibilitychange", async () => {
+      if (document.hidden) { hiddenAt = Date.now(); return; }
+      if (hiddenAt && Date.now() - hiddenAt > 15000) { busy = true; await reset(); busy = false; last = Date.now(); }
+      else probe(true);
+    });
+    addEventListener("online", () => probe(true));
+    addEventListener("pageshow", e => { if (e.persisted) probe(true); });
+    setInterval(() => probe(false), 5000);
   }
 
   /* Hora del servidor: cada móvil tiene su reloj y pueden ir segundos o minutos desfasados.
