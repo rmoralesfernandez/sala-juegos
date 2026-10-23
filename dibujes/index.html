@@ -332,6 +332,7 @@ async function boot() {
   try {
     const [db, user] = await Promise.all(["db", "user"].map(n => window.claude ? claude.use(n).catch(() => null) : null));
     S.db = db; if (user) S.uid = await user.id();
+    if (db && db.now) db.now().then(t => { if (isFinite(t)) S.skew = t - Date.now(); }).catch(() => {});
   } catch {}
   if (!S.db || !S.uid) S.offline = true;
   if (S.offline) S.mode = "local";
@@ -397,13 +398,13 @@ function patch() {
 }
 function tick() {
   $app.querySelectorAll("[data-until]").forEach(el => {
-    const left = +el.dataset.until - Date.now();
+    const left = +el.dataset.until - (S.L ? Date.now() : sNow());
     el.textContent = clock(left); el.classList.toggle("hurry", left < 10500);
   });
   const g = S.g;
   if (!S.L && g && g.status === "play") {
-    if (g.phase === "draw" && g.until && Date.now() >= g.until - 3000 && inGame(g) && S.sent !== g.k) submitDraw();
-    if (isHost() && g.until && Date.now() >= g.until) drive();
+    if (g.phase === "draw" && g.until && sNow() >= g.until - 3000 && inGame(g) && S.sent !== g.k) submitDraw();
+    if (isHost() && g.until && sNow() >= g.until) drive();
   }
   if (S.L && S.L.step === "draw" && S.L.until && Date.now() >= S.L.until) H.ldone();
 }
@@ -551,6 +552,8 @@ const colorOf = id => { let i = S.g && S.g.order ? S.g.order.indexOf(id) : -1; i
 const av = id => `<span class="av" style="--c:${colorOf(id)}">${esc(nameOf(id).charAt(0).toUpperCase() || "?")}</span>`;
 const actOf = (g, u) => { const a = S.acts[u]; return a && a.k === g.k ? a : null; };
 const inGame = g => g && g.order && g.order.includes(me());
+/* hora común de todos los móviles (corrige relojes desfasados) y margen para respuestas que llegan justas */
+const sNow = () => Date.now() + (S.skew || 0), GRACE = 2500;
 async function act(data) {
   const g = S.g; if (!g) return;
   try { await S.db.doc(`${base()}/act/${me()}`).set({ k: g.k, ...data, t: Date.now() }); }
@@ -572,7 +575,7 @@ async function dealRound(g) {
   await S.db.doc(allPath(g.gid, g.round)).set(map);
   S.all = map;
   g.opts = opts; g.used = usedFrom(combos, g.used);
-  g.phase = "draw"; g.i = 0; g.k = `${g.gid}|d${g.round}`; g.until = Date.now() + g.cfg.time * 1000 + 3000;
+  g.phase = "draw"; g.i = 0; g.k = `${g.gid}|d${g.round}`; g.until = sNow() + g.cfg.time * 1000 + 3000;
   g.ans = null; g.res = null; g.drinks = null; g.dp = 0;
 }
 async function hostStart() {
@@ -585,7 +588,7 @@ async function hostStart() {
   await commit(g);
 }
 function toGuess(g, i) {
-  g.phase = "guess"; g.i = i; g.k = `${g.gid}|g${g.round}-${i}`; g.until = Date.now() + g.cfg.gtime * 1000;
+  g.phase = "guess"; g.i = i; g.k = `${g.gid}|g${g.round}-${i}`; g.until = sNow() + g.cfg.gtime * 1000;
   g.ans = null; g.res = null; g.drinks = null; g.dp = 0;
 }
 function afterShow(g) {
@@ -596,7 +599,7 @@ function afterShow(g) {
 }
 function drive() {
   if (!isHost() || !S.g || S.g.status !== "play" || !S.all) return;
-  const g0 = S.g, now = Date.now(), A = u => actOf(g0, u);
+  const g0 = S.g, now = sNow(), A = u => actOf(g0, u);
   if (S.driving === g0.k) return;
   const g = clone(g0);
   switch (g0.phase) {
@@ -605,7 +608,7 @@ function drive() {
       return;
     case "guess": {
       const d = g0.order[g0.i], gs = g0.order.filter(u => u !== d);
-      if (!(gs.every(A) || now >= g0.until)) return;
+      if (!(gs.every(A) || now >= g0.until + GRACE)) return;
       const ans = S.all[d]; if (!ans) return;
       const j = judge(d, ans, gs.map(u => ({ u, g: A(u) && A(u).g })), g.cfg);
       applyScores(g.scores, g.sips, d, j);
@@ -624,8 +627,8 @@ async function hostNext() {
     g.round++; S.busy = true; render();
     try { await dealRound(g); } catch { S.busy = false; toast("No se pudo repartir."); render(); return; }
     S.busy = false;
-  } else if (g.phase === "draw") { if (g.until - 3000 <= Date.now()) toGuess(g, 0); else g.until = Date.now() + 3000; }
-  else if (g.phase === "guess") { g.until = Date.now() - 1; S.g = g; return drive(); }
+  } else if (g.phase === "draw") { if (g.until - 3000 <= sNow()) toGuess(g, 0); else g.until = sNow() + 3000; }
+  else if (g.phase === "guess") { g.until = sNow() - 1 - GRACE; S.g = g; return drive(); }
   else return;
   await commit(g);
 }

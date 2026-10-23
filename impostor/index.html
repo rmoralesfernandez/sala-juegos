@@ -169,6 +169,7 @@ async function boot() {
   try {
     const [db, user, sample] = await Promise.all(["db", "user", "sample"].map(n => window.claude ? claude.use(n).catch(() => null) : null));
     S.db = db; S.sample = sample; if (user) S.uid = await user.id();
+    if (db && db.now) db.now().then(t => { if (isFinite(t)) S.skew = t - Date.now(); }).catch(() => {});
   } catch {}
   if (!S.db || !S.uid) S.offline = true;
   S.ready = true;
@@ -279,6 +280,8 @@ function advanceTurn(g) {
   } while (!g.alive.includes(g.sp[g.turn]));
   g.k = `${g.gid}|c${g.round}-${g.ci}-${g.turn}`;
 }
+/* hora común de todos los móviles (corrige relojes desfasados) y margen para respuestas que llegan justas */
+const sNow = () => Date.now() + (S.skew || 0), GRACE = 2500;
 async function act(data) {
   const g = S.g; if (!g) return;
   try { await S.db.doc(`${base()}/act/${me()}`).set({ k: g.k, ...data, t: Date.now() }); }
@@ -348,7 +351,7 @@ async function hostStart() {
 function toClues(g) { g.phase = "clues"; g.sp = rotation(g); g.ci = 0; g.turn = 0; g.k = `${g.gid}|c${g.round}-0-0`; g.until = null; }
 function toTalk(g) {
   if (!g.cfg.talk) return toVote(g);
-  g.phase = "talk"; g.k = `${g.gid}|t${g.round}`; g.until = Date.now() + g.cfg.talk * 1000;
+  g.phase = "talk"; g.k = `${g.gid}|t${g.round}`; g.until = sNow() + g.cfg.talk * 1000;
 }
 function toVote(g) { g.phase = "vote"; g.k = `${g.gid}|v${g.round}`; g.until = null; }
 function finish(g, win, how) {
@@ -368,7 +371,7 @@ function checkWin(g) {
 function nextRound(g) { g.round++; g.out = null; g.tally = null; g.guess = null; toClues(g); }
 function drive() {
   if (!isHost() || !S.g || S.g.status !== "play" || !S.all) return;
-  const g0 = S.g, now = Date.now(), A = u => actOf(g0, u), alive = g0.alive;
+  const g0 = S.g, now = sNow(), A = u => actOf(g0, u), alive = g0.alive;
   const g = clone(g0);
   switch (g0.phase) {
     case "reveal":
@@ -399,7 +402,7 @@ function drive() {
     }
     case "guess": {
       const a = A(g0.out.u);
-      if (!a && !(g0.until && now >= g0.until)) return;
+      if (!a && !(g0.until && now >= g0.until + GRACE)) return;
       const w = a ? String(a.w || "").trim().slice(0, 40) : "";
       const ok = !!w && sameWord(w, S.all.word);
       g.guess = { w, ok };
@@ -431,7 +434,7 @@ async function hostKick(u) {
   g.alive = g.alive.filter(x => x !== u);
   if (checkWin(g)) return commit(g);
   if (wasSpeaker) advanceTurn(g);
-  if (g.phase === "guess" && g.out && g.out.u === u) { g.phase = "result"; g.k = `${g.gid}|r${g.round}`; g.until = Date.now() + 9000; }
+  if (g.phase === "guess" && g.out && g.out.u === u) { g.phase = "result"; g.k = `${g.gid}|r${g.round}`; g.until = sNow() + 9000; }
   await commit(g);
 }
 async function hostOverride() {
@@ -489,10 +492,10 @@ function bind() {
 function tick() {
   const g = S.g;
   $app.querySelectorAll("[data-until]").forEach(el => {
-    const left = Math.max(0, Math.ceil((+el.dataset.until - Date.now()) / 1000));
+    const left = Math.max(0, Math.ceil((+el.dataset.until - sNow()) / 1000));
     el.textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
   });
-  if (g && g.until && isHost() && Date.now() >= g.until) drive();
+  if (g && g.until && isHost() && sNow() >= g.until) drive();
 }
 function rulesHTML() {
   return `<details class="card"><summary>Cómo se juega</summary><div class="how">

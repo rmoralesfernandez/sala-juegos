@@ -213,6 +213,22 @@ const fill = (t, o) => t.replace(/\{(\w)\}/g, (_, k) => o[k] ?? "");
 const shuffle = a => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const ls = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+/* Hora común: cada móvil corrige su reloj con el desfase del servidor (si no, los puntos por rapidez salen mal) */
+const sNow = () => Date.now() + (S.skew || 0);
+/* Números escritos a mano: «9,58», «9.58», «8.849» o «1.234,5». Devuelve la lectura principal y, si es ambigua, la otra. */
+function parseNum(raw) {
+  const t = String(raw || "").trim().replace(/\s+/g, "").replace(/^\+/, "");
+  if (!/^-?[\d.,]*\d[\d.,]*$/.test(t)) return null;
+  const dots = (t.match(/\./g) || []).length, commas = (t.match(/,/g) || []).length;
+  const num = x => { const v = Number(x); return isFinite(v) ? v : null; };
+  if (dots && commas) { const dec = t.lastIndexOf(".") > t.lastIndexOf(",") ? "." : ","; const th = dec === "." ? "," : "."; return { a: num(t.split(th).join("").replace(dec, ".")), alt: null }; }
+  const sep = dots ? "." : commas ? "," : "";
+  if (!sep) return { a: num(t), alt: null };
+  if (dots + commas > 1) return { a: num(t.split(sep).join("")), alt: null };
+  const grouped = /^-?\d{1,3}[.,]\d{3}$/.test(t), asDec = num(t.replace(sep, ".")), asTh = num(t.replace(sep, ""));
+  if (!grouped) return { a: asDec, alt: null };
+  return sep === "." ? { a: asTh, alt: asDec } : { a: asDec, alt: asTh };
+}
 const fmt = n => Number(n).toLocaleString("es-ES", { maximumFractionDigits: 3 });
 const $app = document.getElementById("app");
 let toastT;
@@ -237,6 +253,7 @@ async function boot() {
     if (user) S.uid = await user.id();
   } catch {}
   if (!S.db || !S.uid) S.offline = true;
+  else if (S.db.now) S.db.now().then(t => { if (isFinite(t)) S.skew = t - Date.now(); }).catch(() => {});
   S.ready = true;
   const h = (location.hash || "").replace("#", "").toUpperCase();
   const last = ls.get("qs.last");
@@ -261,7 +278,7 @@ function watch(code) {
     S.players = q.docs.map(d => ({ id: d.id, ...d.data() })); render(); hostCheckAll();
   }, () => {}));
   S.unsubs.push(S.db.collection(base + "/answers").onSnapshot(q => {
-    const a = {}; q.docs.forEach(d => { a[d.id] = d.data(); }); S.answers = a; hostCheckAll(); render();
+    const a = {}; q.docs.forEach(d => { a[d.id] = d.data(); }); S.answers = a; hostCheckAll(); hostLateAnswers(); render();
   }, () => {}));
 }
 function unwatch() { S.unsubs.forEach(u => { try { u(); } catch {} }); S.unsubs = []; S.g = null; S.players = []; S.answers = {}; clearTimeout(H.timer); }
@@ -337,7 +354,7 @@ async function aiRound(round) {
   if (!S.sample || !(S.g && S.g.cfg && S.g.cfg.ai)) return;
   const t = round.type, n = TYPES[t].count, cat = CATS[round.cat].n;
   const shape = {
-    mc: '{"qs":[{"q":"pregunta","o":["correcta","incorrecta","incorrecta","incorrecta"]}]} (la correcta SIEMPRE la primera)',
+    mc: '{"qs":[{"q":"pregunta","ok":"la respuesta correcta","mal":["incorrecta 1","incorrecta 2","incorrecta 3"]}]} (una sola correcta, las incorrectas claramente falsas)',
     tf: '{"qs":[{"q":"afirmación","a":true}]} (mezcla verdaderas y falsas)',
     num: '{"qs":[{"q":"pregunta cuya respuesta es un número","a":1234,"u":"unidad"}]}',
     ord: '{"qs":[{"q":"Ordena de ... a ...","i":["primero","segundo","tercero","cuarto"]}]} (i ya en el orden correcto)'
@@ -349,7 +366,10 @@ Responde SOLO con JSON con esta forma: ${shape}`;
   try {
     const data = await Promise.race([S.sample.json(prompt, { modelTier: "quick" }), new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 9000))]);
     const qs = (data && data.qs || []).slice(0, n).map(x => {
-      if (t === "mc" && x.q && Array.isArray(x.o) && x.o.length === 4) return { q: String(x.q), o: x.o.map(String), a: 0 };
+      if (t === "mc" && x.q && x.ok && Array.isArray(x.mal) && x.mal.length === 3) {
+        const o = [x.ok, ...x.mal].map(v => String(v).trim());
+        if (new Set(o.map(v => v.toLowerCase())).size === 4) return { q: String(x.q), o, a: 0 };
+      }
       if (t === "tf" && x.q && typeof x.a === "boolean") return { q: String(x.q), a: x.a };
       if (t === "num" && x.q && isFinite(Number(x.a))) return { q: String(x.q), a: Number(x.a), u: String(x.u || "") };
       if (t === "ord" && x.q && Array.isArray(x.i) && x.i.length === 4) return { q: String(x.q), i: x.i.map(String) };
@@ -360,10 +380,11 @@ Responde SOLO con JSON con esta forma: ${shape}`;
 }
 function savePlan() { ls.set(planKey(), H.plan); }
 async function put(patch) {
-  const g = { ...S.g, ...patch, seq: (S.g.seq || 0) + 1 };
-  S.g = g; render();
+  const prev = S.g, g = { ...S.g, ...patch, seq: (S.g.seq || 0) + 1 };
+  S.g = g; syncView(prev); render();
   try { await S.db.doc("games/" + S.code).set(g); } catch { toast("No se pudo guardar. Reintentando…"); setTimeout(() => S.db.doc("games/" + S.code).set(S.g).catch(() => {}), 1200); }
 }
+const GRACE = 2500;
 const after = (ms, fn) => { clearTimeout(H.timer); H.timer = setTimeout(fn, ms); };
 const seatIds = () => Object.keys((S.g && S.g.scores) || {});
 const nameOf = id => (S.players.find(p => p.id === id) || {}).name || "Alguien";
@@ -374,7 +395,7 @@ async function hostStart() {
   const cfg = S.g.cfg || S.cfg;
   H.plan = buildPlan(cfg.rounds); savePlan();
   const scores = {}, wedges = {}; S.players.forEach(p => { scores[p.id] = 0; wedges[p.id] = []; });
-  await put({ status: "play", scores, wedges, round: -1, line: "¡Bienvenidos al Quesito Show! Que empiece el espectáculo." });
+  await put({ status: "play", gid: Date.now().toString(36), scores, wedges, round: -1, line: "¡Bienvenidos al Quesito Show! Que empiece el espectáculo." });
   hostNextRound();
 }
 async function hostNextRound() {
@@ -398,14 +419,14 @@ async function hostAsk(qi, final) {
   const type = final ? "mc" : R.type;
   const { pub, right } = publicQ({ ...R, type }, qi);
   H.right = right; H.kind = type;
-  const key = final ? "final" : `${S.g.round}.${qi}`;
+  const key = `${S.g.gid || ""}.${final ? "final" : `${S.g.round}.${qi}`}`;
   const dur = final ? 20 : TYPES[type].dur;
-  await put({ phase: "q", qi, qn: final ? 1 : R.qs.length, key, q: pub, dur, startedAt: Date.now(), reveal: null, final: !!final, cat: final ? R.cat : S.g.cat, line: "" });
-  after(dur * 1000 + 1200, () => hostReveal());
+  await put({ phase: "q", qi, qn: final ? 1 : R.qs.length, key, q: pub, dur, startedAt: sNow(), reveal: null, final: !!final, cat: final ? R.cat : S.g.cat, line: "" });
+  after(dur * 1000 + GRACE, () => hostReveal());
 }
 function hostCheckAll() {
   if (!isHost() || !S.g || !["q", "bet"].includes(S.g.phase)) return;
-  const ids = seatIds(), key = S.g.phase === "bet" ? "bet" : S.g.key;
+  const ids = seatIds(), key = S.g.key;
   if (ids.length && ids.every(id => S.answers[id] && S.answers[id].k === key)) {
     if (H.allIn === key) return; H.allIn = key;
     after(700, () => S.g.phase === "bet" ? hostAsk(0, true) : hostReveal());
@@ -414,9 +435,13 @@ function hostCheckAll() {
 function score(kind, right, ans, durMs) {
   const per = {}, ids = seatIds();
   if (kind === "num") {
-    const got = ids.filter(id => ans[id] && isFinite(ans[id].a)).map(id => ({ id, d: Math.abs(Number(ans[id].a) - right) })).sort((a, b) => a.d - b.d);
+    /* si el número era ambiguo («42.195») vale la lectura que más se acerca */
+    const got = ids.filter(id => ans[id] && isFinite(ans[id].a)).map(id => {
+      const c = [Number(ans[id].a), ans[id].alt].filter(v => v !== null && v !== undefined && isFinite(v)).map(Number).sort((p, q) => Math.abs(p - right) - Math.abs(q - right))[0];
+      return { id, v: c, d: Math.abs(c - right) };
+    }).sort((a, b) => a.d - b.d);
     const prizes = [1000, 600, 300]; let rank = 0;
-    got.forEach((x, i) => { if (i > 0 && x.d > got[i - 1].d) rank = i; per[x.id] = { a: ans[x.id].a, pts: (prizes[rank] || 0) + (x.d === 0 ? 500 : 0), ok: x.d === 0, d: x.d }; });
+    got.forEach((x, i) => { if (i > 0 && x.d > got[i - 1].d) rank = i; per[x.id] = { a: x.v, pts: (prizes[rank] || 0) + (x.d === 0 ? 500 : 0), ok: x.d === 0, d: x.d }; });
   } else {
     ids.forEach(id => {
       const x = ans[id]; if (!x) return;
@@ -428,18 +453,25 @@ function score(kind, right, ans, durMs) {
   }
   return per;
 }
+/* respuestas válidas de la pregunta en curso (las que llegan con el tiempo agotado no cuentan) */
+function answersFor(key, durMs) {
+  const ans = {};
+  seatIds().forEach(id => { const a = S.answers[id]; if (a && a.k === key && !(a.ms > durMs + 1500)) ans[id] = a; });
+  return ans;
+}
+function scoreAll(kind, right, ans) {
+  if (!S.g.final) return score(kind, right, ans, S.g.dur * 1000);
+  const bets = S.g.bets || {}, per = {};
+  seatIds().forEach(id => { const b = bets[id] || 0, x = ans[id], ok = !!x && x.a === right; per[id] = { a: x ? x.a : null, ok, pts: ok ? b : -b }; });
+  return per;
+}
 async function hostReveal() {
   if (S.g.phase !== "q") return;
-  const key = S.g.key, ans = {};
-  seatIds().forEach(id => { const a = S.answers[id]; if (a && a.k === key) ans[id] = a; });
+  const ans = answersFor(S.g.key, S.g.dur * 1000);
   const kind = H.kind || S.g.q.kind, right = H.right;
   if (right === undefined) { after(500, () => hostNextAfterReveal()); return; }
-  let per = score(kind, right, ans, S.g.dur * 1000);
+  const per = scoreAll(kind, right, ans);
   const scores = { ...S.g.scores }, roundPts = { ...(S.g.roundPts || {}) };
-  if (S.g.final) {
-    const bets = S.g.bets || {}; per = {};
-    seatIds().forEach(id => { const b = bets[id] || 0, x = ans[id], ok = !!x && x.a === right; per[id] = { a: x ? x.a : null, ok, pts: ok ? b : -b }; });
-  }
   Object.entries(per).forEach(([id, r]) => { scores[id] = (scores[id] || 0) + r.pts; roundPts[id] = (roundPts[id] || 0) + r.pts; });
   const ok = Object.entries(per).filter(([, r]) => r.ok).map(([id]) => id), n = seatIds().length;
   let line;
@@ -451,6 +483,19 @@ async function hostReveal() {
   else { const f = ok.slice().sort((a, b) => (ans[a].ms || 9e9) - (ans[b].ms || 9e9))[0]; line = fill(pick(LINES.fast), { n: nameOf(f) }); }
   await put({ phase: "reveal", reveal: { right, per }, scores, roundPts, line });
   after(kind === "tf" ? 3800 : 5600, () => hostNextAfterReveal());
+}
+/* Una respuesta enviada a tiempo pero que llegó tarde por la red: se puntúa igual y se corrige el marcador */
+function hostLateAnswers() {
+  const g = S.g;
+  if (!isHost() || !g || g.phase !== "reveal" || !g.reveal || H.right === undefined) return;
+  const old = g.reveal.per || {}, ans = answersFor(g.key, g.dur * 1000);
+  if (!Object.keys(ans).some(id => !old[id] || (old[id].a === null && ans[id]))) return;
+  const per = scoreAll(H.kind || g.q.kind, H.right, ans), scores = { ...g.scores }, roundPts = { ...(g.roundPts || {}) };
+  Object.keys({ ...old, ...per }).forEach(id => {
+    const d = ((per[id] || {}).pts || 0) - ((old[id] || {}).pts || 0);
+    if (d) { scores[id] = (scores[id] || 0) + d; roundPts[id] = (roundPts[id] || 0) + d; }
+  });
+  put({ reveal: { ...g.reveal, per }, scores, roundPts });
 }
 const listNames = a => a.length < 2 ? a.join("") : a.slice(0, -1).join(", ") + " y " + a[a.length - 1];
 async function hostNextAfterReveal() {
@@ -466,7 +511,7 @@ async function hostNextAfterReveal() {
   after(6500, () => hostNextRound());
 }
 async function hostBetIntro() {
-  await put({ phase: "bet", key: "bet", startedAt: Date.now(), dur: 20, cat: H.plan.final.cat, q: null, reveal: null, bets: {}, line: pick(LINES.bet) });
+  await put({ phase: "bet", key: `${S.g.gid || ""}.bet`, startedAt: sNow(), dur: 20, cat: H.plan.final.cat, q: null, reveal: null, bets: {}, line: pick(LINES.bet) });
   after(21000, () => hostAsk(0, true));
 }
 async function hostEnd() {
@@ -481,31 +526,37 @@ function hostResume() {
   H.resumed = true; H.plan = ls.get(planKey());
   if (!H.plan) { toast("No se pudo retomar la partida en este móvil."); return; }
   const g = S.g;
-  if (g.phase === "q") { const R = g.final ? H.plan.final : H.plan.rounds[g.round]; H.kind = g.final ? "mc" : R.type; const x = R.qs[g.qi]; H.right = H.kind === "mc" ? g.q.opts.indexOf(x.o[x.a]) : H.kind === "ord" ? x.i : x.a; after(Math.max(500, g.startedAt + g.dur * 1000 + 1200 - Date.now()), () => hostReveal()); }
-  else if (g.phase === "bet") after(Math.max(500, g.startedAt + 21000 - Date.now()), () => hostAsk(0, true));
-  else if (g.phase === "reveal") after(2500, () => hostNextAfterReveal());
+  if (g.phase === "q") { const R = g.final ? H.plan.final : H.plan.rounds[g.round]; H.kind = g.final ? "mc" : R.type; const x = R.qs[g.qi]; H.right = H.kind === "mc" ? g.q.opts.indexOf(x.o[x.a]) : H.kind === "ord" ? x.i : x.a; after(Math.max(500, g.startedAt + g.dur * 1000 + GRACE - sNow()), () => hostReveal()); }
+  else if (g.phase === "bet") after(Math.max(500, g.startedAt + 21000 - sNow()), () => hostAsk(0, true));
+  else if (g.phase === "reveal") { H.kind = g.q.kind; H.right = g.reveal ? g.reveal.right : undefined; after(2500, () => hostNextAfterReveal()); }
   else if (g.phase === "round") after(2500, () => hostNextRound());
   else if (g.phase === "spin" || g.phase === "intro") after(1500, () => hostAsk(0));
 }
 
 /* ================= jugadores ================= */
 function onGame(prev) {
+  syncView(prev);
+  hostResume();
+}
+/* cada pregunta nueva pone su cronómetro en marcha (también en el móvil del anfitrión, que la ve antes de que llegue del servidor) */
+function syncView(prev) {
   const g = S.g;
   const k = g.phase + "|" + (g.key || "") + "|" + (g.round ?? "");
   if (k !== S.viewKey) {
     S.viewKey = k;
-    if (g.phase === "q" || g.phase === "bet") { S.t0 = performance.now() - Math.max(0, Math.min(Date.now() - (g.startedAt || Date.now()), 3000)); S.ordPick = []; S.numVal = ""; S.betPick = null; }
+    if (g.phase === "q" || g.phase === "bet") { S.t0 = performance.now() - Math.max(0, Math.min(sNow() - (g.startedAt || sNow()), (g.dur || 20) * 1000)); S.ordPick = []; S.numVal = ""; S.betPick = null; }
     if (g.phase === "end" && prev && prev.phase !== "end") confetti();
     if (g.phase === "reveal" && g.reveal && g.reveal.per && g.reveal.per[me()] && g.reveal.per[me()].ok && navigator.vibrate) try { navigator.vibrate(60); } catch {}
   }
-  hostResume();
 }
-const myAns = () => { const a = S.answers[me()]; const key = S.g.phase === "bet" ? "bet" : S.g.key; return a && a.k === key ? a : null; };
-async function answer(a) {
-  if (myAns() || !S.g || !seatIds().includes(me())) return;
-  const ms = Math.round(performance.now() - S.t0), key = S.g.phase === "bet" ? "bet" : S.g.key;
-  S.answers[me()] = { k: key, a, ms }; render();
-  try { await S.db.doc(`games/${S.code}/answers/${me()}`).set({ k: key, a, ms, t: Date.now() }); }
+const myAns = () => { const a = S.answers[me()]; return a && S.g && a.k === S.g.key ? a : null; };
+const timeUp = () => S.g && performance.now() - S.t0 > (S.g.dur || 20) * 1000;
+async function answer(a, extra) {
+  if (!S.g || myAns() || !seatIds().includes(me()) || !["q", "bet"].includes(S.g.phase)) return;
+  if (timeUp()) { toast("Se acabó el tiempo."); return; }
+  const ms = Math.round(performance.now() - S.t0), key = S.g.key, doc = { k: key, a, ms, ...(extra || {}) };
+  S.answers[me()] = doc; render();
+  try { await S.db.doc(`games/${S.code}/answers/${me()}`).set({ ...doc, t: Date.now() }); }
   catch { delete S.answers[me()]; toast("No se pudo enviar. Prueba otra vez."); render(); }
 }
 async function placeBet(pct) {
@@ -515,7 +566,7 @@ async function placeBet(pct) {
 /* el anfitrión copia las apuestas al documento para puntuar la final */
 function hostCollectBets() {
   if (!isHost() || S.g.phase !== "bet") return;
-  const bets = {}; seatIds().forEach(id => { const a = S.answers[id]; if (a && a.k === "bet") bets[id] = Math.max(0, Number(a.a) || 0); });
+  const bets = {}; seatIds().forEach(id => { const a = S.answers[id]; if (a && a.k === S.g.key) bets[id] = Math.max(0, Number(a.a) || 0); });
   if (JSON.stringify(bets) !== JSON.stringify(S.g.bets || {})) { S.g.bets = bets; }
 }
 
@@ -614,7 +665,7 @@ function renderGame() {
 }
 /* Indicador de turno (shared/turno.js). Aquí todos responden a la vez: no hay turnos,
    así que la franja dice si te falta responder a ti o quién falta por responder. */
-const pendingIds = () => { const g = S.g, key = g.phase === "bet" ? "bet" : g.key; return seatIds().filter(id => !(S.answers[id] && S.answers[id].k === key)); };
+const pendingIds = () => { const g = S.g, key = g.key; return seatIds().filter(id => !(S.answers[id] && S.answers[id].k === key)); };
 function turnState() {
   const g = S.g;
   if (!window.SalaTurno || !g || !["q", "bet"].includes(g.phase) || !seatIds().includes(me())) return null;
@@ -654,7 +705,7 @@ function bindQuestion() {
   const nf = document.getElementById("numf");
   if (nf) {
     const inp = document.getElementById("numv"); inp.addEventListener("input", () => { S.numVal = inp.value; });
-    nf.addEventListener("submit", e => { e.preventDefault(); const v = Number(String(inp.value).replace(/\./g, "").replace(",", ".")); if (!inp.value.trim() || !isFinite(v)) { toast("Escribe un número"); return; } answer(v); });
+    nf.addEventListener("submit", e => { e.preventDefault(); const n = parseNum(inp.value); if (!n || n.a === null) { toast("Escribe un número"); return; } answer(n.a, n.alt !== null ? { alt: n.alt } : null); });
     if (!matchMedia("(pointer:coarse)").matches) inp.focus();
   }
   $app.querySelectorAll("[data-ord]").forEach(b => b.addEventListener("click", () => { if (S.ordPick.length < 4) { S.ordPick = [...S.ordPick, b.dataset.ord]; render(); } }));
@@ -670,6 +721,7 @@ function tick() {
     const left = Math.max(0, total - (performance.now() - S.t0)), f = left / total;
     const i = el.firstElementChild; if (i) i.style.transform = `scaleX(${f})`;
     el.classList.toggle("hot", f < .25);
+    if (left <= 0 && !myAns()) $app.querySelectorAll(".stage button:not(#out)").forEach(b => { b.disabled = true; });
     if (left > 0 && document.body.contains(el)) S.raf = requestAnimationFrame(loop);
   };
   loop();
@@ -695,7 +747,8 @@ function revealView() {
     const detail = !r ? "Sin respuesta" : kind === "ord" ? `${r.n}/4 en su sitio` : kind === "num" ? `${fmt(r.a)} · a ${fmt(r.d)}` : ansText(kind, r.a, q);
     return `<li>${avatar(id)}<span class="nm">${esc(nameOf(id))}</span><span class="ans">${esc(detail)}</span><span class="pts ${pts > 0 ? "p" : pts < 0 ? "n" : "z"}">${pts > 0 ? "+" : ""}${fmt(pts)}</span></li>`;
   }).join("");
-  return qHead() + shown + hostLine(g.line) + `<ul class="res">${rows}</ul>`;
+  const lost = seatIds().includes(me()) && !per[me()] && myAns() ? `<p class="muted small" style="text-align:center">Tu respuesta aún no ha llegado al presentador; si llega enseguida, se suma.</p>` : "";
+  return qHead() + shown + hostLine(g.line) + `<ul class="res">${rows}</ul>` + lost;
 }
 function wedgesHTML(id) { return `<span class="wedges">${((S.g.wedges || {})[id] || []).map(c => `<i style="--wc:${CATS[c].c}" title="${esc(CATS[c].n)}"></i>`).join("")}</span>`; }
 function boardView(withWedgeAnim) {

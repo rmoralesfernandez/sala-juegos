@@ -207,7 +207,7 @@
     return api;
   }
 
-  const makeDb = core => ({ doc: p => makeDoc(core, p), collection: p => makeCollection(core, p) });
+  const makeDb = core => ({ doc: p => makeDoc(core, p), collection: p => makeCollection(core, p), now: () => core.serverNow() });
 
   /* ---------- user: id anónimo + nombre elegido en la Sala ---------- */
   function makeUser(core) {
