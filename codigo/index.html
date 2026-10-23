@@ -714,12 +714,15 @@ function turnModel(){
   const pn=partnerName(),o=other(me),fp=forPartner(),ro=S.readOnly;
   const yo=(accion,clave)=>({quien:"",color:SIDECOL[me],tuyo:true,accion,clave});
   const el=(accion,clave)=>({quien:pn,color:SIDECOL[o],tuyo:false,accion,clave});
+  /* inicio: aún no hay turno de nadie, así que ningún móvil dice «te toca» */
+  const libre=accion=>({quien:"",titulo:"Empieza cualquiera de los dos",color:"#566473",tuyo:false,aviso:false,accion,clave:"c0"});
   if(g.phase==="clue"){
     if(!g.giver){
-      if(fp&&!S.firstGiver)return yo(`Decidid quién da la primera pista`,"c0");
+      if(fp&&!S.firstGiver)return libre("Decidid quién da la primera pista");
       const gv=clueGiver();
       if(fp&&gv===o)return el("Te dice la primera pista en voz alta: apúntala","c0");
-      return yo(ro?`Da la primera pista en voz alta a ${pn} (o espera la suya)`:`Da la primera pista (o espera la de ${pn})`,"c0");
+      if(fp)return yo("Da la primera pista","c0");
+      return libre(ro?`Si tienes pista, dísela en voz alta a ${pn}; si no, espera la suya`:`Si tienes pista, dala tú; si no, espera la de ${pn}`);
     }
     if(g.giver===me)return yo(ro?`Da la pista en voz alta a ${pn}: la apunta en su móvil`:"Da una pista: palabra y número","c"+g.turn);
     return el(fp?"Te dice la pista en voz alta: apúntala":"Está pensando la pista…","c"+g.turn);
@@ -729,7 +732,7 @@ function turnModel(){
     if(other(g.giver)===me)return yo(ro?`Adivina (${clue}) · dile a ${pn} qué palabra tocas`:`Adivina con la pista ${clue}`,"g"+g.turn);
     return el(fp?`Adivina con tu pista (${clue}) · toca la palabra que te diga`:`Está adivinando con tu pista ${clue}`,"g"+g.turn);
   }
-  return {quien:"",color:"var(--danger)",tuyo:true,accion:`Muerte súbita (los dos) · toca solo palabras verdes en la llave de ${pn}`,clave:"sd"};
+  return {quien:"",titulo:"¡Os toca a los dos a la vez!",color:"var(--danger)",tuyo:true,accion:`Muerte súbita · toca solo palabras verdes en la llave de ${pn}`,clave:"sd"};
 }
 function renderTurno(){
   const T=turnModel();$("#turno").hidden=!T;
