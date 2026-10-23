@@ -596,7 +596,7 @@ function render(){
   if (!st) return;
   if (st.status === 'lobby') return renderLobby();
   const pendingAnim = st.anim && st.anim.seq > seenAnim;
-  if (st.status === 'ended' && !pendingAnim && !animating) return renderEnd();
+  if (st.status === 'ended' && !pendingAnim && !animating){ if (mode === 'online') SalaTurno.fin(); return renderEnd(); }
   if ($('game').hidden) show('game');
   $('roomTag').textContent = mode === 'online' ? code : '';
   $('roomTag').hidden = mode !== 'online';
@@ -666,7 +666,7 @@ function renderTurn(){
     accion = `${k.e} ${k.t || k.l}: ${tuyo === false ? 'está decidiendo' : 'haz lo que dice la casilla'}`;
   } else if (p.jail > 0) accion = `💀 En la cárcel · ${p.jail === 1 ? 'queda 1 ronda' : `quedan ${p.jail} rondas`}`;
   else accion = tuyo === false ? 'Va a tirar el dado' : 'Tira el dado 🎲';
-  const o = {quien: p.name, color: p.color, tuyo, accion, compacta: true};
+  const o = {quien: p.name, color: p.color, tuyo, accion, compacta: true, codigo: mode === 'online' ? code : ''};
   const h = SalaTurno.html(o);
   // Colores claros (amarillo, blanco…): texto oscuro para que se lea sobre la franja
   const m = /^#(..)(..)(..)$/.exec(p.color || ''), lum = m ? (0.299*parseInt(m[1],16) + 0.587*parseInt(m[2],16) + 0.114*parseInt(m[3],16)) / 255 : 0;

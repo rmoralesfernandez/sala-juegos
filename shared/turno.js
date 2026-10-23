@@ -109,6 +109,7 @@
     borde.style.setProperty("--st-c", color);
     // Borde del color de quien juega: grueso y latiendo si te toca, fino si esperas.
     borde.className = o.tuyo === false ? "on espera" : o.tuyo === true ? "on tuyo" : "on";
+    apunta(o);
     const k = `${o.quien}|${o.tuyo}|${o.clave ?? ""}`;
     if (k === ultima) return;
     const primera = ultima === null;
@@ -124,11 +125,72 @@
   }
 
   function limpiar() {
+    dejaPartida();
     ultima = null;
     clearTimeout(avisoT);
     if (borde) borde.className = "";
     if (aviso) aviso.classList.remove("on");
   }
 
-  window.SalaTurno = { html, marcar, limpiar, titulo };
+  /* Partidas a medias: cada juego online que está en marcha queda apuntado en este móvil
+     (localStorage "sala.partidas", por carpeta del juego). La Sala las lista y, al recargar
+     o reabrir, el juego vuelve solo a la partida (pendiente()). */
+  const REG = "sala.partidas", VIDA = 12 * 3600e3;
+  const DIR = (location.pathname.match(/([^/]+)\/(?:index\.html)?$/) || [])[1] || "";
+  const hashCode = () => { const c = (location.hash || "").replace("#", "").toUpperCase(); return /^[A-Z0-9]{4}$/.test(c) ? c : ""; };
+  const leeReg = () => { try { return JSON.parse(localStorage.getItem(REG)) || {}; } catch { return {}; } };
+  const guardaReg = r => { try { localStorage.setItem(REG, JSON.stringify(r)); } catch {} };
+  let activa = "", apuntadaT = 0, apuntadaK = "";
+  function apunta(o) {
+    const c = (o.codigo && String(o.codigo).toUpperCase()) || hashCode();
+    if (!DIR || !/^[A-Z0-9]{4}$/.test(c)) return;
+    activa = c;
+    const k = c + "|" + (o.tuyo === true);
+    if (k === apuntadaK && Date.now() - apuntadaT < 60000) return;
+    apuntadaK = k; apuntadaT = Date.now();
+    const r = leeReg();
+    r[DIR] = { code: c, t: Date.now(), tuyo: o.tuyo === true, estado: "juego", hash: !o.codigo || c === hashCode() };
+    guardaReg(r);
+  }
+  /* Fin de la partida o salida al menú. Si la página sigue con el código en la dirección es que
+     la partida terminó y se borra; si no, el jugador salió a medias y queda en la lista. */
+  function dejaPartida(fin) {
+    if (!activa) return;
+    const c = activa; activa = ""; apuntadaK = "";
+    setTimeout(() => {
+      const r = leeReg(), e = r[DIR];
+      if (!e || e.code !== c) return;
+      if (fin || (e.hash && hashCode() === c)) delete r[DIR]; else { e.estado = "fuera"; e.t = Date.now(); }
+      guardaReg(r);
+    });
+  }
+  function fin() { if (activa) dejaPartida(true); else { const r = leeReg(); if (r[DIR]) { delete r[DIR]; guardaReg(r); } } }
+  /* Código de la partida a la que volver solo: la que estaba en juego al cerrar o recargar,
+     o la que se abre desde la lista de la Sala (con su código en la dirección). */
+  function pendiente() {
+    const e = leeReg()[DIR], h = hashCode();
+    if (!e || Date.now() - e.t > VIDA) return "";
+    if (h) return h === e.code ? e.code : "";
+    return e.estado === "juego" ? e.code : "";
+  }
+  /* Para juegos sin turnos (todos a la vez): solo apunta la partida para la lista de la Sala. */
+  function enPartida(code) {
+    code = String(code || "").toUpperCase();
+    if (!DIR || !/^[A-Z0-9]{4}$/.test(code)) return;
+    const r = leeReg(), e = r[DIR];
+    if (e && e.code === code && Date.now() - e.t < 60000) return;
+    r[DIR] = { code, t: Date.now(), estado: "juego", sinHash: true };
+    guardaReg(r);
+  }
+  function olvidar() { const r = leeReg(); if (r[DIR]) { delete r[DIR]; guardaReg(r); } activa = ""; apuntadaK = ""; }
+
+  /* Pestaña ⌂ de vuelta a la Sala: si hay una partida en juego, pide confirmación. */
+  document.addEventListener("click", e => {
+    const a = e.target.closest && e.target.closest("a.sala-back");
+    if (!a || !borde || !borde.className) return;
+    if (!confirm("¿Salir de la partida?\nPodrás volver a ella desde la Sala.")) { e.preventDefault(); return; }
+    if (activa) { const r = leeReg(); if (r[DIR] && r[DIR].code === activa) { r[DIR].estado = "fuera"; r[DIR].t = Date.now(); guardaReg(r); } activa = ""; }
+  }, true);
+
+  window.SalaTurno = { html, marcar, limpiar, titulo, pendiente, fin, olvidar, enPartida };
 })();

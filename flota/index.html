@@ -455,6 +455,7 @@ function stopOnline(){
   O = null;
 }
 function goMenu(){
+  if(mode==="online" && G && G.phase==="over" && window.SalaTurno) SalaTurno.fin();
   stopOnline();
   mode = null; G = null; sonarArmed = false; $("over").hidden = true;
   render();
@@ -987,6 +988,7 @@ function render(){
   if(T){
     $("turno").innerHTML = SalaTurno.html(T);
     // En «pasa el móvil» el aviso sale al pulsar «Soy Jugador N», no detrás de la pantalla de relevo
+    if(mode==="online" && O) T.codigo = O.code;
     if(mode==="local" && !$("over").hidden) SalaTurno.limpiar(); else SalaTurno.marcar(T);
   } else SalaTurno.limpiar();
   if(!mode){ msg.innerHTML = "Elige cómo quieres jugar."; return; }
@@ -1205,6 +1207,13 @@ $("snd").onclick = () => { sound = !sound; $("snd").textContent = "Sonido: " + (
 try{ const d = localStorage.getItem("flota-diff"); if(d) setDiff(d); }catch(e){}
 
 render();
+/* Al recargar o reabrir la app con una partida online en juego, vuelve sola a ella */
+(async () => {
+  const c = window.SalaTurno && SalaTurno.pendiente ? SalaTurno.pendiente() : "";
+  let saved = null; try{ saved = JSON.parse(localStorage.getItem("flota-online") || "null"); }catch(e){}
+  if(!c || !saved || saved.code!==c) return;
+  startMode("online"); await caps(); joinGame(c);
+})();
 })();
 </script>
 

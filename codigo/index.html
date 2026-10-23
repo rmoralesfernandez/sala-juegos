@@ -733,7 +733,8 @@ function turnModel(){
 }
 function renderTurno(){
   const T=turnModel();$("#turno").hidden=!T;
-  if(T){$("#turno").innerHTML=SalaTurno.html(T);SalaTurno.marcar(T)}else SalaTurno.limpiar();
+  if(T&&S.mode==="online")T.codigo=S.code;
+  if(T){$("#turno").innerHTML=SalaTurno.html(T);SalaTurno.marcar(T)}else{if(S.mode==="online"&&S.g&&(S.g.phase==="won"||S.g.phase==="lost"))SalaTurno.fin();SalaTurno.limpiar()}
 }
 function renderGame(){
   const eye=$("#btnEye");
@@ -1021,7 +1022,12 @@ function start(data){
   renderMiniKey();renderHome();
   const resume=data&&data.screen==="game"?data:null;
   if(resume&&resume.mode==="local")openLocal(false);
-  initCaps().then(()=>{if(resume&&resume.mode==="online"&&resume.code&&S.db)openOnline(resume.code)});
+  initCaps().then(()=>{
+    if(resume&&resume.mode==="online"&&resume.code&&S.db)return openOnline(resume.code);
+    /* Al recargar o reabrir la app con una partida en juego, vuelve sola a ella */
+    const auto=S.db&&window.SalaTurno&&SalaTurno.pendiente?SalaTurno.pendiente():"";
+    if(auto)openOnline(auto);
+  });
 }
 const hot=window.claude&&window.claude.hot;
 if(hot&&typeof hot.snapshot==="function")hot.snapshot(()=>({screen:S.screen,mode:S.mode,code:S.code}));

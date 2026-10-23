@@ -256,6 +256,9 @@ async function boot(){
   const h = (location.hash || "").replace("#","").toUpperCase();
   if (/^[A-Z0-9]{4}$/.test(h) && !S.noAccess) { S.prefill = h; }
   render();
+  /* Al recargar o reabrir la app con una partida en juego, vuelve sola a ella */
+  const auto = !S.noAccess && window.SalaTurno && SalaTurno.pendiente ? SalaTurno.pendiente() : "";
+  if (auto) { await joinGame(auto); if (!S.code) SalaTurno.olvidar(); }
 }
 if (window.claude && claude.use) boot(); else { S.ready = true; S.noAccess = true; render(); }
 
@@ -606,10 +609,10 @@ function renderGame(){
     const accion = mine
       ? (!g.melded[me()] ? "Baja 30 puntos o roba una ficha" : "Coloca fichas y toca Terminar, o roba")
       : (player ? "Espera tu turno…" : "Estás mirando la partida");
-    const o = { quien: g.names[cur], color: seatColor(g, cur), tuyo, accion, compacta: true, clave: g.turnNo };
+    const o = { quien: g.names[cur], color: seatColor(g, cur), tuyo, accion, compacta: true, clave: g.turnNo, codigo: player ? S.code : "" };
     turnHTML = `<div class="turnbar ${tuyo ? "light" : ""}">${SalaTurno.html(o)}</div>`;
     SalaTurno.marcar(o);
-  } else window.SalaTurno?.limpiar();
+  } else { if (g.status === "ended") window.SalaTurno?.fin(); window.SalaTurno?.limpiar(); }
   let meldLine = "";
   if (mine && d && !g.melded[me()]) meldLine = `<span>Primera bajada: <strong>${newMeldValue().sum}</strong> / 30</span>`;
   const lastLine = last ? `<div class="lastmove"><i></i>Lo último que colocó ${esc(g.names[last.by])}${last.placed.length ? ` (${last.placed.length} ficha${last.placed.length > 1 ? "s" : ""})` : ""}</div>` : "";

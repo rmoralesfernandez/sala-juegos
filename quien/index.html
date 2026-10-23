@@ -605,7 +605,8 @@ function renderGame(ph){
   // Franja de turno (sustituye al texto pequeño mientras hay alguien que tiene que actuar)
   const T=turnModel(ph,mt);
   t.hidden=!!T;$('#turnoBox').hidden=!T;
-  if(T){$('#turnoBox').innerHTML=SalaTurno.html(T);SalaTurno.marcar(T)}else SalaTurno.limpiar();
+  if(T&&S.mode==='online')T.codigo=S.code;
+  if(T){$('#turnoBox').innerHTML=SalaTurno.html(T);SalaTurno.marcar(T)}else{if(S.mode==='online'&&ph==='over')SalaTurno.fin();SalaTurno.limpiar()}
   $('#counts').innerHTML=ph==='play'||ph==='over'?`Te quedan <b>${24-S.elim.size}</b> · A ${esc(o.n)} le quedan <b>${o.e??24}</b>`:`Ronda ${me.r}`;
   const ms=$('#mySecret');
   if(S.secret!=null&&me.h){ms.hidden=false;ms.innerHTML=`<span class="av">${avatar(board[S.secret])}</span><span><small>Tu personaje</small>${esc(board[S.secret].name)}</span>`}else ms.hidden=true;
@@ -777,6 +778,9 @@ render();
 (async()=>{
   try{S.room=window.claude&&window.claude.use?await window.claude.use('room'):null}catch(e){S.room=null}
   S.roomState=S.room?'ok':'none';if(!S.mode)renderHome();
+  /* Al recargar o reabrir la app con una partida en juego, vuelve sola a ella */
+  const auto=S.room&&!S.mode&&window.SalaTurno&&SalaTurno.pendiente?SalaTurno.pendiente():'';
+  if(auto&&LS.get('qs:st:'+auto.toLowerCase()))enterRoom(auto);
 })();
 })();
 </script>

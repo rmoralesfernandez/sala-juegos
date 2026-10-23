@@ -387,6 +387,9 @@ async function boot() {
   const h = (location.hash || "").replace("#", "").toUpperCase(), last = ls.get("gemas.last");
   if (!S.offline && /^[A-Z]{4}$/.test(h)) S.prefill = h;
   else if (!S.offline && last && last.code && Date.now() - last.t < 12 * 3600e3) S.rejoin = last.code;
+  /* Al recargar o reabrir la app con una partida en juego, vuelve sola a ella */
+  const auto = !S.offline && window.SalaTurno && SalaTurno.pendiente ? SalaTurno.pendiente() : "";
+  if (auto) setTimeout(async () => { await joinOnline(auto); if (!S.code) SalaTurno.olvidar(); });
   render();
 }
 

@@ -74,6 +74,16 @@ h1{margin:0;font-family:var(--display);font-weight:800;font-size:clamp(40px,10vw
 .me input{flex:1 1 220px;min-width:0;min-height:48px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font:600 17px var(--body);padding:0 14px}
 .hint{margin:0;color:var(--muted);font-size:13.5px}
 
+.mine{display:grid;gap:10px}
+.mine h2{margin:0;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.mine ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.mine li{display:flex;align-items:center;gap:10px;background:var(--surface);border-radius:14px;padding:8px 8px 8px 12px;box-shadow:0 0 0 1px var(--line);border-left:6px solid var(--tone)}
+.mine .txt{flex:1;min-width:0;display:grid;gap:2px}
+.mine .txt b{font:800 16px var(--display);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mine .txt small{color:var(--muted);font-size:13px}
+.mine .st{font-weight:800;color:var(--ink)}
+.mine .go{flex:none;display:flex;align-items:center;min-height:44px;padding:0 16px;border-radius:12px;background:var(--tone);color:var(--on);text-decoration:none;font:800 15px var(--display)}
+.mine .del{flex:none;width:36px;height:44px;border:0;border-radius:10px;background:none;color:var(--muted);display:grid;place-items:center;cursor:pointer}
 .finder{display:grid;gap:12px;position:sticky;top:0;z-index:5;background:var(--bg);padding-block:10px;margin-block:-10px}
 .search{position:relative}
 .search svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
@@ -121,6 +131,11 @@ h1{margin:0;font-family:var(--display);font-weight:800;font-size:clamp(40px,10vw
       <button type="button" class="share" id="install" hidden>Instalar app</button>
     </div>
     <p class="hint" id="iosHint" hidden>Para tenerla como app en el iPhone: botón Compartir de Safari y «Añadir a pantalla de inicio».</p>
+  </section>
+
+  <section class="mine" id="mine" aria-labelledby="mineT" hidden>
+    <h2 id="mineT">Tus partidas</h2>
+    <ul id="mineList"></ul>
   </section>
 
   <section class="finder" aria-label="Buscar juegos">
@@ -272,6 +287,27 @@ document.getElementById("share").addEventListener("click",()=>{
     navigator.clipboard.writeText(url).then(()=>say("Enlace copiado. Pásalo por el grupo."),()=>say(url));
   }else say(url);
 });
+/* Tus partidas: las que este móvil tiene online en marcha o dejó a medias (las apunta shared/turno.js) */
+function renderMine(){
+  let reg={};try{reg=JSON.parse(localStorage.getItem("sala.partidas"))||{}}catch(e){}
+  const now=Date.now(),list=Object.entries(reg).map(([dir,e])=>({dir,...e,g:GAMES.find(g=>g.url==="./"+dir+"/")}))
+    .filter(e=>e.g&&e.code&&now-e.t<12*3600e3).sort((a,b)=>b.t-a.t);
+  const ago=t=>{const m=Math.round((now-t)/60000);return m<1?"ahora mismo":m<60?`hace ${m} min`:`hace ${Math.round(m/60)} h`};
+  const box=document.getElementById("mine");box.hidden=!list.length;
+  document.getElementById("mineList").innerHTML=list.map(e=>`<li style="--tone:${e.g.tone}">
+    <span class="txt"><b>${esc(e.g.name)}</b><small><span class="st">${e.estado==="juego"?(e.tuyo?"¡Te toca!":"En juego"):"La dejaste a medias"}</span> · ${esc(e.code)} · ${ago(e.t)}</small></span>
+    <a class="go" href="${e.g.url}${e.sinHash?"":"#"+esc(e.code)}">Volver</a>
+    <button type="button" class="del" data-del="${esc(e.dir)}" aria-label="Quitar ${esc(e.g.name)} de la lista"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></li>`).join("");
+}
+document.getElementById("mineList").addEventListener("click",e=>{
+  const b=e.target.closest("[data-del]");if(!b)return;
+  try{const r=JSON.parse(localStorage.getItem("sala.partidas"))||{};delete r[b.dataset.del];localStorage.setItem("sala.partidas",JSON.stringify(r))}catch(err){}
+  renderMine();
+});
+renderMine();
+addEventListener("pageshow",renderMine);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)renderMine()});
+
 const nick=document.getElementById("nick");
 try{nick.value=localStorage.getItem("sala.nick")||""}catch(e){}
 nick.addEventListener("change",()=>{try{localStorage.setItem("sala.nick",nick.value.trim().slice(0,16))}catch(e){}say("Nombre guardado")});

@@ -1130,6 +1130,10 @@ function turnoMarca() {
   if (!window.SalaTurno) return;
   const t = localTurno();
   if (t) SalaTurno.marcar(t); else SalaTurno.limpiar();
+  // Partida online en marcha: queda en la lista de partidas de la Sala
+  if (S.screen === "room" && S.code && S.R && SalaTurno.enPartida) {
+    if (S.R.status === "final") SalaTurno.fin(); else if (S.R.status !== "lobby") SalaTurno.enPartida(S.code);
+  }
 }
 function renderLocal() {
   const L = S.L; if (!L) { S.screen = "home"; return renderHome(); }
