@@ -304,37 +304,78 @@
 
   /* ---------- sample: juez IA con Gemini (Firebase AI Logic) ---------- */
   const AI_SDK = window.SALA_IA_SDK || "https://www.gstatic.com/firebasejs/12.3.0";
-  const AI_MODEL = window.SALA_IA_MODEL || "gemini-2.5-flash";
+  // Si un modelo está saturado (429) o retirado (404), se prueba el siguiente: cada uno tiene su propia cuota gratis.
+  const AI_MODELS = [...new Set([window.SALA_IA_MODEL, "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest", "gemini-flash-lite-latest"].filter(Boolean))];
+  const AI_TIMEOUT = 45000;
   function makeSample() {
     if (!window.SALA_IA) return null;
-    let model = null;
-    const getModel = async () => {
-      if (model) return model;
-      const [{ initializeApp, getApps }, { getAI, getGenerativeModel, GoogleAIBackend }] =
-        await Promise.all([import(`${AI_SDK}/firebase-app.js`), import(`${AI_SDK}/firebase-ai.js`)]);
-      const app = getApps().find(a => a.name === "sala-ia") || initializeApp(window.FIREBASE_CONFIG, "sala-ia");
-      model = getGenerativeModel(getAI(app, { backend: new GoogleAIBackend() }), { model: AI_MODEL });
-      return model;
+    let sdk = null, ai = null;
+    const models = {}, dead = new Set();
+    let pref = 0;
+    const getModel = async name => {
+      if (models[name]) return models[name];
+      if (!sdk) sdk = Promise.all([import(`${AI_SDK}/firebase-app.js`), import(`${AI_SDK}/firebase-ai.js`)]);
+      const [{ initializeApp, getApps }, { getAI, getGenerativeModel, GoogleAIBackend }] = await sdk;
+      if (!ai) {
+        const app = getApps().find(a => a.name === "sala-ia") || initializeApp(window.FIREBASE_CONFIG, "sala-ia");
+        ai = getAI(app, { backend: new GoogleAIBackend() });
+      }
+      return (models[name] = getGenerativeModel(ai, { model: name }));
     };
     const toContents = input => typeof input === "string"
       ? [{ role: "user", parts: [{ text: input }] }]
       : input.map(m => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: String(m.content) }] }));
-    const aiErr = e => {
-      const msg = String(e && (e.message || e)), err = new Error(msg);
-      err.code = /429|quota|exhausted|rate/i.test(msg) ? "rate_limited" : /403|permission|not enabled|disabled|API has not been used/i.test(msg) ? "not_granted" : "unavailable";
-      return err;
+    // Clasifica por el código HTTP, no por palabras sueltas («generateContent» contiene «rate»).
+    const statusOf = e => {
+      const d = e && e.customErrorData, st = d && (d.status || d.httpStatus);
+      if (st) return +st;
+      const m = String(e && (e.message || e)).match(/\[(\d{3})\b|\bstatus(?:Code)?[:= ]+(\d{3})/i);
+      return m ? +(m[1] || m[2]) : 0;
     };
+    const kindOf = e => {
+      const st = statusOf(e), msg = String(e && (e.message || e));
+      if (e && e.timeout) return "retry";
+      if (st === 429 || st >= 500 || /RESOURCE_EXHAUSTED|overloaded|UNAVAILABLE|Failed to fetch|NetworkError|network/i.test(msg)) return "retry";
+      if (st === 404 || /not found|is not supported|no longer available|deprecated|retired/i.test(msg)) return "model";
+      if (st === 401 || st === 403 || /PERMISSION_DENIED|API has not been used|not enabled|disabled|API key/i.test(msg)) return "denied";
+      if (st === 400 && /model/i.test(msg)) return "model";
+      return "other";
+    };
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    const withTimeout = p => Promise.race([p, wait(AI_TIMEOUT).then(() => { const e = new Error("Tiempo de espera agotado"); e.timeout = true; throw e; })]);
     async function run(input, opts = {}, json = false) {
-      try {
-        const m = await getModel();
-        const res = await m.generateContent({
-          contents: toContents(input),
-          generationConfig: json ? { responseMimeType: "application/json", temperature: 0.2 } : { temperature: 0.7 }
-        });
-        const text = res.response.text();
-        if (opts.onText) try { opts.onText({ text, delta: text }); } catch {}
-        return text;
-      } catch (e) { throw aiErr(e); }
+      const req = {
+        contents: toContents(input),
+        generationConfig: json ? { responseMimeType: "application/json", temperature: 0.2 } : { temperature: 0.7 }
+      };
+      const order = AI_MODELS.slice(pref).concat(AI_MODELS.slice(0, pref)).filter(n => !dead.has(n));
+      let last = null, sawRetry = false;
+      for (const name of order) {
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            const m = await getModel(name);
+            const res = await withTimeout(m.generateContent(req));
+            const text = res.response.text();
+            pref = AI_MODELS.indexOf(name);
+            if (opts.onText) try { opts.onText({ text, delta: text }); } catch {}
+            return text;
+          } catch (e) {
+            last = e;
+            const k = kindOf(e);
+            console.warn("[sala] Gemini", name, k, e);
+            if (k === "denied") throw aiErr(e, "not_granted");
+            if (k === "model") { dead.add(name); break; }
+            if (k === "retry") { sawRetry = true; if (attempt === 0) { await wait(1500 + Math.random() * 1000); continue; } break; }
+            break;
+          }
+        }
+      }
+      throw aiErr(last, sawRetry ? "rate_limited" : "unavailable");
+    }
+    function aiErr(e, code) {
+      const msg = String(e && (e.message || e) || "sin respuesta"), err = new Error(msg);
+      err.code = code; err.status = statusOf(e); err.detail = msg.slice(0, 300);
+      return err;
     }
     const sample = async (input, opts) => ({ text: await run(input, opts), truncated: false });
     sample.json = async (input, opts) => {

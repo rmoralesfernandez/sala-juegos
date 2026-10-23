@@ -1692,8 +1692,8 @@ function roomLive() {
 
 /* ---------- juez IA (Claude, vía capacidad "sample") ---------- */
 const JUDGE_ERR = {
-  not_granted: "El juez IA no está activado en Firebase. Decidid votando.",
-  rate_limited: "El juez tiene mucho trabajo ahora mismo. Pídelo otra vez en unos segundos.",
+  not_granted: "Google no deja usar el juez IA con esta app (Firebase AI Logic sin activar o clave restringida). Decidid votando.",
+  rate_limited: "Gemini está saturado o se ha gastado la cuota gratis de ahora. Pídelo otra vez en un minuto o decidid votando.",
   session_expired: "Se ha perdido la sesión. Recarga la página y vuelve a pedirlo.",
   sampling_disabled: "El juez IA no está disponible ahora. Decidid votando.",
 };
@@ -1726,7 +1726,10 @@ async function askJudge(ctx) {
   Object.keys(got).forEach((x) => { out[map[x]] = got[x]; });
   return out;
 }
-function judgeErrText(e) { return JUDGE_ERR[e && e.code] || "El juez no ha podido responder. Pídelo otra vez o decidid votando."; }
+function judgeErrText(e) {
+  const t = JUDGE_ERR[e && e.code] || "El juez no ha podido responder. Pídelo otra vez o decidid votando.";
+  return e && e.status ? `${t} (código ${e.status})` : t;
+}
 
 function judgeStatusHTML(st, canAsk, hasRulings) {
   if (st && st.busy) return `<div class="judgebar busy" role="status"><span class="gavel" aria-hidden="true">⚖</span><span class="grow">${st.appeal ? "El juez está estudiando la apelación…" : "El juez está revisando las respuestas…"}</span></div>`;
