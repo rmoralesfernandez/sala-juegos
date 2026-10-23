@@ -238,7 +238,8 @@ const S = {
   nick: ls.get("faf.nick") || "",
   homeMsg:"", homeErr:false,
   draft:null, sel:new Set(), sort: ls.get("faf.sort") || "color",
-  status:"", statusErr:false, busy:false, confirmSkip:false
+  status:"", statusErr:false, busy:false, confirmSkip:false,
+  ai:null, aiT:null, aiN:+(ls.get("faf.ain") || 1), aiLvl:+(ls.get("faf.ailvl") || 2), realDb:null, realUid:null
 };
 
 /* ================= arranque ================= */
@@ -259,13 +260,14 @@ async function boot(){
   /* Al recargar o reabrir la app con una partida en juego, vuelve sola a ella */
   const auto = !S.noAccess && window.SalaTurno && SalaTurno.pendiente ? SalaTurno.pendiente() : "";
   if (auto) { await joinGame(auto); if (!S.code) SalaTurno.olvidar(); }
+  else if (!h && ls.get("faf.maquina.on") && savedAI()) continueAI();
 }
 if (window.claude && claude.use) boot(); else { S.ready = true; S.noAccess = true; render(); }
 
 /* ================= suscripciones ================= */
 function watch(code){
   unwatch();
-  S.code = code; ls.set("faf.last", code);
+  S.code = code; if (!S.ai) ls.set("faf.last", code);
   S.unsubGame = S.db.doc("games/" + code).onSnapshot(snap => {
     if (!snap.exists) { S.game = null; leaveToHome("Esa partida ya no existe."); return; }
     const prev = S.game;
@@ -275,6 +277,7 @@ function watch(code){
     if (S.game.status === "lobby" && !S.unsubPlayers) watchPlayers(code);
     if (S.game.status !== "lobby" && S.unsubPlayers) { S.unsubPlayers(); S.unsubPlayers = null; }
     render();
+    if (S.ai) aiTick();
   }, () => leaveToHome("Se perdió la conexión con la partida. Vuelve a entrar."));
 }
 function watchPlayers(code){
@@ -288,7 +291,7 @@ function unwatch(){
   S.unsubGame = S.unsubPlayers = null; S.game = null; S.players = []; S.draft = null; S.sel.clear();
 }
 function leaveToHome(msg){
-  unwatch(); S.code = null; S.screen = "home"; S.homeMsg = msg || ""; S.homeErr = !!msg; render();
+  unwatch(); stopAI(); S.code = null; S.screen = "home"; S.homeMsg = msg || ""; S.homeErr = !!msg; render();
 }
 
 /* ================= acciones de sala ================= */
@@ -465,7 +468,7 @@ async function drawTile(forUid){
   const patch = { turn:(g.turn + 1) % n, turnNo:g.turnNo + 1 };
   if (pool.length) {
     hand.push(pool.pop());
-    Object.assign(patch, { pool, hands:{ [uid]: hand }, passes:0, log:[...(g.log || []), forUid ? `${name} pierde el turno y roba` : `${name} roba`].slice(-6) });
+    Object.assign(patch, { pool, hands:{ [uid]: hand }, passes:0, log:[...(g.log || []), forUid && !isBot(forUid) ? `${name} pierde el turno y roba` : `${name} roba`].slice(-6) });
   } else {
     const passes = (g.passes || 0) + 1;
     Object.assign(patch, { passes, log:[...(g.log || []), `${name} pasa`].slice(-6) });
@@ -494,12 +497,196 @@ async function rematch(){
 }
 function setStatus(t, err){ S.status = t; S.statusErr = !!err; }
 
+/* ================= contra la máquina =================
+   La partida vive en este móvil: una base de datos local con la misma forma que la online
+   (games/MAQ), así toda la lógica de turnos, mesa y fin de partida es la misma. */
+const BOT_NAMES = ["Lola", "Teo", "Rita"];
+const isBot = id => /^maq[0-9]$/.test(id);
+const AI_KEY = "faf.maquina";
+function makeLocalDb(saved){
+  let data = saved || null;
+  const subs = new Set(), copy = v => JSON.parse(JSON.stringify(v));
+  const snap = () => ({ exists: !!data, data: () => copy(data) });
+  const emit = () => { ls.set(AI_KEY, JSON.stringify(data)); setTimeout(() => subs.forEach(f => f(snap())), 0); };
+  const isObj = v => v && typeof v === "object" && !Array.isArray(v);
+  const merge = (a, b) => { const o = { ...a }; for (const [k, v] of Object.entries(b)) o[k] = isObj(v) && isObj(o[k]) ? merge(o[k], v) : copy(v); return o; };
+  const doc = {
+    async get(){ return snap(); },
+    async set(v){ data = copy(v); emit(); },
+    async update(p){ data = merge(data || {}, p); emit(); },
+    async delete(){ data = null; ls.del(AI_KEY); },
+    onSnapshot(f){ subs.add(f); setTimeout(() => subs.has(f) && f(snap()), 0); return () => subs.delete(f); }
+  };
+  return { doc: () => doc, collection: () => ({ orderBy: () => ({ onSnapshot: () => () => {} }) }) };
+}
+function savedAI(){ try { const g = JSON.parse(ls.get(AI_KEY)); return g && g.status === "playing" && g.order && g.order.includes("yo") ? g : null; } catch { return null; } }
+function enterAI(saved){
+  if (!S.ai) { S.realDb = S.db; S.realUid = S.uid; }
+  S.ai = { level: saved ? (saved.aiLevel || 2) : S.aiLvl };
+  S.db = makeLocalDb(saved); S.uid = "yo"; ls.set("faf.maquina.on", "1");
+}
+function stopAI(){
+  clearTimeout(S.aiT); S.aiT = null;
+  if (!S.ai) return;
+  ls.del("faf.maquina.on");
+  S.ai = null; S.db = S.realDb; S.uid = S.realUid;
+}
+async function startAI(){
+  if (!saveNick()) return;
+  unwatch(); enterAI(null);
+  const n = Math.min(3, Math.max(1, S.aiN)), ids = ["yo", ...Array.from({ length: n }, (_, i) => "maq" + i)];
+  const pool = shuffled(), hands = {}, names = {}, melded = {};
+  ids.forEach((id, i) => { hands[id] = pool.splice(0, 14); names[id] = i ? BOT_NAMES[i - 1] : S.nick; melded[id] = false; });
+  await S.db.doc("games/MAQ").set({
+    status:"playing", host:"yo", createdAt:Date.now(), aiLevel:S.ai.level,
+    order:ids, names, hands, melded, pool, table:[], turn:0, turnNo:1, passes:0, winner:null, last:null,
+    log:[`Empieza ${S.nick}`]
+  });
+  watch("MAQ");
+}
+function continueAI(){ const g = savedAI(); if (!g) return; unwatch(); enterAI(g); watch("MAQ"); }
+function aiPanel(){
+  const sv = savedAI();
+  return `<div class="panel">
+      <h2>Contra la máquina</h2>
+      <div class="row" role="group" aria-label="Rivales">${[1, 2, 3].map(n => `<button class="btn small ${S.aiN === n ? "primary" : "ghost"}" data-ain="${n}" aria-pressed="${S.aiN === n}">${n} rival${n > 1 ? "es" : ""}</button>`).join("")}</div>
+      <div class="row" role="group" aria-label="Nivel">${[[1, "Aprendiz"], [2, "Experta"]].map(([l, t]) => `<button class="btn small ${S.aiLvl === l ? "primary" : "ghost"}" data-ailvl="${l}" aria-pressed="${S.aiLvl === l}">${t}</button>`).join("")}</div>
+      <button class="btn primary" id="aiplay">Jugar contra la máquina</button>
+      ${sv ? `<button class="btn ghost small" id="aicont">Continuar la partida contra la máquina</button>` : ""}
+    </div>`;
+}
+function bindAIPanel(){
+  const keepNick = () => { const v = document.getElementById("nick")?.value; if (v != null) S.nick = v.trim().slice(0, 16); };
+  $app.querySelectorAll("[data-ain]").forEach(b => b.addEventListener("click", () => { keepNick(); S.aiN = +b.dataset.ain; ls.set("faf.ain", S.aiN); render(); }));
+  $app.querySelectorAll("[data-ailvl]").forEach(b => b.addEventListener("click", () => { keepNick(); S.aiLvl = +b.dataset.ailvl; ls.set("faf.ailvl", S.aiLvl); render(); }));
+  on("#aiplay", "click", startAI);
+  on("#aicont", "click", continueAI);
+}
+function aiTick(){
+  clearTimeout(S.aiT); S.aiT = null;
+  const g = S.game; if (!S.ai || !g || g.status !== "playing") return;
+  const id = g.order[g.turn]; if (!isBot(id)) return;
+  S.aiT = setTimeout(async () => {
+    const g2 = S.game; if (!S.ai || !g2 || g2.status !== "playing" || g2.order[g2.turn] !== id) return;
+    const p = botPatch(g2, id);
+    if (p) await write(p); else await drawTile(id);
+  }, 900 + Math.random() * 800);
+}
+
+/* Jugadas que se pueden formar solo con las fichas de una mano (grupos y escaleras, con comodines) */
+function meldCandidates(hand){
+  const jk = hand.filter(isJ), tiles = hand.filter(i => !isJ(i)), out = [], maxJ = Math.min(jk.length, 2);
+  for (let v = 1; v <= 13; v++) {
+    const byC = {}; tiles.forEach(i => { if (num(i) === v && byC[col(i)] === undefined) byC[col(i)] = i; });
+    const cs = Object.values(byC);
+    for (let m = 1; m < 1 << cs.length; m++) {
+      const sub = cs.filter((_, k) => m >> k & 1);
+      for (let j = 0; j <= maxJ; j++) { const n = sub.length + j; if (n >= 3 && n <= 4 && sub.length >= 2) out.push([...sub, ...jk.slice(0, j)]); }
+    }
+  }
+  for (let c = 0; c < 4; c++) {
+    const byN = {}; tiles.forEach(i => { if (col(i) === c && byN[num(i)] === undefined) byN[num(i)] = i; });
+    for (let a = 1; a <= 11; a++) for (let b = a + 2; b <= 13; b++) {
+      const got = []; let miss = 0;
+      for (let k = a; k <= b; k++) { if (byN[k] !== undefined) got.push(byN[k]); else miss++; }
+      if (miss <= maxJ && got.length >= 2 && (byN[a] !== undefined || byN[b] !== undefined)) out.push([...got, ...jk.slice(0, miss)]);
+    }
+  }
+  return out.filter(m => analyze(m).valid);
+}
+/* Mejor combinación de jugadas sin repetir fichas: más fichas colocadas (o más puntos en la primera bajada) */
+function bestMelds(hand, byValue){
+  let best = { sets: [], score: 0 }, nodes = 0;
+  const score = sets => sets.reduce((t, m) => t + (byValue ? analyze(m).value : m.length * 100 + analyze(m).value - m.filter(isJ).length * 12), 0);
+  (function dfs(h, sets){
+    if (++nodes > 4000) return;
+    const sc = score(sets); if (sc > best.score) best = { sets: sets.map(m => [...m]), score: sc };
+    const cs = meldCandidates(h).sort((a, b) => b.length - a.length || analyze(b).value - analyze(a).value).slice(0, 8);
+    for (const m of cs) { const rest = [...h]; m.forEach(t => rest.splice(rest.indexOf(t), 1)); dfs(rest, [...sets, m]); }
+  })(hand, []);
+  return best.sets;
+}
+/* Una mejora de la mesa con fichas del atril; true si ha colocado alguna */
+function improve(hand, table, take){
+  // 1. Añadir una ficha suelta a una jugada (el comodín solo para cerrar)
+  for (const t of [...hand].sort((a, b) => isJ(a) - isJ(b))) {
+    if (isJ(t) && hand.length > 1) continue;
+    const k = table.findIndex(s => analyze([...s, t]).valid);
+    if (k > -1) { table[k].push(t); take(t); return true; }
+  }
+  // 2. Partir una escalera metiendo una ficha repetida: 3-4-5-6-7 + 5 → 3-4-5 y 5-6-7
+  for (const t of hand) {
+    if (isJ(t)) continue;
+    for (let k = 0; k < table.length; k++) {
+      const a = analyze(table[k]); if (!a.valid || a.type !== "run") continue;
+      const ord = a.ordered, i = ord.findIndex(x => !isJ(x) && col(x) === col(t) && num(x) === num(t));
+      if (i < 2 || ord.length - i < 3) continue;
+      const left = ord.slice(0, i + 1), right = [t, ...ord.slice(i + 1)];
+      if (analyze(left).valid && analyze(right).valid) { table.splice(k, 1, left, right); take(t); return true; }
+    }
+  }
+  // 3. Tomar prestadas fichas que sobran (puntas de escaleras de 4+, cualquiera de un grupo de 4)
+  const spare = [];
+  table.forEach((s, k) => {
+    const a = analyze(s); if (!a.valid || s.length < 4) return;
+    const opts = a.type === "run" ? [a.ordered[0], a.ordered[a.ordered.length - 1]] : a.ordered;
+    opts.forEach(t => { if (!isJ(t) && analyze(s.filter(x => x !== t)).valid) spare.push({ t, k }); });
+  });
+  if (!spare.length) return false;
+  const sp = new Map(spare.map(o => [o.t, o.k]));
+  let best = null;
+  for (const m of meldCandidates([...hand, ...spare.map(o => o.t)])) {
+    const own = m.filter(t => !sp.has(t) || hand.includes(t)).length, from = m.filter(t => sp.has(t) && !hand.includes(t)).map(t => sp.get(t));
+    if (own < 1 || new Set(from).size !== from.length) continue;
+    if (!best || own > best.own) best = { m, own };
+  }
+  if (!best) return false;
+  best.m.forEach(t => { if (hand.includes(t)) take(t); else { const k = sp.get(t); table[k] = table[k].filter(x => x !== t); } });
+  table.push(best.m);
+  return true;
+}
+function aiPlan(hand0, table0, melded, level){
+  const hand = [...hand0], table = table0.map(s => [...s]);
+  const take = t => hand.splice(hand.indexOf(t), 1);
+  const sets = bestMelds(hand, !melded);
+  if (!melded) {
+    const sum = sets.reduce((t, m) => t + analyze(m).value, 0);
+    if (sum < 30) return null;
+  }
+  sets.forEach(m => { m.forEach(take); table.push(m); });
+  // Experta (si ya había bajado antes): fichas sueltas a la mesa, partir escaleras y tomar prestadas
+  // fichas que sobran en la mesa para formar jugadas nuevas con las del atril
+  if (melded && level >= 2) {
+    for (let guard = 0; guard < 40 && hand.length && improve(hand, table, take); guard++);
+  }
+  if (hand.length === hand0.length) return null;
+  return { hand, table };
+}
+function botPatch(g, id){
+  const plan = aiPlan(g.hands[id] || [], (g.table || []).map(s => s.t), !!g.melded[id], S.ai.level);
+  if (!plan) return null;
+  const orig = g.hands[id], n = g.order.length, won = plan.hand.length === 0, name = g.names[id];
+  const placed = orig.filter(i => !plan.hand.includes(i)), played = placed.length;
+  const origKeys = new Map();
+  (g.table || []).forEach(s => { const k = keyOf(s.t); origKeys.set(k, (origKeys.get(k) || 0) + 1); });
+  const changed = [];
+  plan.table.forEach(s => { const k = keyOf(s); if (origKeys.get(k)) origKeys.set(k, origKeys.get(k) - 1); else changed.push(k); });
+  const patch = {
+    last:{ by:id, placed, changed, turnNo:g.turnNo },
+    table: plan.table.map(s => ({ t: analyze(s).ordered })), hands:{ [id]: plan.hand }, melded:{ [id]: true }, passes:0,
+    turn: won ? g.turn : (g.turn + 1) % n, turnNo: g.turnNo + 1,
+    log: [...(g.log || []), won ? `${name} se queda sin fichas y gana` : `${name} coloca ${played} ficha${played > 1 ? "s" : ""}`].slice(-6)
+  };
+  if (won) { patch.status = "ended"; patch.winner = id; }
+  return patch;
+}
+
 /* ================= render ================= */
 function render(){
   if (!S.ready) return;
   if (DR) { S.pendingRender = true; return; }       // no repintar en mitad de un arrastre
   S.pendingRender = false;
-  if (S.noAccess) return renderNoAccess();
+  if (S.noAccess && !S.ai) return renderNoAccess();
   if (S.screen === "home") return renderHome();
   if (S.screen === "lobby") return renderLobby();
   // conservar el scroll de la mesa y del atril entre repintados
@@ -513,8 +700,11 @@ function renderNoAccess(){
   window.SalaTurno?.limpiar();
   $app.innerHTML = `<div class="screen"><div class="home">
     <div class="brand"><h1>Ficha a Ficha</h1>
-    <p>No hay conexión con el servidor de partidas. Revisa internet y recarga.</p></div>
+    <p>No hay conexión con el servidor de partidas. Revisa internet y recarga. Mientras, puedes jugar contra la máquina.</p></div>
+    <label>Tu nombre en la mesa<input type="text" id="nick" maxlength="16" autocomplete="nickname" value="${esc(S.nick)}" placeholder="Tu nombre"></label>
+    ${aiPanel()}
   </div></div>`;
+  bindAIPanel();
 }
 function renderHome(){
   window.SalaTurno?.limpiar();
@@ -539,8 +729,10 @@ function renderHome(){
       </div>
       ${last ? `<button class="btn ghost small" id="rejoin">Volver a la mesa ${esc(last)}</button>` : ""}
     </div>
+    ${aiPanel()}
     <div class="msg ${S.homeErr ? "err" : ""}" role="status">${esc(S.homeMsg)}</div>
   </div></div>`;
+  bindAIPanel();
   on("#create", "click", createGame);
   on("#join", "click", () => joinGame(document.getElementById("joincode").value));
   on("#joincode", "keydown", e => { if (e.key === "Enter") joinGame(e.target.value); });
@@ -609,7 +801,7 @@ function renderGame(){
     const accion = mine
       ? (!g.melded[me()] ? "Baja 30 puntos o roba una ficha" : "Coloca fichas y toca Terminar, o roba")
       : (player ? "Espera tu turno…" : "Estás mirando la partida");
-    const o = { quien: g.names[cur], color: seatColor(g, cur), tuyo, accion, compacta: true, clave: g.turnNo, codigo: player ? S.code : "" };
+    const o = { quien: g.names[cur], color: seatColor(g, cur), tuyo, accion, compacta: true, clave: g.turnNo, codigo: player && !S.ai ? S.code : "" };
     turnHTML = `<div class="turnbar ${tuyo ? "light" : ""}">${SalaTurno.html(o)}</div>`;
     SalaTurno.marcar(o);
   } else { if (g.status === "ended") window.SalaTurno?.fin(); window.SalaTurno?.limpiar(); }
@@ -641,7 +833,7 @@ function renderGame(){
   ${turnHTML}
   <div class="table" id="table">
     <div class="banner">${meldLine}
-      ${isHost && !mine && g.status === "playing" ? `<button class="btn ghost small" id="skip">${S.confirmSkip ? `¿Saltar a ${esc(g.names[cur])}? Toca otra vez` : "Saltar turno"}</button>` : ""}
+      ${isHost && !mine && !S.ai && g.status === "playing" ? `<button class="btn ghost small" id="skip">${S.confirmSkip ? `¿Saltar a ${esc(g.names[cur])}? Toca otra vez` : "Saltar turno"}</button>` : ""}
     </div>
     ${lastLine}
     <div class="sets">
