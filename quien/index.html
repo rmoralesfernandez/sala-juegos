@@ -358,26 +358,31 @@ function genBoard(seed){
 
 function avatar(c){
   const sk=SKINS[c.skin],hc=c.hair?HAIR[c.hair]:'#4A3A30',ey=EYES[c.eyes];
-  const bc=c.hair==='canoso'?'#BDBAB4':c.hair?HAIR[c.hair]:'#5B4030';
+  // en pieles oscuras la barba castaña se perdía: se oscurece y el pelo lleva contorno
+  const bc=c.hair==='canoso'?'#BDBAB4':c.skin>=3&&(!c.hair||c.hair==='castaño')?'#241A14':c.hair?HAIR[c.hair]:'#5B4030';
+  const ol=`stroke="#1A1210" stroke-opacity="${c.skin>=4?.8:.3}" stroke-width="1.4" stroke-linejoin="round"`;
   const brow=c.hair==='rubio'?'#B08A3A':c.hair==='canoso'?'#9E9B95':hc;
   let s=`<svg viewBox="0 0 100 110" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect width="100" height="110" fill="${BGS[c.bg]}"/>`;
   s+=`<path d="M12 110 Q14 90 50 87 Q86 90 88 110Z" fill="${SHIRTS[c.shirt]}"/>`;
   s+=`<rect x="42" y="70" width="16" height="20" rx="6" fill="${sk}"/><rect x="42" y="70" width="16" height="20" rx="6" fill="#000" opacity=".13"/>`;
-  if(c.hair&&c.len==='largo')s+=`<path d="M25 44 Q19 86 28 97 Q50 101 72 97 Q81 86 75 44Z" fill="${hc}"/>`;
+  // melena en dos mechones laterales: sin relleno bajo la barbilla para que no parezca barba
+  if(c.hair&&c.len==='largo')s+=`<path d="M25 44 Q19 86 27 97 L40 97 Q35 86 34 70Z M75 44 Q81 86 73 97 L60 97 Q65 86 66 70Z" fill="${hc}" ${ol}/>`;
   s+=`<circle cx="27" cy="52" r="6" fill="${sk}"/><circle cx="73" cy="52" r="6" fill="${sk}"/>`;
   s+=`<ellipse cx="50" cy="50" rx="23" ry="27" fill="${sk}"/>`;
-  if(c.hair)s+=`<path d="${TOPS[c.style]}" fill="${hc}"/>`;
-  if(c.freck)s+=`<g fill="#8A4A2C" opacity=".55">${[[37,60],[40.5,62],[35.5,63.5],[63,60],[59.5,62],[64.5,63.5]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r=".95"/>`).join('')}</g>`;
+  if(c.hair)s+=`<path d="${TOPS[c.style]}" fill="${hc}" ${ol}/>`;
+  if(c.freck)s+=`<g fill="${c.skin>=4?'#E9B48C':c.skin===3?'#5A2E16':'#8A4A2C'}" opacity="${c.skin>=3?.8:.6}">${[[37,60],[40.5,62],[35.5,63.5],[63,60],[59.5,62],[64.5,63.5]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r="1.1"/>`).join('')}</g>`;
   for(const x of [41,59])s+=`<ellipse cx="${x}" cy="50" rx="4.4" ry="3.9" fill="#fff"/><circle cx="${x}" cy="50.4" r="2.8" fill="${ey}"/><circle cx="${x}" cy="50.4" r="1.25" fill="#1B1B1B"/><circle cx="${x+.9}" cy="49.4" r=".6" fill="#fff"/>`;
   s+=`<path d="M36 43.5 Q41 41 46 43.5 M54 43.5 Q59 41 64 43.5" stroke="${brow}" stroke-width="2.1" fill="none" stroke-linecap="round"/>`;
   s+=`<path d="M50 52 Q47 59 50.5 60" stroke="#000" stroke-opacity=".25" stroke-width="1.6" fill="none" stroke-linecap="round"/>`;
-  if(c.beard)s+=`<path d="M27 52 Q27 80 50 82 Q73 80 73 52 Q71 66 63 69 Q50 73 37 69 Q29 66 27 52Z" fill="${bc}"/>`;
+  if(c.beard)s+=`<path d="M27 52 Q27 80 50 82 Q73 80 73 52 Q71 66 63 69 Q50 73 37 69 Q29 66 27 52Z" fill="${bc}" ${ol}/>`;
   s+=c.smile?`<path d="M43 66.5 Q50 73 57 66.5" stroke="#7A2F2A" stroke-width="2" fill="#fff" stroke-linecap="round" stroke-linejoin="round"/>`:`<path d="M44.5 68 L55.5 68" stroke="#7A2F2A" stroke-width="2" stroke-linecap="round"/>`;
   if(c.stache)s+=`<path d="M41 64.8 Q50 59.5 59 64.8 Q50 63 41 64.8Z" fill="${bc}" stroke="${bc}" stroke-width="1.8" stroke-linejoin="round"/>`;
-  if(c.ear)s+=`<circle cx="26.5" cy="59" r="2.3" fill="#E7B520"/><circle cx="73.5" cy="59" r="2.3" fill="#E7B520"/>`;
+  if(c.ear)s+=`<g fill="#F4C430" stroke="#7A5200" stroke-width=".9"><circle cx="26.5" cy="59.5" r="2.6"/><circle cx="73.5" cy="59.5" r="2.6"/></g>`;
   if(c.glasses)s+=`<g fill="#fff" fill-opacity=".18" stroke="#1D2A33" stroke-width="1.8"><rect x="34" y="44.5" width="14" height="11" rx="4"/><rect x="52" y="44.5" width="14" height="11" rx="4"/></g><path d="M48 49 Q50 47.5 52 49" stroke="#1D2A33" stroke-width="1.8" fill="none"/>`;
   if(c.hat){
     const [h1,h2]=HATS[c.hc];
+    // patillas bajo el gorro para que se vea el color de pelo
+    if(c.hair&&c.len!=='largo')s+=`<path d="M25.5 38 Q24 48 27.5 55 L31 55 Q30 46 33 38Z M74.5 38 Q76 48 72.5 55 L69 55 Q70 46 67 38Z" fill="${hc}" ${ol}/>`;
     if(c.hat==='gorra')s+=`<path d="M25 41 Q25 16 50 16 Q75 16 75 41Z" fill="${h1}"/><path d="M48 39 Q76 36 90 42 Q82 47 62 45 L26 43Z" fill="${h2}"/><circle cx="50" cy="17" r="2.2" fill="${h2}"/>`;
     else if(c.hat==='sombrero')s+=`<ellipse cx="50" cy="37" rx="38" ry="7" fill="${h1}"/><path d="M31 37 L34 14 Q50 9 66 14 L69 37Z" fill="${h1}"/><path d="M32.2 28 L67.8 28 L68.4 33 L31.6 33Z" fill="${h2}"/>`;
     else s+=`<path d="M25 40 Q25 12 50 12 Q75 12 75 40Z" fill="${h1}"/><rect x="23" y="33" width="54" height="10" rx="4" fill="${h2}"/><circle cx="50" cy="11" r="5.5" fill="${h2}"/>`;
