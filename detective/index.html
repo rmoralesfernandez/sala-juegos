@@ -192,7 +192,7 @@ label.lbl,.lbl{display:grid;gap:6px;font-size:12.5px;font-weight:800;letter-spac
 (() => {
 "use strict";
 const CASOS = window.DETECTIVE_CASOS || [];
-const DIF = { normal: { h: 10, name: "Normal", d: "10 horas" }, dificil: { h: 8, name: "Difícil", d: "8 horas" } };
+const DIF = { normal: { h: 8, name: "Normal", d: "8 horas" }, dificil: { h: 6, name: "Difícil", d: "6 horas" } };
 const SCOL = ["#E8A87C", "#9CC5E8", "#C9B6E4", "#A8D8A0"];
 const AMBIENTES = ["un pueblo de montaña nevado en Navidad", "un crucero por el Mediterráneo", "una startup tecnológica en Barcelona", "un rodaje de cine en Almería", "un hotel balneario de lujo", "un club de pádel exclusivo", "un festival de música en verano", "una mansión victoriana en una noche de tormenta", "un museo de ciencias naturales", "un restaurante con estrella Michelin", "una boda en un cortijo andaluz", "un campamento de verano", "un observatorio astronómico en Canarias", "una partida de caza en un coto", "un concurso de talentos de la tele", "una feria medieval"];
 
@@ -378,14 +378,19 @@ Devuelve SOLO un objeto JSON con esta forma exacta:
 "sol":{"culpable":"s1-s4","motivo":0,"metodo":0},
 "explicacion":"4-6 frases que explican cómo se deduce la solución a partir de las pistas"}
 
+El caso tiene que ser DIFÍCIL: que no se resuelva leyendo una sola pista, sino cruzando tres o cuatro.
+
 Reglas de lógica, obligatorias:
 - Exactamente 4 sospechosos, 6 lugares, 4 motivos, 4 métodos y 2 informes. Un único culpable.
 - La coartada del culpable es falsa y al menos DOS pistas (de lugares, informes o de lo que saben otros sospechosos) la contradicen con claridad.
 - Cada inocente tiene una coartada que alguna pista confirma, o una razón clara para descartarle.
 - El motivo correcto aparece en alguna pista. El método correcto se deduce de los informes y las pistas.
 - Los otros motivos y métodos son creíbles: encajan con otros sospechosos o con pistas falsas.
-- Incluye al menos una pista falsa que apunte a un inocente.
-- Ninguna pista dice directamente quién es el culpable.
+- Los 4 sospechosos tienen un motivo creíble y algo sospechoso. Al menos un inocente miente en su coartada por otra razón (un secreto vergonzoso, un ligue, un trapicheo) y una pista lo aclara.
+- Al menos dos pistas falsas apuntan a inocentes. El testimonio del culpable intenta culpar a otro.
+- Ninguna pista ni testimonio señala por sí solo al culpable: nada de "vi a X hacerlo", objetos con su nombre o iniciales, ni lugares que solo incriminen al culpable. Si hay un lugar personal del culpable, también lo hay de algún inocente con cosas sospechosas.
+- La coartada del culpable parece buena a primera vista (por ejemplo, cubre una hora falsa o la confirma alguien que solo vio una parte) y solo cae al combinar pistas: horas, distancias, registros, detalles físicos.
+- El motivo del culpable no debe aparecer en su descripción; se descubre en una pista o en lo que cuenta otro sospechoso.
 - "sol.motivo" y "sol.metodo" son el índice (0-3) del motivo y el método correctos. Pon el correcto en una posición al azar.
 - Cada pista, coartada o testimonio: máximo 2 frases. Nombres españoles variados.
 - Tono de novela de misterio clásica, entretenido. Nada de sangre ni violencia explícita.`;
