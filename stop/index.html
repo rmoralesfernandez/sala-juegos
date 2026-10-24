@@ -1728,7 +1728,10 @@ async function askJudge(ctx) {
 }
 function judgeErrText(e) {
   const t = JUDGE_ERR[e && e.code] || "El juez no ha podido responder. Pídelo otra vez o decidid votando.";
-  return e && e.status ? `${t} (código ${e.status})` : t;
+  if (!e || !e.status) return t;
+  // Detalle de Google sin la URL, para saber qué falla exactamente
+  const d = String(e.detail || "").replace(/^.*?\[\d{3}[^\]]*\]\s*/, "").replace(/\s*\(AI\/[^)]*\)\s*$/, "").slice(0, 160);
+  return `${t} (código ${e.status}${d ? ": " + d : ""})`;
 }
 
 function judgeStatusHTML(st, canAsk, hasRulings) {
