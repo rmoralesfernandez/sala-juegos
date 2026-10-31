@@ -803,7 +803,7 @@ function spec(ev){
         {text:'Cuenta un chiste. Si nadie se ríe, bebes.', actions:[A('Hecho','next','primary'), A('Nadie se ríe · bebe 🍺','drinkNext','drink')]},
         {text:'Directo a la <b>cárcel</b> (casilla 16): 2 rondas sin tirar.', actions:[A('Vale…','toJail','primary')]},
         {text:'Beben todos.', actions:[A('Salud 🍻','allDrink','primary')]},
-        {...cardOf(), text: DECKS.prueba.sub, actions:[A('¡Hecho!','next','primary'), A('Paso · bebo 🍺','drinkNext','drink')]},
+        {...(ev.deck ? cardOf() : {}), text: DECKS.prueba.sub, actions:[A('¡Hecho!','next','primary'), A('Paso · bebo 🍺','drinkNext','drink')]},
         {text:'Vuelves a la <b>salida</b>.', actions:[A('Noooo','toStart','primary')]}
       ][v-1]};
     }
