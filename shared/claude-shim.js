@@ -9,6 +9,9 @@
     get(k) { try { return localStorage.getItem(k); } catch { return null; } },
     set(k, v) { try { localStorage.setItem(k, v); } catch {} }
   };
+  /* Avisa a shared/carga.js de cada operación lenta, para que el botón pulsado muestre que está cargando. */
+  const track = p => (window.SalaCarga ? window.SalaCarga.seguir(p) : p);
+  const tracked = o => { for (const k of ["get", "set", "update", "delete", "acquire", "add"]) if (typeof o[k] === "function") { const f = o[k]; o[k] = (...a) => track(f.apply(o, a)); } return o; };
 
   /* ---------- arranque de Firebase ---------- */
   let ready = null;
@@ -108,7 +111,7 @@
   function makeDoc(core, path) {
     const id = segs(path).slice(-1)[0];
     const ref = () => core.fs.doc(fsPath(path));
-    return {
+    return tracked({
       id, path,
       async get() {
         try { const s = await ref().get(); return docSnap(id, s.exists ? decode(s.data()) : undefined, s.metadata); }
@@ -149,7 +152,7 @@
           e => error ? error(dbErr(e)) : console.error(e));
       },
       collection(sub) { return makeCollection(core, `${path}/${sub}`); }
-    };
+    });
   }
 
   const OPS = {
@@ -204,7 +207,7 @@
       doc(id) { return makeDoc(core, `${path}/${id || core.fs.collection("x").doc().id}`); },
       async add(data) { const d = api.doc(); await d.set(data); return d; }
     };
-    return api;
+    return tracked(api);
   }
 
   const makeDb = core => ({ doc: p => makeDoc(core, p), collection: p => makeCollection(core, p), now: () => core.serverNow() });
@@ -279,7 +282,7 @@
       onPeers(h) { peerHandlers.add(h); queueMicrotask(() => alive && h(Object.freeze({ peers, joined: peers, left: [], updated: [] }))); return () => peerHandlers.delete(h); },
       onConnection(h) { connHandlers.add(h); queueMicrotask(() => alive && h(connected)); return () => connHandlers.delete(h); },
       connected: () => connected,
-      async emit(topic, data) { if (connected) await base.child("events").push({ topic, data: data === undefined ? null : clone(data), peer: peerId, by: core.uid, t: firebase.database.ServerValue.TIMESTAMP }); },
+      emit(topic, data) { return track((async () => { if (connected) await base.child("events").push({ topic, data: data === undefined ? null : clone(data), peer: peerId, by: core.uid, t: firebase.database.ServerValue.TIMESTAMP }); })()); },
       on(topic, handler) {
         const q = base.child("events").orderByChild("t").startAt(since);
         const cb = q.on("child_added", s => {
@@ -295,7 +298,7 @@
     let lobby = null;
     const L = () => lobby || (lobby = makeRoom(core, "_lobby"));
     return {
-      join: async name => makeRoom(core, name),
+      join: name => track(Promise.resolve().then(() => makeRoom(core, name))),
       presence: p => L().presence(p), peers: () => L().peers(), onPeers: h => L().onPeers(h),
       onConnection: h => L().onConnection(h), connected: () => L().connected(),
       emit: (t, d) => L().emit(t, d), on: (t, h) => L().on(t, h), leave: () => lobby && lobby.leave()
@@ -377,9 +380,9 @@
       err.code = code; err.status = statusOf(e); err.detail = msg.slice(0, 300);
       return err;
     }
-    const sample = async (input, opts) => ({ text: await run(input, opts), truncated: false });
+    const sample = (input, opts) => track(run(input, opts).then(text => ({ text, truncated: false })));
     sample.json = async (input, opts) => {
-      const text = await run(input, opts, true);
+      const text = await track(run(input, opts, true));
       try { return JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/g, "")); }
       catch { const e = new Error("Respuesta no válida"); e.code = "invalid_json"; e.text = text; throw e; }
     };
@@ -394,7 +397,7 @@
     use(name) {
       if (name === "sample") return Promise.resolve(memo.sample !== undefined ? memo.sample : (memo.sample = makeSample()));
       if (!FACTORIES[name]) return Promise.resolve(null);
-      if (!memo[name]) memo[name] = boot().then(core => FACTORIES[name](core)).catch(e => { console.warn("[sala]", name, e); return null; });
+      if (!memo[name]) memo[name] = track(boot()).then(core => FACTORIES[name](core)).catch(e => { console.warn("[sala]", name, e); return null; });
       return memo[name];
     }
   });
