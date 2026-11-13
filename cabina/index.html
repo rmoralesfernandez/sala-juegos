@@ -219,6 +219,54 @@ label.lbl,.lbl{display:grid;gap:6px;font-size:12px;font-weight:800;letter-spacin
 .spot{position:relative;z-index:65;box-shadow:0 0 0 4px var(--gold),0 0 0 9999px rgba(0,0,0,.6)!important;border-radius:14px}
 #toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,12px);opacity:0;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:700;font-size:14px;transition:opacity .2s,transform .2s;pointer-events:none;max-width:calc(100% - 32px);z-index:80;text-align:center}
 #toast.on{opacity:1;transform:translate(-50%,0)}
+/* ---------- libro de vuelo ---------- */
+.cells{grid-template-columns:repeat(var(--n,7),1fr)}
+.cell .trd{font-size:10px;line-height:14px;background:#0B1427;color:#fff;border-radius:6px;padding:0 3px;box-shadow:0 0 0 1px #6B7CA0}
+.cell .trn{font-size:9.5px;color:#FFD166;letter-spacing:0;white-space:nowrap}
+.cell.turnbad{box-shadow:inset 0 0 0 2px var(--bad)}
+.legend{font-size:11.5px;color:var(--muted);font-weight:700;text-align:center}
+.dest{display:grid;gap:10px}
+.dest-h{display:flex;align-items:center;gap:10px}
+.dest-h .code{font-family:var(--display);font-size:26px;color:var(--gold);line-height:1}
+.dest-h .nm{flex:1;min-width:0;display:grid}
+.dest-h .nm b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dest-h .nm small{color:var(--muted);font-weight:700;font-size:12px}
+.colr{display:inline-block;width:12px;height:12px;border-radius:4px;flex:none;box-shadow:0 0 0 1px rgba(255,255,255,.25)}
+.mods{display:flex;flex-wrap:wrap;gap:5px}
+.mods span{font-size:12px;font-weight:800;background:var(--bg);border-radius:999px;padding:3px 8px;box-shadow:inset 0 0 0 1px var(--line)}
+.sc-list{display:grid;gap:8px}
+.sc-g{font-family:var(--display);font-size:15px;margin-top:6px;display:flex;align-items:center;gap:8px}
+.sc-item{appearance:none;border:0;text-align:left;background:var(--bg);border-radius:14px;padding:10px 12px;display:grid;gap:4px;box-shadow:inset 5px 0 0 var(--cc),0 0 0 1px var(--line);color:var(--ink)}
+.sc-item[aria-pressed="true"]{box-shadow:inset 5px 0 0 var(--cc),0 0 0 2px var(--gold)}
+.sc-item .t{display:flex;justify-content:space-between;gap:8px;font-weight:800}
+.sc-item .t i{font-style:normal;color:var(--ok)}
+.sc-item .m{font-size:12.5px;color:var(--muted)}
+.caps{display:flex;flex-wrap:wrap;gap:6px}
+.capb{appearance:none;border:0;border-radius:999px;padding:8px 12px;font-weight:800;font-size:13px;background:var(--bg);color:var(--muted);box-shadow:inset 0 0 0 1.5px var(--line)}
+.capb[aria-pressed="true"]{color:var(--ink);box-shadow:inset 0 0 0 2px var(--gold);background:var(--panel2)}
+.capd{font-size:12.5px;color:var(--muted);display:grid;gap:4px}
+.capd b{color:var(--ink)}
+.fuel{height:12px;border-radius:6px;background:#0B1427;overflow:hidden;box-shadow:inset 0 0 0 1px var(--line);flex:1}
+.fuel i{display:block;height:100%;background:linear-gradient(90deg,#FF6B6B,#FFD166 40%,#5BE49B)}
+.modrow{display:flex;align-items:center;gap:10px}
+.modtx{font-size:12px;color:var(--muted);font-weight:700;text-align:center}
+.trrow{display:flex;gap:6px;align-items:center;justify-content:center}
+.toks{display:flex;gap:3px;flex-wrap:wrap;justify-content:center}
+.tok{width:26px;height:26px;border-radius:7px;background:#2F7D4F;color:#fff;display:grid;place-items:center;font-weight:900;font-size:13px;box-shadow:inset 0 -2px 0 rgba(0,0,0,.35)}
+.tok.nx{outline:2px solid var(--gold);outline-offset:1px}
+.icegrid{display:grid;grid-template-columns:repeat(4,44px);gap:5px 8px;justify-content:center;justify-items:center}
+.icegrid .il{font-size:11px;font-weight:800;color:var(--muted);display:flex;gap:4px;align-items:center}
+.windring{display:flex;align-items:center;gap:10px;justify-content:center}
+.windring svg{width:92px;height:92px;flex:none}
+.capsbar{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.capsbar span{font-size:12px;font-weight:800;background:var(--bg);border-radius:999px;padding:4px 9px;box-shadow:inset 0 0 0 1px var(--line)}
+.capsbar span.used{opacity:.45;text-decoration:line-through}
+.rt{position:sticky;top:calc(4px + env(safe-area-inset-top,0px));z-index:7;display:flex;align-items:center;gap:10px;background:var(--panel);border-radius:12px;padding:8px 12px;box-shadow:0 0 0 1px var(--line);font-weight:800}
+.rt .bar{flex:1;height:10px;border-radius:5px;background:#0B1427;overflow:hidden}
+.rt .bar i{display:block;height:100%;background:var(--ok);transition:width .25s linear}
+.rt.low .bar i{background:var(--bad)}
+.rt.low{color:var(--bad)}
+.rt b{font-family:var(--display);font-size:18px;min-width:44px;text-align:right}
 @media (max-width:380px){.slot{width:40px;height:40px}.slot.full svg{width:40px;height:40px}.die svg{width:52px;height:52px}.sides{gap:8px}.swrow.f{grid-template-columns:repeat(2,40px)}}
 @media (prefers-reduced-motion:reduce){.last.fresh,.slot.legal{animation:none}#toast{transition:none}.die{transition:none}}
 </style>
@@ -241,7 +289,7 @@ function toast(m, ms) { const t = document.getElementById("toast"); t.textConten
 function on(sel, ev, fn, root) { (root || $app).querySelectorAll(sel).forEach(el => el.addEventListener(ev, fn)); }
 const cap = s => s[0].toUpperCase() + s.slice(1);
 const plural = (n, a, b) => n === 1 ? `${n} ${a}` : `${n} ${b}`;
-const COL = ["#3D8BFF", "#FF9A3C"], COL2 = ["#1E4FA3", "#A9561A"];
+const COL = ["#3D8BFF", "#FF9A3C", "#3A3F4B", "#2F7D4F"], COL2 = ["#1E4FA3", "#A9561A", "#15181F", "#1C5233"];
 const ROLE = ["Piloto", "Copiloto"];
 const AI_NAME = ["Capitana Vega", "Copiloto Leo"];
 
@@ -296,7 +344,7 @@ function gaugeSVG(st) {
   }
   for (let v = 2; v <= 12; v++) h += `<text x="${x(v)}" y="42" font-size="9.5" text-anchor="middle" fill="#9EB0D0" font-weight="800" font-family="Manrope,sans-serif">${v}</text>`;
   const mk = (v, c, lab) => `<path d="M${x(v)} 15l-5-9h10z" fill="${c}" stroke="#0B1427" stroke-width="1"/><path d="M${x(v)} 16v12" stroke="${c}" stroke-width="2"/>${lab ? `<text x="${x(v)}" y="5" font-size="7.5" text-anchor="middle" fill="${c}" font-weight="800" font-family="Manrope,sans-serif">${lab}</text>` : ""}`;
-  if (fin) h += mk(br - .5, "#FF6B6B", st.brakes ? "frenos " + br : "sin frenos");
+  if (fin) h += mk(br - .5, "#FF6B6B", br ? "frenos " + br : "sin frenos");
   else { h += mk(bl, COL[0]); h += mk(or, COL[1]); }
   if (st.speed != null) h += `<circle cx="${x(st.speed)}" cy="22" r="6.5" fill="#FFD166" stroke="#0B1427" stroke-width="1.5"/><text x="${x(st.speed)}" y="25" font-size="8" text-anchor="middle" fill="#3A2800" font-weight="900" font-family="Manrope,sans-serif">${st.speed}</text>`;
   return `<svg viewBox="0 0 200 46" role="img" aria-label="Velocidad">${h}</svg>`;
@@ -337,7 +385,9 @@ const S = {
   name: (localStorage.getItem("sala.nick") || "").slice(0, 16),
   mode: null, code: null, g: null, unsub: null, L: null,
   homeTab: "online", aiRole: ls.get("cabina.rol") === 1 ? 1 : 0, homeMsg: "", homeErr: false, busy: false, lastKey: "",
-  sel: null, k: 0, reveal: "", rrSel: [], hintA: null, aiTimer: null, seenN: -1, endShown: "", cache: { k: null, v: null }, rrSent: ""
+  sel: null, k: 0, reveal: "", rrSel: [], hintA: null, aiTimer: null, seenN: -1, endShown: "", cache: { k: null, v: null }, rrSent: "",
+  sc: B.SC_BY[ls.get("cabina.sc")] ? ls.get("cabina.sc") : "yul", caps: Array.isArray(ls.get("cabina.caps")) ? ls.get("cabina.caps") : [], trTok: null,
+  rtKey: "", rtT0: 0, rtSent: false
 };
 const me = () => S.uid;
 window.__cab = { S, B };
@@ -358,11 +408,67 @@ async function boot() {
   render();
 }
 
+/* ================= destino: escenario y capacidades ================= */
+const CAP_ORDER = ["control", "master", "team", "adapt", "antic", "sync"];
+const COLHEX = { g: "#5BE49B", y: "#FFC93C", r: "#FF5A5A", k: "#11151E" };
+const logros = () => ls.get("cabina.logros") || {};
+function fixCaps(sc, caps) {
+  const n = B.SC_BY[sc].caps, out = (caps || []).filter(c => B.CAPS[c]).filter((c, i, a) => a.indexOf(c) === i).slice(0, n);
+  for (const c of CAP_ORDER) if (out.length < n && !out.includes(c)) out.push(c);
+  return out;
+}
+/* configuración activa: en el lobby online manda la del anfitrión */
+function cfg() {
+  if (S.mode === "online" && S.g && S.g.cfg && B.SC_BY[S.g.cfg.sc]) return { sc: S.g.cfg.sc, caps: fixCaps(S.g.cfg.sc, S.g.cfg.caps) };
+  return { sc: S.sc, caps: fixCaps(S.sc, S.caps) };
+}
+function setCfg(sc, caps) {
+  S.sc = sc; S.caps = fixCaps(sc, caps); ls.set("cabina.sc", S.sc); ls.set("cabina.caps", S.caps);
+  if (S.mode === "online" && S.g && S.g.host === me() && S.g.status === "lobby") put({ cfg: { sc: S.sc, caps: S.caps } });
+  else render();
+}
+const modsTxt = d => d.mods.map(x => `<span>${B.MODS[x].i} ${B.MODS[x].n}</span>`).join("") + (d.caps ? `<span>★ ${d.caps} capacidad${d.caps > 1 ? "es" : ""}</span>` : "");
+function destH(editable) {
+  const c = cfg(), d = B.SC_BY[c.sc], won = logros()[c.sc];
+  return `<div class="card dest"><div class="dest-h"><span class="colr" style="background:${COLHEX[d.col]}"></span><span class="code">${d.code}</span>
+      <span class="nm"><b>${esc(d.name)}${won ? " ✓" : ""}</b><small>${B.COLOR_NAME[d.col]} · ${d.tr.length - 1} casillas</small></span>
+      ${editable ? `<button class="btn sm ghost" id="destBtn">Cambiar</button>` : ""}</div>
+    <p class="muted small">${esc(d.txt)}</p>
+    ${d.mods.length || d.caps ? `<div class="mods">${modsTxt(d)}</div>` : ""}
+    ${d.caps ? `<span class="lbl">Capacidades especiales (elegid ${d.caps})</span>
+      <div class="caps">${B.CAP_IDS.map(k => `<button class="capb" data-cap="${k}" aria-pressed="${c.caps.includes(k)}"${editable ? "" : " disabled"}>${B.CAPS[k].n}</button>`).join("")}</div>
+      <div class="capd">${c.caps.map(k => `<span><b>${B.CAPS[k].n}:</b> ${esc(B.CAPS[k].t)}</span>`).join("")}</div>` : ""}</div>`;
+}
+function bindDest() {
+  on("#destBtn", "click", showDestinos);
+  on("[data-cap]", "click", e => {
+    const k = e.currentTarget.dataset.cap, c = cfg(), n = B.SC_BY[c.sc].caps;
+    let caps = c.caps.slice();
+    if (caps.includes(k)) { if (n === 1) return; caps = caps.filter(x => x !== k); }
+    else { caps.push(k); if (caps.length > n) caps.shift(); }
+    S.capsManual = caps; setCfg(c.sc, caps.length < n ? caps.concat(CAP_ORDER.filter(x => !caps.includes(x))).slice(0, n) : caps);
+  });
+}
+function showDestinos() {
+  const c = cfg(), won = logros();
+  let h = `<h2>Elige destino</h2><p class="muted small">21 escenarios del libro de vuelo. El color marca la dificultad. Al aterrizar con éxito queda marcado con ✓.</p><div class="sc-list">`;
+  for (const col of ["g", "y", "r", "k"]) {
+    h += `<div class="sc-g"><span class="colr" style="background:${COLHEX[col]}"></span>${B.COLOR_NAME[col]}</div>`;
+    for (const d of B.SC.filter(x => x.col === col)) h += `<button class="sc-item" style="--cc:${COLHEX[col]}" data-sc="${d.id}" aria-pressed="${d.id === c.sc}">
+      <span class="t"><span>${d.code} · ${esc(d.name)}</span>${won[d.id] ? `<i>✓ ${won[d.id]}</i>` : ""}</span>
+      <span class="m">${d.tr.length - 1} casillas${d.mods.length ? " · " + d.mods.map(x => B.MODS[x].i + " " + B.MODS[x].n).join(" · ") : ""}${d.caps ? ` · ★ ${d.caps}` : ""}</span></button>`;
+  }
+  h += `</div><button class="btn ghost wide" data-x>Cerrar</button>`;
+  openSheet(h);
+  on("[data-x]", "click", closeSheet, $sheet);
+  on("[data-sc]", "click", e => { closeSheet(); const sc = e.currentTarget.dataset.sc; setCfg(sc, S.capsManual || S.caps); }, $sheet);
+}
+
 /* ================= modelo común ================= */
 const seatOf = id => { const st = (S.g && S.g.seats) || {}; return [0, 1].find(i => st[i] && st[i].id === id); };
 function parseSt(str) { if (S.cache.k === str) return S.cache.v; let v = null; try { v = JSON.parse(str); } catch {} S.cache = { k: str, v }; return v; }
 /* Quién tiene que hacer algo ahora */
-function actor(st) { if (st.rrPend) return st.rrPend.need[0] ? 0 : st.rrPend.need[1] ? 1 : null; return st.turn; }
+const actor = st => B.actor(st);
 function model() {
   if (S.mode === "online") {
     const g = S.g, st = parseSt(g.st), seats = g.seats || {}, seat = seatOf(me());
@@ -378,6 +484,8 @@ function myAction(m) {
   const st = m.st;
   if (st.over || m.me === null) return null;
   if (st.rrPend) return st.rrPend.need[m.me] && !(m.mode === "online" && rraSent(m)) ? "pick" : null;
+  if (st.syncPend) return m.me === C ? "sync" : null;
+  if (st.wtPend) return m.me === 1 - st.wtPend.p ? "wt" : null;
   return st.turn === m.me ? "place" : null;
 }
 const revealKey = m => m.me + "|" + m.st.n;
@@ -402,7 +510,7 @@ function leave(msg) {
 function onRemote(prev) {
   if (!S.g || !S.g.st) return;
   const st = parseSt(S.g.st);
-  if (prev && prev.st !== S.g.st) { S.sel = null; S.k = 0; S.hintA = null; S.rrSel = []; }
+  if (prev && prev.st !== S.g.st) { S.sel = null; S.k = 0; S.hintA = null; S.rrSel = []; S.trTok = null; }
   resolveRR(st);
 }
 /* Online: cada uno manda qué dados vuelve a tirar; cuando están las dos respuestas se aplican en orden (mismo resultado en los dos móviles) */
@@ -431,7 +539,7 @@ async function createOnline() {
   S.busy = true; render();
   try {
     const code = await freeCode();
-    await S.db.doc("games/" + code).set({ v: 1, status: "lobby", host: me(), createdAt: Date.now(), seats: { 0: { id: me(), name: S.name } }, st: "", rra: {} });
+    await S.db.doc("games/" + code).set({ v: 1, status: "lobby", host: me(), createdAt: Date.now(), seats: { 0: { id: me(), name: S.name } }, st: "", rra: {}, cfg: { sc: S.sc, caps: fixCaps(S.sc, S.caps) } });
     location.hash = code; watch(code);
   } catch { S.homeMsg = "No se pudo crear la partida. Revisa la conexión."; S.homeErr = true; }
   S.busy = false; render();
@@ -470,12 +578,12 @@ function startLocal(kind) {
     const rv = (document.getElementById("rv").value || "").trim().slice(0, 16);
     if (!rv) { S.homeMsg = "Escribe el nombre de tu compañero."; S.homeErr = true; render(); return; }
     const swap = S.aiRole === 1;
-    L = { mode: "local", names: swap ? [rv, S.name] : [S.name, rv], st: B.newGame(newSeed()) };
+    L = { mode: "local", names: swap ? [rv, S.name] : [S.name, rv], st: B.newGame(newSeed(), null, cfg()) };
   } else {
     ls.set("cabina.rol", S.aiRole);
     const h = S.aiRole, names = [];
     names[h] = S.name; names[1 - h] = AI_NAME[1 - h];
-    L = { mode: "ai", human: h, names, st: B.newGame(newSeed()) };
+    L = { mode: "ai", human: h, names, st: B.newGame(newSeed(), null, cfg()) };
   }
   S.mode = "local"; S.L = L; S.seenN = -1; S.endShown = ""; S.sel = null; S.reveal = ""; saveLocal(); SFX.roll(); render();
 }
@@ -484,9 +592,14 @@ function resumeLocal() { const L = ls.get("cabina.partida"); if (!L) return; S.m
 
 /* ================= jugar ================= */
 function commit(st) {
-  S.sel = null; S.k = 0; S.hintA = null; S.rrSel = [];
+  S.sel = null; S.k = 0; S.hintA = null; S.rrSel = []; S.trTok = null;
   if (S.mode === "online") put({ st: JSON.stringify(st), status: "play" });
-  else { S.L.st = st; saveLocal(); render(); }
+  else {
+    const was = S.L.mode === "local" && S.reveal ? actor(S.L.st) : null, open = S.reveal === revealKey(model()), r0 = S.L.st.round;
+    S.L.st = st;
+    if (open && was !== null && actor(st) === was && st.round === r0 && !st.over) S.reveal = revealKey(model());
+    saveLocal(); render();
+  }
 }
 function act(a) {
   const m = model(), p = m.me;
@@ -503,13 +616,13 @@ function feedback(a, b) {
   if (b.round !== a.round) { setTimeout(() => SFX.roll(), 350); }
   if (L.t === "place") { SFX.click(); if (L.on || L.hit) setTimeout(() => SFX.ding(), 120); }
   if (L.t === "pick" && L.c) SFX.roll();
+  if (L.t === "syncRoll" || L.t === "traffic" || L.t === "antic") SFX.roll();
 }
 function maybeAI() {
   if (S.mode !== "local" || !S.L || S.L.mode !== "ai" || S.aiTimer) return;
   const st = S.L.st, ai = 1 - S.L.human;
   if (st.over) return;
-  const need = st.rrPend ? st.rrPend.need[ai] : st.turn === ai;
-  if (!need) return;
+  if (actor(st) !== ai) return;
   S.aiTimer = setTimeout(() => {
     S.aiTimer = null;
     if (!S.L || S.L.mode !== "ai") return;
@@ -519,8 +632,9 @@ function maybeAI() {
     const ns = B.apply(st, ai, a);
     feedback(st, ns);
     if (a.t === "reroll") toast(`${S.L.names[ai]} gasta una ficha: podéis volver a tirar los dados que queráis.`, 4500);
+    if (a.t === "wt") toast(`${S.L.names[ai]} pone un ${ns.wtPend.v} en Trabajo en equipo: elige uno de tus dados para cambiarlo.`, 4500);
     S.L.st = ns; saveLocal(); render();
-  }, st.rrPend ? 700 : 1300);
+  }, st.rrPend || st.syncPend || st.wtPend ? 800 : B.has(st, "rt") ? 900 : 1300);
 }
 function rematch() {
   const m = model(); if (!m.st.over) return;
@@ -530,23 +644,43 @@ function rematch() {
   else { S.L.st = st; saveLocal(); render(); }
 }
 function selectDie(i) {
-  const m = model(); if (myAction(m) !== "place") return;
+  const m = model(), ac = myAction(m);
+  if (ac === "wt") { const v = m.st.dice[m.me][i]; confirmSheet(`¿Das tu ${v}?`, `Te quedas con el ${m.st.wtPend.v} de ${m.names[m.st.wtPend.p]} y tu compañero se lleva tu ${v}.`, "Intercambiar", () => act({ t: "wtPick", d: i })); return; }
+  if (ac !== "place") return;
   if (S.sel === i) { S.sel = null; S.k = 0; } else { S.sel = i; S.k = 0; }
-  S.hintA = null; SFX.click(); render();
+  S.trTok = null; S.hintA = null; SFX.click(); render();
+}
+/* ¿Se puede usar el dado seleccionado en prácticas? (hace falta al menos un sitio para la ficha) */
+function trainOK(st, p, d, k) {
+  const id = p === P ? "trP" : "trC";
+  return B.SLOT_IDS.some(tt => !B.check(st, p, { t: "place", d, s: id, k, tt }));
+}
+function placeWithWarning(a) {
+  const m = model(), err = B.check(m.st, m.me, a);
+  if (err) { toast(err); return; }
+  const ns = B.apply(m.st, m.me, a);
+  if (ns.over && !ns.over.win) { confirmSheet("¡Cuidado!", ns.over.txt + " ¿Seguro que quieres hacerlo?", "Hacerlo igualmente", () => act(a)); return; }
+  act(a);
 }
 function clickSlot(id) {
   const m = model(), st = m.st, Sd = B.SLOTS[id];
   if (st.sl[id]) { const o = st.sl[id]; toast(`${o.p === m.me && youTxt(m) ? "Tu" : "Un"} ${o.v} ${o.p === P ? "azul" : "naranja"} en ${slotName(id)}.`); return; }
-  if (myAction(m) !== "place" || !trayOpen(m)) { toast(slotInfo(id, st)); return; }
+  const ac = myAction(m);
+  if (ac === "sync" && trayOpen(m)) { placeWithWarning({ t: "sync", s: id }); return; }
+  if (ac !== "place" || !trayOpen(m)) { toast(slotInfo(id, st)); return; }
+  if (S.trTok) { placeWithWarning({ t: "place", d: S.trTok.d, s: m.me === P ? "trP" : "trC", k: S.trTok.k, tt: id }); return; }
   if (S.sel == null) { toast(slotInfo(id, st) + " Elige antes uno de tus dados."); return; }
-  const a = { t: "place", d: S.sel, s: id, k: S.k }, err = B.check(st, m.me, a);
-  if (err) { toast(err); return; }
-  // avisos de peligro antes de colocar
-  const ns = B.apply(st, m.me, a);
-  if (ns.over && !ns.over.win) { confirmSheet("¡Cuidado!", ns.over.txt + " ¿Seguro que quieres poner el dado ahí?", "Ponerlo igualmente", () => act(a)); return; }
-  act(a);
+  if (Sd.k === "train") {
+    const why = B.slotWhy(st, m.me, id, st.dice[m.me][S.sel] + S.k);
+    if (why) { toast(why); return; }
+    if (!trainOK(st, m.me, S.sel, S.k)) { toast("No hay ningún sitio libre para la ficha del piloto en prácticas."); return; }
+    S.trTok = { d: S.sel, k: S.k }; SFX.click(); render();
+    toast(`Ficha ${B.nextTrainee(st, m.me)} del piloto en prácticas: toca dónde la pones.`, 3500);
+    return;
+  }
+  placeWithWarning({ t: "place", d: S.sel, s: id, k: S.k });
 }
-function slotName(id) { return { axis: "el eje", eng: "los motores", radio: "la radio", gear: "el tren de aterrizaje", flap: "los flaps", brake: "los frenos", conc: "concentración" }[B.SLOTS[id].k]; }
+function slotName(id) { return { axis: "el eje", eng: "los motores", radio: "la radio", gear: "el tren de aterrizaje", flap: "los flaps", brake: "los frenos", conc: "concentración", kero: "el depósito de queroseno", train: "prácticas", ice: "los frenos para el hielo" }[B.SLOTS[id].k]; }
 function slotInfo(id, st) {
   const Sd = B.SLOTS[id];
   const who = Sd.who === -1 ? "Cualquiera de los dos" : `Solo el ${ROLE[Sd.who].toLowerCase()}`;
@@ -557,17 +691,55 @@ function slotInfo(id, st) {
     gear: `Tren de aterrizaje (${Sd.ok.join(" o ")}): al desplegarlo, el marcador azul sube una casilla.`,
     flap: `Flaps (${Sd.ok.join(" o ")}), en orden de arriba abajo: al desplegarlos, el marcador naranja sube una casilla.`,
     brake: `Frenos (${Sd.ok[0]}), en orden 2, 4, 6: solo cuentan en la última ronda.`,
-    conc: "Concentración: cualquier dado. Ganáis un café (máximo 3) que cambia un dado ±1."
+    conc: "Concentración: cualquier dado. Ganáis un café (máximo 3) que cambia un dado ±1.",
+    kero: `Depósito: cualquier dado. Gasta tanto queroseno como su valor; si nadie lo usa en la ronda, se gastan ${B.KERO_MISS}.`,
+    train: "Piloto en prácticas: pon un dado distinto de la ficha que toca y coloca la ficha donde podrías poner un dado.",
+    ice: `Frenos para el hielo (${(Sd.ok || [])[0]}): piloto y copiloto tienen que poner ese valor en la misma columna y en la misma ronda.`
   }[Sd.k];
   return `${t} ${who}.`;
 }
 function doHint() {
-  const m = model(); if (myAction(m) !== "place") return;
+  const m = model(), ac = myAction(m); if (ac !== "place" && ac !== "sync") return;
   const a = B.hint(m.st, m.me);
   if (!a) { toast("No se me ocurre nada mejor: confía en tu instinto."); return; }
-  S.sel = a.d; S.k = a.k; S.hintA = a; render();
+  if (a.t === "sync") { S.hintA = { s: a.s }; render(); toast(a.s ? `Pista: pon el dado de tráfico en ${slotName(a.s)}.` : "Pista: no cabe en ningún sitio, descártalo.", 5000); return; }
+  if (a.t === "skip") { toast("No puedes colocar ningún dado: descarta uno.", 5000); return; }
+  if (a.t !== "place") return;
+  S.sel = a.d; S.k = a.k; S.trTok = null; S.hintA = a; render();
+  if (a.tt) { toast(`Pista: pon el ${m.st.dice[m.me][a.d] + a.k} en prácticas y la ficha ${B.nextTrainee(m.st, m.me)} en ${slotName(a.tt)}.`, 5500); return; }
   toast(a.rr ? "Pista: estos dados pintan mal. Plantéate gastar la ficha de volver a tirar; si no, lo menos malo es lo marcado." : `Pista: pon el ${m.st.dice[m.me][a.d] + a.k}${a.k ? ` (con ${Math.abs(a.k)} café)` : ""} en ${slotName(a.s)}.`, 5000);
 }
+/* Capacidades que se activan con un dado elegido */
+function useCap(kind) {
+  const m = model(); if (myAction(m) !== "place") return;
+  if (S.sel == null) { toast("Elige antes uno de tus dados."); return; }
+  const v = m.st.dice[m.me][S.sel], d = S.sel;
+  if (kind === "flip") { const e = B.check(m.st, m.me, { t: "flip", d }); if (e) return toast(e); confirmSheet(`¿Dar la vuelta a tu ${v}?`, `Pasará a ser un ${7 - v}. Solo puedes usar Adaptación una vez por partida.`, "Darle la vuelta", () => act({ t: "flip", d })); }
+  if (kind === "antic") { const e = B.check(m.st, m.me, { t: "antic", d }); if (e) return toast(e); act({ t: "antic", d }); }
+  if (kind === "wt") { const e = B.check(m.st, m.me, { t: "wt", d }); if (e) return toast(e); confirmSheet(`¿Poner tu ${v} en Trabajo en equipo?`, "Tu compañero tendrá que darte uno de sus dados a cambio (lo elige él). Solo una vez por ronda.", "Ponerlo", () => act({ t: "wt", d })); }
+  if (kind === "skip") { const e = B.check(m.st, m.me, { t: "skip", d }); if (e) return toast(e); act({ t: "skip", d }); }
+}
+function doTimeout() {
+  const m = model(), st = m.st, a = { t: "timeout", r: st.round };
+  if (B.check(st, m.me == null ? 0 : m.me, a)) return;
+  const ns = B.apply(st, m.me == null ? 0 : m.me, a);
+  feedback(st, ns); closeSheet(); commit(ns);
+  toast("¡Se acabó el tiempo de la ronda!", 3000);
+}
+/* Cuenta atrás de tiempo real: cada móvil cuenta 60 s desde que ve los dados de la ronda */
+function rtTick() {
+  const el = document.getElementById("rt");
+  if (!S.mode || (S.mode === "online" && (!S.g || !S.g.st || S.g.status === "lobby"))) return;
+  const m = model(), st = m && m.st;
+  if (!st || !B.has(st, "rt") || st.over) { if (el) el.style.display = "none"; return; }
+  const key = st.seed + "|" + (st.played || 0) + "|" + st.round;
+  if (S.rtKey !== key) { S.rtKey = key; S.rtT0 = Date.now(); S.rtSent = false; }
+  const left = Math.max(0, 60 - (Date.now() - S.rtT0) / 1000);
+  if (el) { el.style.display = ""; el.classList.toggle("low", left <= 10); el.querySelector("b").textContent = Math.ceil(left) + " s"; el.querySelector("i").style.width = (left / 60 * 100) + "%"; }
+  const grace = S.mode === "online" ? (m.me === 0 ? 0 : m.me === 1 ? 2 : 1e9) : 0;
+  if (left <= 0 && !S.rtSent && (Date.now() - S.rtT0) / 1000 >= 60 + grace) { S.rtSent = true; doTimeout(); }
+}
+setInterval(rtTick, 250);
 function askReroll() {
   const m = model(), st = m.st;
   const err = B.check(st, m.me === null ? 0 : m.me, { t: "reroll" });
@@ -618,6 +790,7 @@ function renderHome() {
   <button class="btn ghost wide" id="rules">✈️ Cómo se juega (léelo si es tu primer vuelo)</button>
   <label class="lbl" for="nm">Tu nombre<input id="nm" class="text" maxlength="16" autocomplete="nickname" value="${esc(S.name)}" placeholder="Tu nombre"></label>
   ${canResume ? `<button class="btn gold wide" id="resume">Continuar el vuelo en este móvil</button>` : ""}
+  ${destH(true)}
   <div class="seg" role="group" aria-label="Modo de juego">${seg("tab", "online", tab, "Online")}${seg("tab", "local", tab, "Mismo móvil")}${seg("tab", "ai", tab, "Con la IA")}</div>
   ${tab === "online" ? (S.offline ? `<div class="card"><p class="muted">No hay conexión con el servidor de partidas. Puedes jugar en este móvil o con la IA.</p></div>` : `
   <div class="card"><h2>Nuevo vuelo</h2><p class="muted small">Cada uno desde su móvil, así nadie ve los dados del otro. Pasa el código a tu compañero.</p><button class="btn gold wide" id="create"${S.busy ? " disabled" : ""}>Crear partida</button></div>
@@ -631,7 +804,7 @@ function renderHome() {
     <span class="lbl">Tú vas de</span><div class="seg" role="group" aria-label="Tu puesto">${seg("rl", 0, rl, "Piloto", "pi")}${seg("rl", 1, rl, "Copiloto", "co")}</div>
     <button class="btn gold wide" id="ai">Despegar</button></div>` : ""}
   <p class="msg ${S.homeErr ? "err" : ""}" role="status">${esc(S.homeMsg)}</p>`;
-  view(html, "home|" + S.busy + "|" + S.homeMsg + "|" + tab + "|" + rl);
+  view(html, "home|" + S.busy + "|" + S.homeMsg + "|" + tab + "|" + rl + "|" + S.sc + S.caps.join());
   const keepName = () => { const el = document.getElementById("nm"); if (el) S.name = el.value.trim().slice(0, 16); };
   on("[data-tab]", "click", e => { keepName(); S.homeTab = e.currentTarget.dataset.tab; S.homeMsg = ""; render(); });
   on("[data-rl]", "click", e => { keepName(); const rv = document.getElementById("rv"); S.rvKeep = rv ? rv.value : ""; S.aiRole = +e.currentTarget.dataset.rl; render(); const r2 = document.getElementById("rv"); if (r2) r2.value = S.rvKeep || ""; });
@@ -643,6 +816,7 @@ function renderHome() {
   on("#ai", "click", () => startLocal("ai"));
   on("#resume", "click", resumeLocal);
   on("#rules", "click", showRules);
+  bindDest();
 }
 
 function renderLobby() {
@@ -654,19 +828,21 @@ function renderLobby() {
   <div class="hero" style="padding-block:6px 0"><div class="logo" style="font-size:40px"><small>CABINA PARA DOS</small>Doble <em>Mando</em></div></div>
   <div class="card" style="text-align:center"><p class="muted small">Código de la partida</p><div class="big-code">${esc(S.code)}</div>
     <button class="btn ghost" id="share">Invitar</button></div>
+  ${destH(host)}
   <div class="card"><h2>Tripulación</h2><div class="seats">${seatH(0)}${seatH(1)}</div>
     ${seat === undefined && !full ? `<button class="btn gold" id="sit">Sentarme</button>` : ""}
     ${host && full ? `<button class="btn ghost" id="swap">Cambiar los puestos</button>` : ""}</div>
   ${host ? `<button class="btn gold wide" id="start"${full ? "" : " disabled"}>${full ? "Despegar" : "Esperando a tu compañero…"}</button>`
     : `<div class="wait"><p>Esperando a que ${esc((st[0] && st[0].id === g.host ? st[0] : st[1] || {}).name || "el anfitrión")} despegue.</p></div>`}
   <p class="muted small" style="text-align:center">Mientras esperáis, pulsad <b>?</b> para leer las reglas. Ahora sí podéis hablar de estrategia.</p>`;
-  view(html, "lobby|" + JSON.stringify(st) + host);
+  view(html, "lobby|" + JSON.stringify(st) + host + JSON.stringify(g.cfg || null));
   on("#out", "click", () => leave());
   on("#share", "click", share);
   on("#help", "click", showRules);
   on("#sit", "click", () => joinOnline(S.code));
   on("#swap", "click", () => put({ seats: { 0: st[1], 1: st[0] } }));
-  on("#start", "click", () => { if (S.g.seats[0] && S.g.seats[1]) { SFX.roll(); put({ status: "play", rra: {}, st: JSON.stringify(B.newGame(newSeed())) }); } });
+  on("#start", "click", () => { if (S.g.seats[0] && S.g.seats[1]) { SFX.roll(); put({ status: "play", rra: {}, st: JSON.stringify(B.newGame(newSeed(), null, cfg())) }); } });
+  bindDest();
 }
 function share() {
   const url = location.origin + location.pathname + "#" + S.code, text = `¿Me ayudas a aterrizar? Partida de Doble Mando, código: ${S.code}`;
@@ -677,38 +853,49 @@ function share() {
 
 /* ---------- partes de la cabina ---------- */
 function legalSet(m) {
-  const set = new Set();
-  if (S.sel == null || myAction(m) !== "place" || !trayOpen(m)) return set;
-  for (const id of B.SLOT_IDS) if (!B.check(m.st, m.me, { t: "place", d: S.sel, s: id, k: S.k })) set.add(id);
+  const set = new Set(), st = m.st, ac = myAction(m);
+  if (!trayOpen(m)) return set;
+  if (ac === "sync") { for (const id of B.syncTargets(st)) set.add(id); return set; }
+  if (ac !== "place") return set;
+  if (S.trTok) { const id = m.me === P ? "trP" : "trC"; for (const tt of B.SLOT_IDS) if (!B.check(st, m.me, { t: "place", d: S.trTok.d, s: id, k: S.trTok.k, tt })) set.add(tt); return set; }
+  if (S.sel == null) return set;
+  for (const id of B.SLOT_IDS) {
+    if (B.SLOTS[id].k === "train") { if (trainOK(st, m.me, S.sel, S.k)) set.add(id); }
+    else if (!B.check(st, m.me, { t: "place", d: S.sel, s: id, k: S.k })) set.add(id);
+  }
   return set;
 }
 function slotH(m, id, legal, label) {
   const st = m.st, o = st.sl[id], Sd = B.SLOTS[id];
   const sc = Sd.who === -1 ? "" : `--sc:${COL[Sd.who]}`;
-  if (o) return `<button class="slot full" data-slot="${id}" aria-label="${esc(slotName(id))}: ${o.v}">${dieSVG(o.v, o.p)}</button>`;
+  if (o) return `<button class="slot full" data-slot="${id}" aria-label="${esc(slotName(id))}: ${o.v}${o.t ? " (ficha de prácticas)" : o.x ? " (dado de tráfico)" : ""}">${dieSVG(o.v, o.x ? 2 : o.t ? 3 : o.p)}</button>`;
   const cls = "slot" + (Sd.who === -1 ? " any" : "") + (legal.has(id) ? " legal" : "") + (S.hintA && S.hintA.s === id ? " hint" : "");
   return `<button class="${cls}" style="${sc}" data-slot="${id}" aria-label="${esc(slotName(id))}${label ? " " + label : ""}">${label || ""}</button>`;
 }
+const turnTxt = tn => tn.map(a => a === 0 ? "0" : a < 0 ? "◀" + -a : a + "▶").join(" ");
 function approachH(m, radioV) {
-  const st = m.st;
-  let h = "";
-  for (let i = 0; i <= B.AIRPORT; i++) {
-    const n = st.planes[i], past = i < st.pos, here = i === st.pos, apt = i === B.AIRPORT, rn = i - st.pos + 1;
-    const tgt = radioV != null && i === st.pos + radioV - 1;
-    h += `<div class="cell${past ? " past" : ""}${here ? " here" : ""}${apt ? " apt" : ""}${tgt ? " tgt" : ""}">
+  const st = m.st, AP = B.airport(st), sc = B.scen(st);
+  let h = "", anyT = false, anyR = false;
+  for (let i = 0; i <= AP; i++) {
+    const n = st.planes[i], past = i < st.pos, here = i === st.pos, apt = i === AP, rn = i - st.pos + 1;
+    const tgt = radioV != null && i === st.pos + radioV - 1, trf = B.traffic(st, i), tn = B.turnAt(st, i);
+    if (trf) anyT = true; if (tn) anyR = true;
+    const bad = here && tn && !tn.includes(st.axis) && !st.over;
+    h += `<div class="cell${past ? " past" : ""}${here ? " here" : ""}${apt ? " apt" : ""}${tgt ? " tgt" : ""}${bad ? " turnbad" : ""}" title="${trf ? `Tráfico: ${trf} dado${trf > 1 ? "s" : ""} al empezar la ronda aquí. ` : ""}${tn ? `Giro: para salir de aquí el eje tiene que estar en ${turnTxt(tn)}.` : ""}">
       <span class="rn">${!past && rn <= 6 ? (here ? "AQUÍ·1" : rn) : ""}</span>
       ${apt ? `<span class="apt-i">${RUNWAY_I}</span>` : `<span class="pls">${n ? Array(n).fill(PLANE_I).join("") : ""}</span>`}
-      <span>${apt ? B.ROUTE.code : ""}</span></div>`;
+      ${trf ? `<span class="trd">🎲${trf > 1 ? "×" + trf : ""}</span>` : ""}<span${tn ? ` class="trn"` : ""}>${apt ? sc.code : tn ? turnTxt(tn) : ""}</span></div>`;
   }
   const ahead = st.planes.reduce((a, x, i) => a + (i >= st.pos ? x : 0), 0);
-  return `<div class="strip" id="appr"><div class="strip-h"><span>Aproximación · ${esc(B.ROUTE.name)}</span><b>${st.pos === B.AIRPORT ? "¡Pista a la vista!" : `Faltan ${plural(B.AIRPORT - st.pos, "casilla", "casillas")}`} · ${plural(ahead, "avión", "aviones")}</b></div><div class="cells">${h}</div></div>`;
+  const leg = [anyT ? "🎲 dado de tráfico al empezar la ronda en esa casilla" : "", anyR ? "◀ ▶ inclinación del eje permitida para salir de esa casilla" : ""].filter(Boolean).join(" · ");
+  return `<div class="strip" id="appr"><div class="strip-h"><span>Aproximación · ${esc(sc.code + " " + sc.name)}</span><b>${st.pos === AP ? "¡Pista a la vista!" : `Faltan ${plural(AP - st.pos, "casilla", "casillas")}`} · ${plural(ahead, "avión", "aviones")}</b></div><div class="cells" style="--n:${AP + 1}">${h}</div>${leg ? `<p class="legend">${leg}</p>` : ""}</div>`;
 }
 function altitudeH(m) {
   const st = m.st;
   let h = "";
   B.ALT.forEach((ft, i) => {
     const here = i === st.round - 1, past = i < st.round - 1, first = i % 2 === 0 ? 0 : 1;
-    const rr = B.REROLL_AT.includes(i) && i >= st.round - 1 && !(i === st.round - 1);
+    const rr = B.rerollAt(st).includes(i) && i > st.round - 1;
     h += `<div class="cell${past ? " past" : ""}${here ? " here" : ""}" style="${here ? `box-shadow:inset 0 0 0 2px ${COL[first]},0 0 14px -4px ${COL[first]}` : ""}">
       ${rr ? `<span class="rrdot" title="Ficha de volver a tirar">↻</span>` : ""}
       <span class="ft">${i === 6 ? "✈︎" : ft / 1000 + "k"}</span><span class="fp" style="color:${COL[first]}">${first === 0 ? "◀ P" : "C ▶"}</span></div>`;
@@ -718,12 +905,58 @@ function altitudeH(m) {
 function switchRow(m, id, legal, on, lock) {
   return `<div class="sw"><span class="lamp${on ? " on" : ""}${lock ? " lock" : ""}" aria-hidden="true"></span>${slotH(m, id, legal, B.SLOTS[id].ok.join("·"))}</div>`;
 }
+function windSVG(st) {
+  const idx = st.wind || 0;
+  let h = `<circle cx="50" cy="50" r="47" fill="#22324F" stroke="#3A4D73" stroke-width="2"/><circle cx="50" cy="50" r="27" fill="#1E4FA3"/>`;
+  B.WIND.forEach((w, i) => {
+    const a = (i * 18 - 90) * Math.PI / 180, x = 50 + 37 * Math.cos(a), y = 50 + 37 * Math.sin(a);
+    h += `<text x="${x}" y="${y + 3.5}" font-size="${i === idx ? 11 : 8.5}" text-anchor="middle" font-weight="900" font-family="Manrope,sans-serif" fill="${i === idx ? "#FFD166" : w > 0 ? "#FFB2A8" : w < 0 ? "#9CC4FF" : "#C7D3EE"}">${w > 0 ? "+" + w : w}</text>`;
+  });
+  h += `<g transform="rotate(${idx * 18} 50 50)"><path d="M50 27c2 0 3 3 3 6v8l12 6v3l-12-3v7l4 3v2l-7-2-7 2v-2l4-3v-7l-12 3v-3l12-6v-8c0-3 1-6 3-6z" fill="#F3F7FF"/></g>`;
+  return `<svg viewBox="0 0 100 100" role="img" aria-label="Viento ${B.windVal(st)}">${h}</svg>`;
+}
+function modsH(m, legal) {
+  const st = m.st;
+  let h = "";
+  if (st.fuel != null) {
+    const leak = B.has(st, "leak");
+    h += `<div class="inst" id="keroBox"><div class="inst-h"><span>${leak ? "💧 Fuga de queroseno" : "⛽ Queroseno"}</span><span class="tag ${st.fuel <= 6 ? "must" : ""}">${st.fuel}/${B.FUEL0}</span></div>
+      <div class="modrow">${leak ? "" : slotH(m, "ke", legal, "⛽")}<div class="fuel"><i style="width:${st.fuel / B.FUEL0 * 100}%"></i></div></div>
+      <p class="modtx">${leak ? "Cada ronda perdéis la diferencia entre los dados de motores, +1." : st.sl.ke ? "Depósito usado esta ronda." : `Cualquier dado: gasta su valor. Si nadie lo usa esta ronda: −${B.KERO_MISS}.`} A 0 os quedáis secos.</p></div>`;
+  }
+  if (B.has(st, "wind")) {
+    const w = B.windVal(st);
+    h += `<div class="inst" id="windBox"><div class="inst-h"><span>🌬️ Viento</span><span class="tag">${w > 0 ? "+" + w : w} a la velocidad</span></div>
+      <div class="windring">${windSVG(st)}<p class="modtx" style="text-align:left">El viento se suma a los motores. Tras resolver el eje, el anillo gira tantas marcas como esté inclinado el avión, hacia ese lado.</p></div></div>`;
+  }
+  if (st.tr) {
+    const nP = B.nextTrainee(st, P), nC = B.nextTrainee(st, C);
+    h += `<div class="inst" id="trainBox"><div class="inst-h"><span>🧑‍✈️ Piloto en prácticas</span><span class="tag ${st.tr.length ? "must" : "ok"}">${st.tr.length ? `Quedan ${st.tr.length}` : "Instruido"}</span></div>
+      <div class="trrow">${slotH(m, "trP", legal, "P")}<div class="toks">${st.tr.map((v, i) => `<span class="tok${(i === 0 || i === st.tr.length - 1) ? " nx" : ""}">${v}</span>`).join("") || `<span class="modtx">¡Instrucción completa!</span>`}</div>${slotH(m, "trC", legal, "C")}</div>
+      <p class="modtx">${st.tr.length ? `Toca: piloto la ${nP}, copiloto la ${nC}. El dado tiene que ser distinto de la ficha.` : ""} Para aterrizar no puede quedar ninguna.</p></div>`;
+  }
+  if (B.has(st, "ice")) {
+    let g = "";
+    for (let i = 0; i < 4; i++) g += slotH(m, "iP" + i, legal, String(i + 2));
+    for (let i = 0; i < 4; i++) g += `<span class="il"><span class="sw"><span class="lamp${i < st.ice ? " on" : ""}${i > st.ice ? " lock" : ""}"></span></span>❄${i + 2}</span>`;
+    for (let i = 0; i < 4; i++) g += slotH(m, "iC" + i, legal, String(i + 2));
+    h += `<div class="inst" id="iceBox"><div class="inst-h"><span>❄️ Frenos para el hielo</span><span class="tag ${st.ice >= 4 ? "ok" : "must"}">${st.ice}/4 · frenos ${B.brakeVal(st)}</span></div>
+      <div class="icegrid" style="--sc:${COL[0]}">${g}</div><p class="modtx">En orden. <span style="color:${COL[0]}">Piloto arriba</span> y <span style="color:${COL[1]}">copiloto abajo</span>, el mismo valor en la misma ronda.</p></div>`;
+  }
+  if ((st.caps || []).length) {
+    const used = k => (k === "adapt" && st.adapt && st.adapt[0] && st.adapt[1]) || (k === "team" && st.wtR === st.round) || (k === "sync" && st.syncR === st.round) || (k === "antic" && st.anticR === st.round);
+    h += `<div class="inst" id="capsBox"><div class="inst-h"><span>★ Capacidades especiales</span></div><div class="capsbar">${st.caps.map(k => `<span class="${used(k) ? "used" : ""}" title="${esc(B.CAPS[k].t)}" data-capi="${k}">${B.CAPS[k].n}</span>`).join("")}</div></div>`;
+  }
+  return h;
+}
 function panelH(m, legal) {
-  const st = m.st, fin = B.final(st);
+  const st = m.st, fin = B.final(st), w = B.windVal(st), ice = B.has(st, "ice");
   const axOK = st.sl.axP && st.sl.axC, enOK = st.sl.enP && st.sl.enC;
+  const wT = w ? ` (los dados${w > 0 ? " +" + w : " " + w} de viento)` : "";
+  const brk = B.brakeVal(st);
   const spTxt = fin
-    ? `Última ronda: la velocidad tiene que ser <b>menor que ${st.brakes ? B.brakeVal(st) : "los frenos"}</b>${st.brakes < 2 ? " (necesitáis al menos 2 frenos)" : ""}.`
-    : `Menos de ${Math.ceil(B.blue(st))}: no avanzáis · ${Math.ceil(B.blue(st))}–${Math.floor(B.orange(st))}: avanzáis 1 · más de ${Math.floor(B.orange(st))}: avanzáis 2`;
+    ? `Última ronda: la velocidad${wT} tiene que ser <b>menor que ${brk || "los frenos"}</b>${ice ? (st.ice < 4 ? " (y hay que completar los frenos para el hielo)" : "") : st.brakes < 2 ? " (necesitáis al menos 2 frenos)" : ""}.`
+    : `Velocidad${wT}: menos de ${Math.ceil(B.blue(st))}, no avanzáis · ${Math.ceil(B.blue(st))}–${Math.floor(B.orange(st))}, avanzáis 1 · más de ${Math.floor(B.orange(st))}, avanzáis 2`;
   return `<div class="panel" id="panel">
     <div class="inst" id="axisBox"><div class="inst-h"><span>Eje</span><span class="tag ${axOK ? "ok" : "must"}">${axOK ? "Hecho" : "Obligatorio"}</span></div>
       <div class="axrow"><div>${slotH(m, "axP", legal)}<div class="lb" style="color:${COL[0]}">PILOTO</div></div><div class="dial">${dialSVG(st)}</div><div>${slotH(m, "axC", legal)}<div class="lb" style="color:${COL[1]}">COPILOTO</div></div></div></div>
@@ -735,8 +968,8 @@ function panelH(m, legal) {
         <div class="grp"><div class="gl"><span>Radio</span></div><div class="radios">${slotH(m, "raP", legal, "📻")}</div></div>
         <div class="grp" id="gearBox"><div class="gl"><span>Tren</span><span>${B.gearCount(st)}/3</span></div>
           <div class="swrow">${["g1", "g2", "g3"].map((id, i) => switchRow(m, id, legal, st.gear[i], false)).join("")}</div></div>
-        <div class="grp" id="brakeBox"><div class="gl"><span>Frenos</span><span>${st.brakes}/3</span></div>
-          <div class="swrow">${["b1", "b2", "b3"].map((id, i) => switchRow(m, id, legal, i < st.brakes, i > st.brakes)).join("")}</div></div>
+        ${ice ? `<div class="grp" id="brakeBox"><div class="gl"><span>Frenos</span></div><p class="modtx">Tapados por los frenos para el hielo ❄️</p></div>` : `<div class="grp" id="brakeBox"><div class="gl"><span>Frenos</span><span>${st.brakes}/3</span></div>
+          <div class="swrow">${["b1", "b2", "b3"].map((id, i) => switchRow(m, id, legal, i < st.brakes, i > st.brakes)).join("")}</div></div>`}
       </div>
       <div class="side" style="--sc:${COL[1]}" id="sideC"><div class="sh">Copiloto</div>
         <div class="grp"><div class="gl"><span>Radio</span></div><div class="radios">${slotH(m, "raC1", legal, "📻")}${slotH(m, "raC2", legal, "📻")}</div></div>
@@ -747,6 +980,7 @@ function panelH(m, legal) {
     <div class="inst" id="concBox"><div class="inst-h"><span>Concentración · cualquiera</span><span class="tag">Café ${st.coffee}/3</span></div>
       <div class="conc"><div class="slots">${["c1", "c2", "c3"].map(id => slotH(m, id, legal, "☕")).join("")}</div>
         <div class="tokens"><span class="tk" title="Café">${[0, 1, 2].map(i => CUP(i < st.coffee)).join("")}</span><span class="tk" title="Fichas de volver a tirar">${RR_I(st.rr)}<b>${st.rr}</b></span></div></div></div>
+    ${modsH(m, legal)}
   </div>`;
 }
 function crewH(m) {
@@ -769,8 +1003,10 @@ function trayH(m) {
     const a = actor(st);
     let t = m.mode === "ai" ? `${m.names[a]} está pensando…` : `Le toca a ${m.names[a]}. Recuerda: ¡en silencio!`;
     if (st.rrPend && m.mode === "online") t = st.rrPend.need[p] ? "Esperando a que tu compañero elija sus dados…" : `${m.names[1 - p]} está eligiendo qué dados vuelve a tirar…`;
+    if (st.syncPend) t = `${m.names[C]} coloca el dado de tráfico (${st.syncPend.v}) de Sincronización…`;
+    if (st.wtPend && st.wtPend.p === p) t = `Has puesto un ${st.wtPend.v} en Trabajo en equipo. ${m.names[1 - p]} elige qué dado te da…`;
     return `<div class="tray" style="${sc}"><div class="tray-h"><span>Tus dados</span><span style="color:var(--muted)">${plural(st.dice[p].length, "por colocar", "por colocar")}</span></div>
-      <div class="dice">${st.dice[p].map(v => `<span class="die">${dieSVG(v, p)}</span>`).join("") || `<span class="muted small">Ya has colocado tus 4 dados.</span>`}</div><p class="coach">${esc(t)}</p></div>`;
+      <div class="dice">${st.dice[p].map(v => `<span class="die">${dieSVG(v, p)}</span>`).join("") || `<span class="muted small">Ya no te quedan dados esta ronda.</span>`}</div><p class="coach">${esc(t)}</p></div>`;
   }
   if (!trayOpen(m)) {
     return `<div class="tray" style="${sc}"><div class="cover"><p style="font-size:17px;font-weight:800">Pasa el móvil a <span style="color:${COL[p]}">${esc(m.names[p])}</span> (${ROLE[p].toLowerCase()})</p>
@@ -783,30 +1019,53 @@ function trayH(m) {
       <p class="coach">Toca los dados que quieres volver a tirar.</p>
       <div class="acts"><button class="btn ghost" id="keepAll">Me los quedo</button><button class="btn gold" id="doRR"${S.rrSel.length ? "" : " disabled"}>Volver a tirar ${S.rrSel.length || ""}</button></div></div>`;
   }
+  if (act0 === "sync") {
+    const tg = B.syncTargets(st);
+    return `<div class="tray" style="--sc:#C7D3EE" id="tray"><div class="tray-h"><span>Sincronización · dado de tráfico</span></div>
+      <div class="dice"><span class="die">${dieSVG(st.syncPend.v, 2)}</span></div>
+      <p class="coach ok">${tg.length ? "Ponlo en cualquier casilla libre iluminada, sea del color que sea. Tiene su efecto normal." : "No cabe en ninguna casilla libre."}</p>
+      <div class="acts">${tg.length ? `<button class="btn sm" id="hi">Pista</button>` : `<button class="btn gold" id="syncSkip">Descartarlo</button>`}</div></div>`;
+  }
+  if (act0 === "wt") {
+    return `<div class="tray" style="${sc}" id="tray"><div class="tray-h"><span>Trabajo en equipo</span></div>
+      <p class="coach ok">${esc(m.names[st.wtPend.p])} ha puesto un ${st.wtPend.v}. Toca uno de tus dados: os intercambiáis los valores.</p>
+      <div class="dice">${st.dice[p].map((d, i) => `<button class="die" data-die="${i}" aria-label="Dar el ${d}">${dieSVG(d, p)}</button>`).join("")}</div></div>`;
+  }
   const sel = S.sel, v = sel != null ? st.dice[p][sel] : null;
   let cof = "";
   if (sel != null && st.coffee > 0) {
     const lo = Math.max(-st.coffee, 1 - v), hi = Math.min(st.coffee, 6 - v);
     cof = `<div class="cof"><button class="btn sm ghost" id="kMinus"${S.k <= lo ? " disabled" : ""} aria-label="Café: restar 1">−1</button><span>${S.k ? `☕ ×${Math.abs(S.k)}: tu ${v} vale <b style="color:var(--gold)">${v + S.k}</b>` : "Café: cambia el dado ±1"}</span><button class="btn sm ghost" id="kPlus"${S.k >= hi ? " disabled" : ""} aria-label="Café: sumar 1">+1</button></div>`;
   }
-  const must = B.mandLeft(st, p), left = st.dice[p].length;
+  const must = B.mandLeft(st, p), left = st.dice[p].length, stuck = !B.canPlace(st, p);
   let coach = sel == null ? "Elige uno de tus dados." : "Ahora toca una casilla iluminada del panel.";
   if (sel == null && must && left === must) coach = `Te quedan ${plural(left, "dado", "dados")} y ${must === 2 ? "el eje y los motores" : st.sl[p === P ? "axP" : "axC"] ? "los motores" : "el eje"} sin poner: van ahí sí o sí.`;
+  if (S.trTok) coach = `Ficha ${B.nextTrainee(st, p)} del piloto en prácticas: toca dónde la pones.`;
+  if (stuck && !S.trTok) coach = "No puedes colocar ningún dado en ninguna casilla: elige uno y descártalo.";
+  const caps = st.caps || [], cb = [];
+  if (!S.trTok) {
+    if (caps.includes("adapt") && !(st.adapt && st.adapt[p])) cb.push(`<button class="btn sm ghost" data-use="flip"${sel == null ? " disabled" : ""}>Adaptación ↕</button>`);
+    if (caps.includes("antic") && st.first === p && !st.pl[p] && st.anticR !== st.round) cb.push(`<button class="btn sm ghost" data-use="antic"${sel == null ? " disabled" : ""}>Anticipación ↻1</button>`);
+    if (caps.includes("team") && st.wtR !== st.round && st.dice[1 - p].length) cb.push(`<button class="btn sm ghost" data-use="wt"${sel == null ? " disabled" : ""}>Trabajo en equipo ⇄</button>`);
+    if (stuck) cb.push(`<button class="btn sm gold" data-use="skip"${sel == null ? " disabled" : ""}>Descartar dado</button>`);
+  }
   return `<div class="tray" style="${sc}" id="tray"><div class="tray-h"><span>Tus dados · ${ROLE[p]}</span>${m.mode === "local" ? `<button class="btn sm ghost" id="hide">Tapar</button>` : ""}</div>
     <div class="dice">${st.dice[p].map((d, i) => `<button class="die${sel === i ? " sel" : ""}${S.hintA && S.hintA.d === i ? " mark" : ""}" data-die="${i}" aria-pressed="${sel === i}" aria-label="Dado ${d}">${dieSVG(sel === i ? d + S.k : d, p, { k: sel === i && S.k })}</button>`).join("")}</div>
-    ${cof}<p class="coach${sel != null ? " ok" : ""}">${esc(coach)}</p>
-    <div class="acts"><button class="btn sm" id="hi">Pista</button>${st.rr > 0 && !st.rrPend ? `<button class="btn sm ghost" id="rrBtn">↻ Volver a tirar (${st.rr})</button>` : ""}</div></div>`;
+    ${S.trTok ? "" : cof}<p class="coach${sel != null ? " ok" : ""}">${esc(coach)}</p>
+    ${S.trTok ? `<div class="acts"><button class="btn sm ghost" id="trCancel">Cancelar la ficha</button></div>` : `<div class="acts"><button class="btn sm" id="hi">Pista</button>${st.rr > 0 && !st.rrPend ? `<button class="btn sm ghost" id="rrBtn">↻ Volver a tirar (${st.rr})</button>` : ""}</div>`}
+    ${cb.length ? `<div class="acts">${cb.join("")}</div>` : ""}</div>`;
 }
 function lastH(m) {
   const st = m.st, L = st.last;
-  if (B.placed(st) === 0 && !st.over && !st.rrPend) {
-    const tip = st.round === 1 ? "Antes de mirar los dados podéis hablar de estrategia (sin decir números). En cuanto los veáis, silencio total." : `Ronda ${st.round}: hablad de estrategia ahora si queréis. En cuanto miréis los dados, silencio.`;
-    return `<div class="brief">🗣️ ${esc(tip)}${L && L.t === "round" ? "" : ""}</div>`;
+  if (B.placed(st) === 0 && !st.over && !st.rrPend && !st.syncPend && !st.wtPend && !(L && ["flip", "antic", "wt", "wtPick", "skip"].includes(L.t) && L.n === st.n)) {
+    const tip = B.has(st, "rt") ? `Ronda ${st.round}: tiempo real, tenéis 60 segundos. ¡En silencio!` : st.round === 1 ? "Antes de mirar los dados podéis hablar de estrategia (sin decir números). En cuanto los veáis, silencio total." : `Ronda ${st.round}: hablad de estrategia ahora si queréis. En cuanto miréis los dados, silencio.`;
+    const trf = L && L.t === "traffic" && L.r === st.round ? ` ${B.describe(L)}.` : "";
+    return `<div class="brief">🗣️ ${esc(tip + trf)}</div>`;
   }
   if (!L) return "";
   const prev = st.hist.slice().reverse().find(x => x.t !== "round");
   if (!prev) return "";
-  const you = prev.p === m.me && youTxt(m), who = you ? "Tú" : m.names[prev.p];
+  const you = prev.p === m.me && youTxt(m), who = you ? "Tú" : m.names[prev.p] || "";
   return `<div class="last${prev.n !== S.seenN && S.seenN !== -1 ? " fresh" : ""}">${esc(cap(B.describe(prev, who, you)))}.</div>`;
 }
 function logH(m) {
@@ -815,7 +1074,7 @@ function logH(m) {
   return `<li class="rd">Ronda 1 · 6000 pies</li>` + hist.map(x => {
     if (x.t === "round") return `<li class="rd">${esc(B.describe(x))}</li>`;
     const you = x.p === m.me && youTxt(m);
-    return `<li>${esc(cap(B.describe(x, you ? "Tú" : m.names[x.p], you)))}</li>`;
+    return `<li>${esc(cap(B.describe(x, you ? "Tú" : m.names[x.p] || "", you)))}</li>`;
   }).join("");
 }
 function renderGame() {
@@ -824,7 +1083,7 @@ function renderGame() {
   const legal = legalSet(m);
   const selV = S.sel != null ? st.dice[m.me][S.sel] + S.k : null;
   const radioV = selV != null && [...legal].some(id => B.SLOTS[id].k === "radio") ? selV : null;
-  const chipTxt = S.mode === "online" ? `SALA ${esc(S.code)}` : m.mode === "ai" ? "CON LA IA" : "MISMO MÓVIL";
+  const chipTxt = B.scen(st).code + " · " + (S.mode === "online" ? `SALA ${esc(S.code)}` : m.mode === "ai" ? "CON LA IA" : "MISMO MÓVIL");
   const snd = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4z"/>${SFX.on ? '<path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/>' : '<path d="m22 9-6 6M16 9l6 6"/>'}</svg>`;
   const logOpen = document.getElementById("logBox") && document.getElementById("logBox").open;
   S.lastKey = "game";
@@ -832,6 +1091,7 @@ function renderGame() {
   <div class="top"><button class="btn ghost sm" id="out">Salir</button><span class="sp"></span><span class="chip">${chipTxt}</span>
     <button class="icon-btn" id="help" aria-label="Cómo se juega">?</button><button class="icon-btn" id="snd" aria-label="${SFX.on ? "Quitar sonido" : "Activar sonido"}">${snd}</button></div>
   <div id="turno"></div>
+  ${B.has(st, "rt") && !st.over ? `<div class="rt" id="rt"><span>⏱️ Tiempo real</span><div class="bar"><i style="width:100%"></i></div><b>60 s</b></div>` : ""}
   ${crewH(m)}
   ${lastH(m)}
   ${approachH(m, radioV)}
@@ -858,6 +1118,10 @@ function renderGame() {
   on("#kMinus", "click", () => { S.k--; render(); });
   on("#kPlus", "click", () => { S.k++; render(); });
   on("#hi", "click", doHint);
+  on("[data-use]", "click", e => useCap(e.currentTarget.dataset.use));
+  on("#trCancel", "click", () => { S.trTok = null; render(); });
+  on("#syncSkip", "click", () => act({ t: "sync", s: null }));
+  on("[data-capi]", "click", e => { const k = e.currentTarget.dataset.capi; toast(`${B.CAPS[k].n}: ${B.CAPS[k].t}`, 6000); });
   on("#rrBtn", "click", askReroll);
   on("#seeEnd", "click", () => showEnd());
 
@@ -866,22 +1130,26 @@ function renderGame() {
   if (st.over || !window.SalaTurno || a === null) { tz.innerHTML = ""; if (window.SalaTurno) SalaTurno.limpiar(); }
   else {
     const aiTurn = m.mode === "ai" && a !== m.me;
-    const acc = st.rrPend ? "Elige qué dados vuelves a tirar" : `Coloca un dado en el panel (${st.dice[a].length === 1 ? "le queda 1" : `le quedan ${st.dice[a].length}`})`;
+    const acc = st.rrPend ? "Elige qué dados vuelves a tirar" : st.syncPend ? `Coloca el dado de tráfico (${st.syncPend.v})` : st.wtPend ? `Trabajo en equipo: elige qué dado das a cambio del ${st.wtPend.v}` : `Coloca un dado en el panel (${st.dice[a].length === 1 ? "le queda 1" : `le quedan ${st.dice[a].length}`})`;
     const o = { quien: `${m.names[a]} · ${ROLE[a]}`, color: COL[a], tuyo: m.mode === "local" ? null : m.me === null ? false : a === m.me, accion: aiTurn ? "Está pensando su jugada…" : acc };
     if (st.rrPend && m.mode === "online") { o.tuyo = myAction(m) === "pick"; o.quien = o.tuyo ? m.names[m.me] : m.names[1 - (m.me || 0)]; o.titulo = "Volver a tirar"; o.color = COL[o.tuyo ? m.me : 1 - (m.me || 0)]; }
     tz.innerHTML = SalaTurno.html({ ...o, compacta: true });
-    SalaTurno.marcar({ ...o, clave: st.round + "|" + B.placed(st) + "|" + (st.rrPend ? "rr" + a : a) });
+    SalaTurno.marcar({ ...o, clave: st.round + "|" + B.placed(st) + "|" + (st.rrPend ? "rr" + a : st.syncPend ? "sy" : st.wtPend ? "wt" + a : a) });
   }
 
   if (st.last && st.last.n !== S.seenN && S.seenN !== -1 && st.last.p !== m.me && m.mode !== "local") {
     const L = st.last;
     if (L.t === "place") { SFX.click(); if (L.on || L.hit) setTimeout(() => SFX.ding(), 120); }
     if (L.t === "reroll") toast(`${m.names[L.p]} gasta una ficha: podéis volver a tirar los dados que queráis.`, 4500);
+    if (L.t === "wt" && m.me === 1 - L.p) toast(`${m.names[L.p]} pone un ${L.v} en Trabajo en equipo: elige uno de tus dados para cambiarlo.`, 4500);
+    if (L.t === "syncRoll" || L.t === "traffic") SFX.roll();
   }
   if (S.seenRound != null && st.round !== S.seenRound && !st.over) toast(st.round === 7 ? "Última ronda: ¡a por el aterrizaje!" : `Ronda ${st.round}: bajáis a ${B.ALT[st.round - 1]} pies.`, 3500);
   S.seenRound = st.round;
+  rtTick();
   S.seenN = st.last ? st.last.n : 0;
-  if (st.over && S.endShown !== st.seed + "|" + st.n) { S.endShown = st.seed + "|" + st.n; if (m.mode === "online" && !st.over.win) SFX.alarm(); if (m.mode === "online" && st.over.win) SFX.land(); setTimeout(() => showEnd(), 900); }
+  if (st.over && S.endShown !== st.seed + "|" + st.n) { S.endShown = st.seed + "|" + st.n;
+    if (st.over.win && m.me !== null) { const lg = logros(), k = "won|" + st.seed + "|" + st.n; if (ls.get("cabina.ultimo") !== k) { lg[st.sc || "yul"] = (lg[st.sc || "yul"] || 0) + 1; ls.set("cabina.logros", lg); ls.set("cabina.ultimo", k); } } if (m.mode === "online" && !st.over.win) SFX.alarm(); if (m.mode === "online" && st.over.win) SFX.land(); setTimeout(() => showEnd(), 900); }
 }
 
 /* ================= final ================= */
@@ -894,15 +1162,24 @@ function showEnd() {
     ["Avión recto", st.axis === 0],
     ["Velocidad menor que los frenos", B.final(st) && st.speed != null && st.speed < B.brakeVal(st)]
   ];
+  if (B.has(st, "ice")) items.splice(3, 0, ["Frenos para el hielo completos (4/4)", st.ice >= 4]);
+  if (st.tr) items.push(["Piloto en prácticas instruido", !st.tr.length]);
+  if (st.fuel != null) items.push([`Queroseno de sobra (quedan ${st.fuel})`, st.fuel > 0]);
   const showChecks = ov.why === "land" || ov.why === "brakes";
   const rate = st.played ? `${st.wins[0]} de ${st.played}` : "";
   openSheet(`<h2 class="end-h ${ov.win ? "win" : "lose"}">${ov.win ? "¡Aterrizaje perfecto!" : "Vuelo fallido"}</h2>
     <p style="text-align:center;font-weight:700">${ov.win ? "Habéis tomado tierra con todo en verde. ¡Gran trabajo de equipo!" : esc(ov.txt)}</p>
     ${showChecks ? `<ul class="checks">${items.map(([t, ok]) => `<li class="${ok ? "" : "no"}"><i>${ok ? "✓" : "✕"}</i>${esc(t)}</li>`).join("")}</ul>` : ""}
-    <p class="muted small" style="text-align:center">Ronda ${st.round} de 7${rate ? ` · Aterrizajes de esta tripulación: ${rate}` : ""}</p>
+    <p class="muted small" style="text-align:center">${esc(B.scen(st).code + " " + B.scen(st).name)} · Ronda ${st.round} de 7${rate ? ` · Aterrizajes de esta tripulación: ${rate}` : ""}</p>
     <div class="row">${m.me !== null || m.mode !== "online" ? `<button class="btn gold" id="nx">Otro vuelo</button>` : ""}<button class="btn ghost" id="vt">Ver la cabina</button></div>
+    ${m.mode !== "online" || (S.g && S.g.host === me()) ? `<button class="btn ghost wide" id="dest2">Cambiar de destino</button>` : ""}
     <button class="btn ghost wide" id="bye">Salir</button>`);
   on("#nx", "click", rematch, $sheet);
+  on("#dest2", "click", () => {
+    closeSheet();
+    if (S.mode === "online") { put({ status: "lobby", st: "", rra: {}, cfg: { sc: (B.SC_BY[st.sc] ? st.sc : "yul"), caps: st.caps || [] } }); return; }
+    ls.del("cabina.partida"); leave(); showDestinos();
+  }, $sheet);
   on("#vt", "click", closeSheet, $sheet);
   on("#bye", "click", () => { closeSheet(); if (S.mode === "local") ls.del("cabina.partida"); leave(); }, $sheet);
 }
@@ -927,6 +1204,13 @@ function showRules() {
     <section><h3>Volver a tirar</h3><p>A 6000 y a 2000 pies conseguís una ficha ↻. Cualquiera puede gastarla en cualquier momento de la ronda: los dos podéis volver a tirar los dados que queráis de los que os quedan.</p></section>
     <section><h3>Aterrizar</h3><p>Tenéis que llegar a la pista justo cuando el avión llega al suelo (ronda 7). Si llegáis antes, dais vueltas esperando: no podéis avanzar más. Si llegáis al suelo sin tener la pista delante, os estrelláis. Al final de la ronda 7 ganáis si:</p>
       <ul><li>no queda ningún avión en la aproximación,</li><li>el tren y los flaps están en verde,</li><li>el avión está recto,</li><li>la velocidad de esa ronda era menor que los frenos.</li></ul></section>
+    <section><h3>Libro de vuelo: destinos</h3><p>Antes de despegar elegid destino entre <b>21 escenarios</b> en 11 aeropuertos. El color marca la dificultad: <span style="color:#5BE49B">verde</span> rutina, <span style="color:#FFC93C">amarillo</span> condiciones excepcionales, <span style="color:#FF5A5A">rojo</span> solo pilotos de élite y <b style="color:#C7D3EE">negro</b> aterrizaje heroico. Cada aproximación tiene su longitud, sus aviones y sus efectos. Montreal (YUL verde) es el vuelo de iniciación. Al aterrizar, el destino queda marcado con ✓.</p>
+      <p>En los escenarios rojos y negros solo hay ficha ↻ a 6000 pies (no a 2000).</p></section>
+    <section><h3>🎲 Dado de tráfico</h3><p>Si al empezar la ronda estáis en una casilla con iconos 🎲, se tira el dado de tráfico tantas veces como iconos: cada resultado añade un avión en esa casilla contando desde la vuestra (1 = la vuestra; si se pasa, va al aeropuerto). Si os quedáis varias rondas en esa casilla, se tira cada ronda. Pasar por encima no cuenta.</p></section>
+    <section><h3>◀ ▶ Giros</h3><p>Algunas casillas piden una inclinación: al avanzar, el eje tiene que estar en una de las posiciones marcadas (◀2 = 2 hacia el piloto, 1▶ = 1 hacia el copiloto, 0 = recto) para salir de esa casilla, también si la cruzáis avanzando 2. Si no, perdéis. Si no avanzáis esa ronda, no importa.</p></section>
+    <section><h3>Módulos</h3><ul>${Object.values(B.MODS).map(x => `<li><b>${x.i} ${x.n}:</b> ${esc(x.t)}</li>`).join("")}</ul></section>
+    <section><h3>★ Capacidades especiales</h3><p>Algunos escenarios os dejan elegir 1 o 2 capacidades antes de despegar:</p><ul>${Object.values(B.CAPS).map(x => `<li><b>${x.n}:</b> ${esc(x.t)}</li>`).join("")}</ul>
+      <p class="muted small">Adaptación, Anticipación y Trabajo en equipo se usan con los botones que aparecen bajo tus dados (elige antes un dado). Control, Maestría y Sincronización saltan solas.</p></section>
     <section><h3>Consejos</h3><ul>
       <li>Cada ronda hay que avanzar 1 casilla de media: fijaos en el marcador azul y en el naranja.</li>
       <li>Despejad con la radio los aviones de vuestra casilla <b>antes</b> de completar los motores.</li>
@@ -947,6 +1231,12 @@ const TOUR = [
   { el: "#engBox", h: "Los motores", t: "Obligatorio cada ronda. La suma marca cuánto avanzáis: entre el marcador azul y el naranja, 1 casilla." },
   { el: "#sideP", h: "Interruptores", t: "Tren, flaps y frenos piden números concretos. Para aterrizar tienen que estar todos en verde (los frenos, cuantos más mejor)." },
   { el: "#concBox", h: "Café", t: "Un dado en concentración os da un café, que cambia un dado ±1 cuando lo necesitéis." },
+  { el: "#rt", h: "Tiempo real", t: "Cada ronda tenéis <b>60 segundos</b>. Al acabar, los dados sin poner se pierden y si faltan el eje o los motores, perdéis." },
+  { el: "#keroBox", h: "Queroseno", t: "Vigilad el combustible. Un dado en el depósito gasta su valor; si nadie lo usa en la ronda, se gastan 6. A 0 os quedáis secos." },
+  { el: "#windBox", h: "Viento", t: "Su valor se suma a la velocidad. Inclinar el avión hace girar el anillo hacia ese lado." },
+  { el: "#trainBox", h: "Piloto en prácticas", t: "Pon un dado aquí (distinto de la ficha que toca) y coloca la ficha donde podrías poner un dado. Antes de aterrizar hay que usar todas." },
+  { el: "#iceBox", h: "Frenos para el hielo", t: "Columna a columna: piloto arriba y copiloto abajo, el mismo valor en la misma ronda. Hay que completarlas todas." },
+  { el: "#capsBox", h: "Capacidades", t: "Las que habéis elegido para este vuelo. Toca una para recordar qué hace." },
   { el: "#tray", h: "Tus dados", t: "Toca un dado y luego una casilla iluminada. Tu compañero no ve tus dados. <b>Pista</b> te sugiere una jugada." },
   { el: "#help", h: "¿Dudas?", t: "Aquí tienes las reglas completas cuando quieras. ¡Buen vuelo!" }
 ];
