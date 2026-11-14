@@ -117,6 +117,7 @@ label.lbl,.lbl{display:grid;gap:6px;font-size:12px;font-weight:800;letter-spacin
 .cell .pls svg{width:17px;height:17px}
 .cell.apt{background:linear-gradient(180deg,#24324F,#1A2440)}
 .cell .apt-i svg{width:30px;height:24px}
+.cell .apl{position:absolute;top:50%;left:50%;transform:translate(-50%,-55%);background:rgba(11,20,39,.85);border-radius:8px;padding:1px 2px;box-shadow:0 0 0 1.5px #FF6B6B}
 .alt .cell{min-height:40px}
 .alt .cell .ft{font-family:var(--display);font-size:12.5px;color:inherit}
 .alt .cell .fp{font-size:10px;letter-spacing:.04em}
@@ -892,7 +893,7 @@ function approachH(m, radioV) {
     const bad = here && tn && !tn.includes(st.axis) && !st.over;
     h += `<div class="cell${past ? " past" : ""}${here ? " here" : ""}${apt ? " apt" : ""}${tgt ? " tgt" : ""}${bad ? " turnbad" : ""}${nw[i] ? " newtr" : ""}" title="${trf ? `Tráfico: ${trf} dado${trf > 1 ? "s" : ""} al empezar la ronda aquí. ` : ""}${tn ? `Giro: para salir de aquí el eje tiene que estar en ${turnTxt(tn)}.` : ""}">
       <span class="rn">${!past && rn <= 6 ? (here ? "AQUÍ·1" : rn) : ""}</span>
-      ${apt ? `<span class="apt-i">${RUNWAY_I}</span>` : `<span class="pls">${n ? Array(n).fill(PLANE_I).join("") : ""}</span>`}
+      ${apt ? `<span class="apt-i">${RUNWAY_I}</span>${n ? `<span class="pls apl">${Array(n).fill(PLANE_I).join("")}</span>` : ""}` : `<span class="pls">${n ? Array(n).fill(PLANE_I).join("") : ""}</span>`}
       ${nw[i] ? `<span class="tnew">+${nw[i]}✈</span>` : ""}${trf ? `<span class="trd">🎲${trf > 1 ? "×" + trf : ""}</span>` : ""}<span${tn ? ` class="trn"` : ""}>${apt ? sc.code : tn ? turnTxt(tn) : ""}</span></div>`;
   }
   const ahead = st.planes.reduce((a, x, i) => a + (i >= st.pos ? x : 0), 0);
