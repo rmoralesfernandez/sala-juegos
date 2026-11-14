@@ -107,6 +107,10 @@ label.lbl,.lbl{display:grid;gap:6px;font-size:12px;font-weight:800;letter-spacin
 .cell{position:relative;border-radius:9px;background:var(--bg);min-height:52px;display:grid;align-content:space-between;justify-items:center;padding:3px 2px;box-shadow:inset 0 0 0 1px var(--line);font-size:11px;font-weight:800;color:var(--muted)}
 .cell.past{opacity:.35}
 .cell.here{box-shadow:inset 0 0 0 2px var(--gold),0 0 14px -4px var(--gold);color:var(--ink)}
+.cell.newtr{box-shadow:inset 0 0 0 2px #FF6B6B,0 0 14px -3px #FF6B6B;animation:trin 1s ease-out 2}
+@keyframes trin{0%{transform:scale(1.15)}100%{transform:scale(1)}}
+.cell .tnew{position:absolute;bottom:-7px;right:-4px;font-size:10px;font-weight:900;background:#FF6B6B;color:#2A0E16;border-radius:7px;padding:0 4px;box-shadow:0 2px 0 rgba(0,0,0,.4)}
+.trlog{margin:0;font-size:12.5px;font-weight:800;color:#FFD3DA;background:rgba(255,107,107,.12);border-radius:9px;padding:6px 9px;box-shadow:inset 0 0 0 1px rgba(255,107,107,.4)}
 .cell.tgt{box-shadow:inset 0 0 0 2px #7FE3FF,0 0 14px -4px #7FE3FF}
 .cell .rn{font-size:10px;font-weight:800;color:#7FE3FF}
 .cell .pls{display:flex;flex-wrap:wrap;gap:1px;justify-content:center;max-width:44px}
@@ -879,19 +883,21 @@ const turnTxt = tn => tn.map(a => a === 0 ? "0" : a < 0 ? "◀" + -a : a + "▶"
 function approachH(m, radioV) {
   const st = m.st, AP = B.airport(st), sc = B.scen(st);
   let h = "", anyT = false, anyR = false;
+  const TL = st.hist.slice().reverse().find(x => x.t === "traffic" && x.r === st.round && !st.over && x.at);
+  const nw = {}; if (TL) TL.at.forEach(a => { if (a >= 0) nw[a] = (nw[a] || 0) + 1; });
   for (let i = 0; i <= AP; i++) {
     const n = st.planes[i], past = i < st.pos, here = i === st.pos, apt = i === AP, rn = i - st.pos + 1;
     const tgt = radioV != null && i === st.pos + radioV - 1, trf = B.traffic(st, i), tn = B.turnAt(st, i);
     if (trf) anyT = true; if (tn) anyR = true;
     const bad = here && tn && !tn.includes(st.axis) && !st.over;
-    h += `<div class="cell${past ? " past" : ""}${here ? " here" : ""}${apt ? " apt" : ""}${tgt ? " tgt" : ""}${bad ? " turnbad" : ""}" title="${trf ? `Tráfico: ${trf} dado${trf > 1 ? "s" : ""} al empezar la ronda aquí. ` : ""}${tn ? `Giro: para salir de aquí el eje tiene que estar en ${turnTxt(tn)}.` : ""}">
+    h += `<div class="cell${past ? " past" : ""}${here ? " here" : ""}${apt ? " apt" : ""}${tgt ? " tgt" : ""}${bad ? " turnbad" : ""}${nw[i] ? " newtr" : ""}" title="${trf ? `Tráfico: ${trf} dado${trf > 1 ? "s" : ""} al empezar la ronda aquí. ` : ""}${tn ? `Giro: para salir de aquí el eje tiene que estar en ${turnTxt(tn)}.` : ""}">
       <span class="rn">${!past && rn <= 6 ? (here ? "AQUÍ·1" : rn) : ""}</span>
       ${apt ? `<span class="apt-i">${RUNWAY_I}</span>` : `<span class="pls">${n ? Array(n).fill(PLANE_I).join("") : ""}</span>`}
-      ${trf ? `<span class="trd">🎲${trf > 1 ? "×" + trf : ""}</span>` : ""}<span${tn ? ` class="trn"` : ""}>${apt ? sc.code : tn ? turnTxt(tn) : ""}</span></div>`;
+      ${nw[i] ? `<span class="tnew">+${nw[i]}✈</span>` : ""}${trf ? `<span class="trd">🎲${trf > 1 ? "×" + trf : ""}</span>` : ""}<span${tn ? ` class="trn"` : ""}>${apt ? sc.code : tn ? turnTxt(tn) : ""}</span></div>`;
   }
   const ahead = st.planes.reduce((a, x, i) => a + (i >= st.pos ? x : 0), 0);
-  const leg = [anyT ? "🎲 dado de tráfico al empezar la ronda en esa casilla" : "", anyR ? "◀ ▶ inclinación del eje permitida para salir de esa casilla" : ""].filter(Boolean).join(" · ");
-  return `<div class="strip" id="appr"><div class="strip-h"><span>Aproximación · ${esc(sc.code + " " + sc.name)}</span><b>${st.pos === AP ? "¡Pista a la vista!" : `Faltan ${plural(AP - st.pos, "casilla", "casillas")}`} · ${plural(ahead, "avión", "aviones")}</b></div><div class="cells" style="--n:${AP + 1}">${h}</div>${leg ? `<p class="legend">${leg}</p>` : ""}</div>`;
+  const leg = [anyT ? "🎲 casilla con tráfico: al empezar cada ronda en ella se tira el dado tantas veces como iconos y cada tirada mete 1 avión N casillas por delante (1 = la vuestra)" : "", anyR ? "◀ ▶ inclinación del eje permitida para salir de esa casilla" : ""].filter(Boolean).join(" · ");
+  return `<div class="strip" id="appr"><div class="strip-h"><span>Aproximación · ${esc(sc.code + " " + sc.name)}</span><b>${st.pos === AP ? "¡Pista a la vista!" : `Faltan ${plural(AP - st.pos, "casilla", "casillas")}`} · ${plural(ahead, "avión", "aviones")}</b></div><div class="cells" style="--n:${AP + 1}">${h}</div>${TL ? `<p class="trlog">🎲 ${esc(B.describe(TL))}.</p>` : ""}${leg ? `<p class="legend">${leg}</p>` : ""}</div>`;
 }
 function altitudeH(m) {
   const st = m.st;
@@ -1064,7 +1070,7 @@ function lastH(m) {
   const st = m.st, L = st.last;
   if (B.placed(st) === 0 && !st.over && !st.rrPend && !st.syncPend && !st.wtPend && !(L && ["flip", "antic", "wt", "wtPick", "skip"].includes(L.t) && L.n === st.n)) {
     const tip = B.has(st, "rt") ? `Ronda ${st.round}: tiempo real, tenéis 60 segundos. ¡En silencio!` : st.round === 1 ? "Antes de mirar los dados podéis hablar de estrategia (sin decir números). En cuanto los veáis, silencio total." : `Ronda ${st.round}: hablad de estrategia ahora si queréis. En cuanto miréis los dados, silencio.`;
-    const trf = L && L.t === "traffic" && L.r === st.round ? ` ${B.describe(L)}.` : "";
+    const trf = L && L.t === "traffic" && L.r === st.round ? " Ha salido el dado de tráfico: mirad los aviones nuevos en rojo en la aproximación." : "";
     return `<div class="brief">🗣️ ${esc(tip + trf)}</div>`;
   }
   if (!L) return "";
@@ -1215,7 +1221,7 @@ function showRules() {
       <ul><li><b>⬇️ Empieza a 5000 pies:</b> el vuelo arranca en la ronda 2 (6 rondas en total).</li>
       <li><b>🌬️ Viento frontal:</b> el anillo de viento va por su otra cara: los valores se restan a la velocidad en vez de sumarse.</li>
       <li><b>🪂 Lajes, sin motores:</b> no hay casillas de motores. Cada uno tira 4 dados pero solo juega 3 (el que sobra se descarta). Al final de cada ronda el avión planea 1 casilla sí o sí: tiene que estar libre de aviones y cumplir el giro de esa casilla. En la última ronda no hay velocidad que frenar.</li></ul></section>
-    <section><h3>🎲 Dado de tráfico</h3><p>Si al empezar la ronda estáis en una casilla con iconos 🎲, se tira el dado de tráfico tantas veces como iconos: cada resultado añade un avión en esa casilla contando desde la vuestra (1 = la vuestra; si se pasa, va al aeropuerto). Si os quedáis varias rondas en esa casilla, se tira cada ronda. Pasar por encima no cuenta.</p></section>
+    <section><h3>🎲 Dado de tráfico</h3><p>Durante esa ronda, las casillas donde entra un avión por el tráfico se marcan en rojo con «+1✈» y debajo de la aproximación se explica cada tirada. Si al empezar la ronda estáis en una casilla con iconos 🎲, se tira el dado de tráfico tantas veces como iconos: cada resultado añade un avión en esa casilla contando desde la vuestra (1 = la vuestra; si se pasa, va al aeropuerto). Si os quedáis varias rondas en esa casilla, se tira cada ronda. Pasar por encima no cuenta.</p></section>
     <section><h3>◀ ▶ Giros</h3><p>Algunas casillas piden una inclinación: al avanzar, el eje tiene que estar en una de las posiciones marcadas (◀2 = 2 hacia el piloto, 1▶ = 1 hacia el copiloto, 0 = recto) para salir de esa casilla, también si la cruzáis avanzando 2. Si no, perdéis. Si no avanzáis esa ronda, no importa.</p></section>
     <section><h3>Módulos</h3><ul>${Object.values(B.MODS).map(x => `<li><b>${x.i} ${x.n}:</b> ${esc(x.t)}</li>`).join("")}</ul></section>
     <section><h3>★ Capacidades especiales</h3><p>Algunos escenarios os dejan elegir 1 o 2 capacidades antes de despegar:</p><ul>${Object.values(B.CAPS).map(x => `<li><b>${x.n}:</b> ${esc(x.t)}</li>`).join("")}</ul>

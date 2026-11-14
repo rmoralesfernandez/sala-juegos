@@ -199,13 +199,13 @@ function startRound(s) {
   /* dado de tráfico: tantas tiradas como iconos tenga la casilla actual */
   const nT = traffic(s, s.pos);
   if (nT && !final(s)) {
-    const rolls = [];
+    const rolls = [], at = [];
     let none = 0;
     for (let i = 0; i < nT; i++) {
-      const d = d6(s), at = Math.min(s.pos + d - 1, airport(s)); rolls.push(d);
-      if (s.planes.reduce((x, y) => x + y, 0) < PLANES) s.planes[at]++; else none++;   // sin contadores en la reserva no se pone ninguno
+      const d = d6(s), a = Math.min(s.pos + d - 1, airport(s)); rolls.push(d);
+      if (s.planes.reduce((x, y) => x + y, 0) < PLANES) { s.planes[a]++; at.push(a); } else { none++; at.push(-1); }   // sin contadores en la reserva no se pone ninguno
     }
-    const L = { n: ++s.n, t: "traffic", rolls, r: s.round, none };
+    const L = { n: ++s.n, t: "traffic", rolls, at, pos: s.pos, r: s.round, none };
     s.hist.push(L); s.last = L;
   }
   s.dice = [[0, 0, 0, 0].map(() => d6(s)).sort(), [0, 0, 0, 0].map(() => d6(s)).sort()];
@@ -537,7 +537,12 @@ function describe(L, who, you) {
   if (L.t === "reroll") return `${who} ${you ? "gastas" : "gasta"} una ficha: los dos podéis volver a tirar dados`;
   if (L.t === "pick") return L.c ? `${who} ${you ? "vuelves" : "vuelve"} a tirar ${L.c === 1 ? "1 dado" : L.c + " dados"}` : `${who} ${you ? "te quedas" : "se queda"} con sus dados`;
   if (L.t === "round") return `Empieza la ronda ${L.r} (${ALT[L.r - 1]} pies)`;
-  if (L.t === "traffic") return `Dado de tráfico: ${L.rolls.join(" y ")}. ${L.none >= L.rolls.length ? "No quedan aviones en la reserva" : L.rolls.length - (L.none || 0) > 1 ? "Entran aviones en la aproximación" : "Entra un avión en la aproximación"}`;
+  if (L.t === "traffic") return "Dado de tráfico: " + L.rolls.map((d, i) => {
+    const a = L.at ? L.at[i] : null;
+    if (a === -1) return `sale un ${d}, pero no quedan aviones en la reserva`;
+    if (a == null) return `sale un ${d}`;
+    return `sale un ${d} → entra 1 avión ${a === L.pos ? "en vuestra casilla (¡quitadlo con la radio 1 antes de avanzar!)" : L.pos + d - 1 > a ? "en el aeropuerto (se pasaba de la pista)" : `en la casilla ${d} contando la vuestra como 1`}`;
+  }).join("; ");
   if (L.t === "glide") return `Sin motores, el avión planea 1 casilla`;
   if (L.t === "kero") return `Nadie ha usado el depósito: se gastan ${KERO_MISS} de queroseno (quedan ${L.fuel})`;
   if (L.t === "timeout") return `¡Se acabó el tiempo!${L.lost ? ` ${L.lost === 1 ? "Se pierde 1 dado" : `Se pierden ${L.lost} dados`}` : ""}`;
