@@ -13,7 +13,7 @@ const ALT = [6000, 5000, 4000, 3000, 2000, 1000, 0];
 const BLUE0 = 4.5, ORANGE0 = 8.5;    // marcadores de aerodinámica (entre 4|5 y entre 8|9)
 const BRAKE = [0, 2, 4, 6];          // valor del freno según frenos desplegados (sin frenos no se puede parar)
 const ICE = [0, 2, 3, 4, 5];         // frenos para el hielo: valor del marcador según columnas completadas
-const MAX_COFFEE = 3, MAX_RR = 3, FUEL0 = 20, KERO_MISS = 6;
+const MAX_COFFEE = 3, MAX_RR = 3, FUEL0 = 20, KERO_MISS = 6, PLANES = 12;   // 12 contadores de avión en la caja
 /* Anillo de viento: 20 marcas en el sentido de las agujas del reloj, empezando arriba (morro al centro blanco) */
 const WIND = [3, 3, 2, 2, 1, 0, -1, -2, -2, -3, -3, -3, -2, -2, -1, 0, 1, 2, 2, 3];
 
@@ -24,7 +24,7 @@ const WIND = [3, 3, 2, 2, 1, 0, -1, -2, -2, -3, -3, -3, -2, -2, -1, 0, 1, 2, 2, 
    mods: kero (queroseno), leak (fuga), trainee (piloto en prácticas), wind (viento), rt (tiempo real), ice (frenos para el hielo). */
 const L2 = [-2, -1], L1 = [-1, 0], R1 = [0, 1], R2 = [1, 2], M1 = [-1, 0, 1];
 const SC = [
-  { id: "yul", col: "g", code: "YUL", name: "Montréal-Trudeau", mods: [], caps: 0, tr: [[0], [0], [1], [2], [1], [2], [0]],
+  { id: "yul", col: "g", code: "YUL", name: "Montréal-Trudeau", mods: [], caps: 0, tr: [[0], [0], [1], [2], [1], [3], [2]],
     txt: "Tu primer vuelo va bien: el sol se alza sobre el río San Lorenzo. Condiciones ideales para un aterrizaje perfecto." },
   { id: "lhr1", col: "g", code: "LHR", name: "Heathrow", mods: [], caps: 0, tr: [[0], [0], [1], [0], [1, 1], [1, 1], [0]],
     txt: "El Támesis atraviesa las luces de Londres. Hay tráfico al final de la aproximación: mantén la calma." },
@@ -155,8 +155,12 @@ function startRound(s) {
   const nT = traffic(s, s.pos);
   if (nT && !final(s)) {
     const rolls = [];
-    for (let i = 0; i < nT; i++) { const d = d6(s), at = Math.min(s.pos + d - 1, airport(s)); s.planes[at]++; rolls.push(d); }
-    const L = { n: ++s.n, t: "traffic", rolls, r: s.round };
+    let none = 0;
+    for (let i = 0; i < nT; i++) {
+      const d = d6(s), at = Math.min(s.pos + d - 1, airport(s)); rolls.push(d);
+      if (s.planes.reduce((x, y) => x + y, 0) < PLANES) s.planes[at]++; else none++;   // sin contadores en la reserva no se pone ninguno
+    }
+    const L = { n: ++s.n, t: "traffic", rolls, r: s.round, none };
     s.hist.push(L); s.last = L;
   }
   s.dice = [[0, 0, 0, 0].map(() => d6(s)).sort(), [0, 0, 0, 0].map(() => d6(s)).sort()];
@@ -479,7 +483,7 @@ function describe(L, who, you) {
   if (L.t === "reroll") return `${who} ${you ? "gastas" : "gasta"} una ficha: los dos podéis volver a tirar dados`;
   if (L.t === "pick") return L.c ? `${who} ${you ? "vuelves" : "vuelve"} a tirar ${L.c === 1 ? "1 dado" : L.c + " dados"}` : `${who} ${you ? "te quedas" : "se queda"} con sus dados`;
   if (L.t === "round") return `Empieza la ronda ${L.r} (${ALT[L.r - 1]} pies)`;
-  if (L.t === "traffic") return `Dado de tráfico: ${L.rolls.join(" y ")}. ${L.rolls.length > 1 ? "Entran aviones" : "Entra un avión"} en la aproximación`;
+  if (L.t === "traffic") return `Dado de tráfico: ${L.rolls.join(" y ")}. ${L.none >= L.rolls.length ? "No quedan aviones en la reserva" : L.rolls.length - (L.none || 0) > 1 ? "Entran aviones en la aproximación" : "Entra un avión en la aproximación"}`;
   if (L.t === "kero") return `Nadie ha usado el depósito: se gastan ${KERO_MISS} de queroseno (quedan ${L.fuel})`;
   if (L.t === "timeout") return `¡Se acabó el tiempo!${L.lost ? ` ${L.lost === 1 ? "Se pierde 1 dado" : `Se pierden ${L.lost} dados`}` : ""}`;
   if (L.t === "flip") return `${who} ${you ? "das" : "da"} la vuelta a un ${L.a}: ahora es un ${L.b} (Adaptación)`;
@@ -786,7 +790,7 @@ function hint(s, p) {
   return a;
 }
 
-const API = { P, C, ROLE, ROUNDS, ALT, ROUTE, AIRPORT, REROLL_AT, BLUE0, ORANGE0, BRAKE, ICE, WIND, MAX_COFFEE, FUEL0, KERO_MISS, SLOTS, SLOT_IDS, MAND,
+const API = { PLANES, P, C, ROLE, ROUNDS, ALT, ROUTE, AIRPORT, REROLL_AT, BLUE0, ORANGE0, BRAKE, ICE, WIND, MAX_COFFEE, FUEL0, KERO_MISS, SLOTS, SLOT_IDS, MAND,
   SC, SC_BY, COLOR_NAME, MODS, CAPS, CAP_IDS,
   newGame, rematch, check, apply, slotWhy, describe, plan, hint, bestAssign, advFor, blue, orange, brakeVal, gearCount, mandLeft, final, placed,
   scen, airport, has, hasCap, rerollAt, traffic, turnAt, windVal, slotOn, actor, nextTrainee, canPlace, syncTargets, rrPool };
