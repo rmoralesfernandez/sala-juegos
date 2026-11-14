@@ -1042,8 +1042,8 @@ function showRules() {
         <li><b>Reponer el tablero</b>: las fichas de la bolsa vuelven al tablero en espiral desde el centro. Tu rival gana un pergamino. Si no puedes hacer nada más, es obligatorio.</li></ul>
       <p><b>Después</b>, haces UNA de estas tres cosas:</p>
       <ul><li><b>Coger fichas</b>: hasta 3 gemas o perlas <b>seguidas en línea recta</b> (fila, columna o diagonal), sin huecos ni oro en medio. Si coges 3 del mismo color o las 2 perlas, tu rival gana un pergamino.</li>
-        <li><b>Reservar</b>: coges 1 <b>oro</b> del tablero y te guardas una carta de la pirámide (o la primera de un mazo, a ciegas). Máximo 3 reservadas. El oro vale como cualquier ficha al pagar.</li>
-        <li><b>Comprar</b> una carta de la pirámide o de tus reservas: pagas su coste menos tus bonus de cada color. Las fichas pagadas van a la bolsa.</li></ul></section>
+        <li><b>Reservar</b>: coges 1 <b>oro</b> del tablero y te guardas una carta de la pirámide (o la primera de un mazo, a ciegas). Máximo 3 reservadas, y solo si queda oro en el tablero. Es la única forma de conseguir oro, y el oro vale como cualquier gema o perla al pagar. Tu rival no ve tus reservadas y no restan nada si acaba la partida con ellas.</li>
+        <li><b>Comprar</b> una carta de la pirámide o de tus reservas: pagas su coste menos tus bonus de cada color (no hay bonus de perla, y una carta puede salirte gratis pero nunca te devuelve fichas). Las fichas pagadas van a la bolsa.</li></ul></section>
     <section><h3>Cómo se cuentan los puntos</h3><ul>
       <li>Las <b>fichas no valen puntos</b>: solo sirven para pagar cartas.</li>
       <li>Cada carta comprada te da los puntos de su número grande (arriba a la izquierda). Las cartas reales también dan puntos.</li>
@@ -1055,7 +1055,7 @@ function showRules() {
       <div class="ex">${cardHTML(43)}<span style="flex:1;min-width:160px">Arriba a la izquierda, los <b>puntos</b>; debajo, las <b>coronas</b>. Arriba a la derecha, el <b>bonus</b> que te da. Abajo, lo que cuesta. Las cartas con borde verde son las que ya puedes comprar.</span></div>
       <div class="abl">${["turn", "gem", "steal", "priv", "wild"].map(abRow).join("")}</div></section>
     <section><h3>Cartas reales</h3><p>Al llegar a <b>3 coronas</b> y luego a <b>6</b>, eliges una carta real: 3 puntos, o 2 puntos con otro turno, robo o pergamino.</p></section>
-    <section><h3>Pergaminos</h3><ul><li>Hay 3. Quien juega segundo empieza con uno.</li><li>Si te toca ganar uno y no quedan libres, se lo quitas a tu rival.</li></ul></section>
+    <section><h3>Pergaminos</h3><ul><li>Hay 3. Quien juega segundo empieza con uno.</li><li>Si te toca ganar uno y no quedan libres, se lo quitas a tu rival. Si ya tienes los 3, no pasa nada.</li><li>Se usan al principio del turno, antes de reponer el tablero, y nunca sirven para coger oro.</li></ul></section>
     <section><h3>Límite de fichas</h3><p>Al acabar tu turno no puedes tener más de <b>10 fichas</b>: devuelves las que sobren a la bolsa.</p></section>
     <section><h3>Consejos para empezar</h3><ul>
       <li>Los bonus son lo más importante al principio: cartas baratas de nivel 1 hacen gratis las caras después.</li>
