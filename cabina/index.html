@@ -427,14 +427,15 @@ function setCfg(sc, caps) {
   if (S.mode === "online" && S.g && S.g.host === me() && S.g.status === "lobby") put({ cfg: { sc: S.sc, caps: S.caps } });
   else render();
 }
-const modsTxt = d => d.mods.map(x => `<span>${B.MODS[x].i} ${B.MODS[x].n}</span>`).join("") + (d.caps ? `<span>★ ${d.caps} capacidad${d.caps > 1 ? "es" : ""}</span>` : "");
+const extras = d => [d.wind === "front" ? "🌬️ Viento frontal" : "", d.alt0 ? "⬇️ Empieza a 5000 pies" : "", d.noEng ? "🪂 Sin motores (planeo)" : ""].filter(Boolean);
+const modsTxt = d => d.mods.map(x => `<span>${B.MODS[x].i} ${B.MODS[x].n}${x === "wind" && d.wind === "front" ? " (frontal)" : ""}</span>`).join("") + extras(d).filter(x => !x.includes("Viento")).map(x => `<span>${x}</span>`).join("") + (d.caps ? `<span>★ ${d.caps} capacidad${d.caps > 1 ? "es" : ""}</span>` : "");
 function destH(editable) {
   const c = cfg(), d = B.SC_BY[c.sc], won = logros()[c.sc];
   return `<div class="card dest"><div class="dest-h"><span class="colr" style="background:${COLHEX[d.col]}"></span><span class="code">${d.code}</span>
-      <span class="nm"><b>${esc(d.name)}${won ? " ✓" : ""}</b><small>${B.COLOR_NAME[d.col]} · ${d.tr.length - 1} casillas</small></span>
+      <span class="nm"><b>${esc(d.name)}${won ? " ✓" : ""}</b><small>${B.GROUPS[d.grp || "libro"]} · ${B.COLOR_NAME[d.col]} · ${d.tr.length - 1} casillas</small></span>
       ${editable ? `<button class="btn sm ghost" id="destBtn">Cambiar</button>` : ""}</div>
     <p class="muted small">${esc(d.txt)}</p>
-    ${d.mods.length || d.caps ? `<div class="mods">${modsTxt(d)}</div>` : ""}
+    ${d.mods.length || d.caps || extras(d).length ? `<div class="mods">${modsTxt(d)}</div>` : ""}
     ${d.caps ? `<span class="lbl">Capacidades especiales (elegid ${d.caps})</span>
       <div class="caps">${B.CAP_IDS.map(k => `<button class="capb" data-cap="${k}" aria-pressed="${c.caps.includes(k)}"${editable ? "" : " disabled"}>${B.CAPS[k].n}</button>`).join("")}</div>
       <div class="capd">${c.caps.map(k => `<span><b>${B.CAPS[k].n}:</b> ${esc(B.CAPS[k].t)}</span>`).join("")}</div>` : ""}</div>`;
@@ -451,12 +452,14 @@ function bindDest() {
 }
 function showDestinos() {
   const c = cfg(), won = logros();
-  let h = `<h2>Elige destino</h2><p class="muted small">21 escenarios del libro de vuelo. El color marca la dificultad. Al aterrizar con éxito queda marcado con ✓.</p><div class="sc-list">`;
-  for (const col of ["g", "y", "r", "k"]) {
-    h += `<div class="sc-g"><span class="colr" style="background:${COLHEX[col]}"></span>${B.COLOR_NAME[col]}</div>`;
-    for (const d of B.SC.filter(x => x.col === col)) h += `<button class="sc-item" style="--cc:${COLHEX[col]}" data-sc="${d.id}" aria-pressed="${d.id === c.sc}">
+  let h = `<h2>Elige destino</h2><p class="muted small">${B.SC.length} escenarios: libro de vuelo, «Listo para jugar» y aeropuertos promocionales. El color marca la dificultad. Al aterrizar con éxito queda marcado con ✓.</p><div class="sc-list">`;
+  for (const g of Object.keys(B.GROUPS)) for (const col of ["g", "y", "r", "k"]) {
+    const list = B.SC.filter(x => (x.grp || "libro") === g && x.col === col);
+    if (!list.length) continue;
+    h += `<div class="sc-g"><span class="colr" style="background:${COLHEX[col]}"></span>${B.GROUPS[g]} · ${B.COLOR_NAME[col]}</div>`;
+    for (const d of list) h += `<button class="sc-item" style="--cc:${COLHEX[col]}" data-sc="${d.id}" aria-pressed="${d.id === c.sc}">
       <span class="t"><span>${d.code} · ${esc(d.name)}</span>${won[d.id] ? `<i>✓ ${won[d.id]}</i>` : ""}</span>
-      <span class="m">${d.tr.length - 1} casillas${d.mods.length ? " · " + d.mods.map(x => B.MODS[x].i + " " + B.MODS[x].n).join(" · ") : ""}${d.caps ? ` · ★ ${d.caps}` : ""}</span></button>`;
+      <span class="m">${d.tr.length - 1} casillas${d.mods.length ? " · " + d.mods.map(x => B.MODS[x].i + " " + B.MODS[x].n).join(" · ") : ""}${extras(d).length ? " · " + extras(d).join(" · ") : ""}${d.caps ? ` · ★ ${d.caps}` : ""}</span></button>`;
   }
   h += `</div><button class="btn ghost wide" data-x>Cerrar</button>`;
   openSheet(h);
@@ -960,9 +963,10 @@ function panelH(m, legal) {
   return `<div class="panel" id="panel">
     <div class="inst" id="axisBox"><div class="inst-h"><span>Eje</span><span class="tag ${axOK ? "ok" : "must"}">${axOK ? "Hecho" : "Obligatorio"}</span></div>
       <div class="axrow"><div>${slotH(m, "axP", legal)}<div class="lb" style="color:${COL[0]}">PILOTO</div></div><div class="dial">${dialSVG(st)}</div><div>${slotH(m, "axC", legal)}<div class="lb" style="color:${COL[1]}">COPILOTO</div></div></div></div>
-    <div class="inst" id="engBox"><div class="inst-h"><span>Motores · velocidad</span><span class="tag ${enOK ? "ok" : "must"}">${enOK ? (st.speed != null ? "Velocidad " + st.speed : "Hecho") : "Obligatorio"}</span></div>
+    ${B.noEng(st) ? `<div class="inst" id="engBox"><div class="inst-h"><span>Sin motores · planeo</span><span class="tag">Avance fijo</span></div>
+      <p class="spd">${fin ? `Última ronda: no hay velocidad que controlar. Para aterrizar: eje recto, tren y flaps completos${ice ? ", frenos para el hielo" : ""} y la pista libre.` : "Los motores están apagados: al final de cada ronda el avión planea <b>1 casilla</b> sí o sí. Tiráis 4 dados pero cada uno juega solo <b>3</b>; el que sobra se descarta."}</p></div>` : `<div class="inst" id="engBox"><div class="inst-h"><span>Motores · velocidad</span><span class="tag ${enOK ? "ok" : "must"}">${enOK ? (st.speed != null ? "Velocidad " + st.speed : "Hecho") : "Obligatorio"}</span></div>
       <div class="enrow"><div>${slotH(m, "enP", legal)}<div class="lb" style="color:${COL[0]}">PILOTO</div></div><div class="gauge">${gaugeSVG(st)}</div><div>${slotH(m, "enC", legal)}<div class="lb" style="color:${COL[1]}">COPILOTO</div></div></div>
-      <p class="spd">${spTxt}</p></div>
+      <p class="spd">${spTxt}</p></div>`}
     <div class="sides">
       <div class="side" style="--sc:${COL[0]}" id="sideP"><div class="sh">Piloto</div>
         <div class="grp"><div class="gl"><span>Radio</span></div><div class="radios">${slotH(m, "raP", legal, "📻")}</div></div>
@@ -1037,9 +1041,10 @@ function trayH(m) {
     const lo = Math.max(-st.coffee, 1 - v), hi = Math.min(st.coffee, 6 - v);
     cof = `<div class="cof"><button class="btn sm ghost" id="kMinus"${S.k <= lo ? " disabled" : ""} aria-label="Café: restar 1">−1</button><span>${S.k ? `☕ ×${Math.abs(S.k)}: tu ${v} vale <b style="color:var(--gold)">${v + S.k}</b>` : "Café: cambia el dado ±1"}</span><button class="btn sm ghost" id="kPlus"${S.k >= hi ? " disabled" : ""} aria-label="Café: sumar 1">+1</button></div>`;
   }
-  const must = B.mandLeft(st, p), left = st.dice[p].length, stuck = !B.canPlace(st, p);
+  const must = B.mandLeft(st, p), left = B.playsLeft ? B.playsLeft(st, p) : st.dice[p].length, stuck = !B.canPlace(st, p);
   let coach = sel == null ? "Elige uno de tus dados." : "Ahora toca una casilla iluminada del panel.";
   if (sel == null && must && left === must) coach = `Te quedan ${plural(left, "dado", "dados")} y ${must === 2 ? "el eje y los motores" : st.sl[p === P ? "axP" : "axC"] ? "los motores" : "el eje"} sin poner: van ahí sí o sí.`;
+  if (sel == null && B.noEng(st) && must && left === must) coach = "Te queda una jugada y falta tu dado del eje: va ahí sí o sí.";
   if (S.trTok) coach = `Ficha ${B.nextTrainee(st, p)} del piloto en prácticas: toca dónde la pones.`;
   if (stuck && !S.trTok) coach = "No puedes colocar ningún dado en ninguna casilla: elige uno y descártalo.";
   const caps = st.caps || [], cb = [];
@@ -1206,6 +1211,10 @@ function showRules() {
       <ul><li>no queda ningún avión en la aproximación,</li><li>el tren y los flaps están en verde,</li><li>el avión está recto,</li><li>la velocidad de esa ronda era menor que los frenos.</li></ul></section>
     <section><h3>Libro de vuelo: destinos</h3><p>Antes de despegar elegid destino entre <b>21 escenarios</b> en 11 aeropuertos. El color marca la dificultad: <span style="color:#5BE49B">verde</span> rutina, <span style="color:#FFC93C">amarillo</span> condiciones excepcionales, <span style="color:#FF5A5A">rojo</span> solo pilotos de élite y <b style="color:#C7D3EE">negro</b> aterrizaje heroico. Cada aproximación tiene su longitud, sus aviones y sus efectos. Montreal (YUL verde) es el vuelo de iniciación. Al aterrizar, el destino queda marcado con ✓.</p>
       <p>En los escenarios rojos y negros solo hay ficha ↻ a 6000 pies (no a 2000).</p></section>
+    <section><h3>Listo para jugar y promocionales</h3><p>Además del libro: 4 vuelos <b>«Listo para jugar»</b> (YUL, LHR, PRG y ATL con módulos y aviones extra) y 7 aeropuertos <b>promocionales</b> (Bolonia, Budapest, París-CDG, Düsseldorf, LaGuardia, Antártida y Lajes), cada uno por sus dos caras.</p>
+      <ul><li><b>⬇️ Empieza a 5000 pies:</b> el vuelo arranca en la ronda 2 (6 rondas en total).</li>
+      <li><b>🌬️ Viento frontal:</b> el anillo de viento va por su otra cara: los valores se restan a la velocidad en vez de sumarse.</li>
+      <li><b>🪂 Lajes, sin motores:</b> no hay casillas de motores. Cada uno tira 4 dados pero solo juega 3 (el que sobra se descarta). Al final de cada ronda el avión planea 1 casilla sí o sí: tiene que estar libre de aviones y cumplir el giro de esa casilla. En la última ronda no hay velocidad que frenar.</li></ul></section>
     <section><h3>🎲 Dado de tráfico</h3><p>Si al empezar la ronda estáis en una casilla con iconos 🎲, se tira el dado de tráfico tantas veces como iconos: cada resultado añade un avión en esa casilla contando desde la vuestra (1 = la vuestra; si se pasa, va al aeropuerto). Si os quedáis varias rondas en esa casilla, se tira cada ronda. Pasar por encima no cuenta.</p></section>
     <section><h3>◀ ▶ Giros</h3><p>Algunas casillas piden una inclinación: al avanzar, el eje tiene que estar en una de las posiciones marcadas (◀2 = 2 hacia el piloto, 1▶ = 1 hacia el copiloto, 0 = recto) para salir de esa casilla, también si la cruzáis avanzando 2. Si no, perdéis. Si no avanzáis esa ronda, no importa.</p></section>
     <section><h3>Módulos</h3><ul>${Object.values(B.MODS).map(x => `<li><b>${x.i} ${x.n}:</b> ${esc(x.t)}</li>`).join("")}</ul></section>

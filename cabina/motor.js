@@ -22,19 +22,19 @@ const WIND = [3, 3, 2, 2, 1, 0, -1, -2, -2, -3, -3, -3, -2, -2, -1, 0, 1, 2, 2, 
    Eje negativo = inclinado hacia el piloto (izquierda), positivo = hacia el copiloto (derecha).
    col: g verde (rutina), y amarillo (excepcional), r rojo (élite), k negro (heroico).
    mods: kero (queroseno), leak (fuga), trainee (piloto en prácticas), wind (viento), rt (tiempo real), ice (frenos para el hielo). */
-const L2 = [-2, -1], L1 = [-1, 0], R1 = [0, 1], R2 = [1, 2], M1 = [-1, 0, 1];
+const L2 = [-2, -1], L1 = [-1, 0], R1 = [0, 1], R2 = [1, 2], M1 = [-1, 0, 1], Z0 = [0], L3 = [-2, -1, 0], R3 = [0, 1, 2];
 const SC = [
   { id: "yul", col: "g", code: "YUL", name: "Montréal-Trudeau", mods: [], caps: 0, tr: [[0], [0], [1], [2], [1], [3], [2]],
     txt: "Tu primer vuelo va bien: el sol se alza sobre el río San Lorenzo. Condiciones ideales para un aterrizaje perfecto." },
-  { id: "lhr1", col: "g", code: "LHR", name: "Heathrow", mods: [], caps: 0, tr: [[0], [0], [1], [0], [1, 1], [1, 1], [0]],
+  { id: "lhr1", col: "g", code: "LHR", name: "Heathrow", mods: [], caps: 0, tr: [[0, 1], [0], [1], [0], [1, 1], [1], [2]],
     txt: "El Támesis atraviesa las luces de Londres. Hay tráfico al final de la aproximación: mantén la calma." },
   { id: "hnd1", col: "g", code: "HND", name: "Haneda", mods: [], caps: 0, tr: [[0], [1], [0], [1, 0, L1], [1, 0, L2], [0, 0, L1], [1], [0]],
     txt: "Con el monte Fuji en el horizonte, un giro amplio a la izquierda para sobrevolar la bahía de Tokio." },
   { id: "osl1", col: "g", code: "OSL", name: "Gardermoen", mods: ["kero"], caps: 0, tr: [[0], [0], [1], [1], [2], [1], [0]],
     txt: "Descenso hacia Oslo, con el lago Øyeren a la derecha. No apartes la vista del indicador de combustible." },
-  { id: "atl1", col: "g", code: "ATL", name: "Hartsfield-Jackson", mods: ["trainee"], caps: 0, tr: [[0, 2], [0, 1], [1], [0], [1], [1], [0], [0]],
+  { id: "atl1", col: "g", code: "ATL", name: "Hartsfield-Jackson", mods: ["trainee"], caps: 0, tr: [[0, 2], [0, 1], [1], [0], [1], [0], [0], [2]],
     txt: "Atlanta y un cielo atestado de aviones. Además tienes que instruir a un piloto en prácticas muy nervioso." },
-  { id: "prg1", col: "g", code: "PRG", name: "Václav Havel", mods: ["kero"], caps: 2, tr: [[0], [0], [1], [1], [0, 1], [2], [1], [0]],
+  { id: "prg1", col: "g", code: "PRG", name: "Václav Havel", mods: ["kero"], caps: 2, tr: [[0, 1], [0, 0, L1], [1], [1], [0], [2], [0], [1]],
     txt: "Tus habilidades están mejorando. Úsalas para aterrizar sin peligro en Praga." },
   { id: "lhr2", col: "y", code: "LHR", name: "Heathrow", mods: ["trainee"], caps: 0, tr: [[0, 1], [1, 1], [1, 1], [0], [1], [1], [0]],
     txt: "La niebla ha llenado el cielo de aviones en espera sobre Londres. Alerta desde el principio de la aproximación." },
@@ -65,10 +65,51 @@ const SC = [
   { id: "kef2", col: "k", code: "KEF", name: "Keflavík", mods: ["wind", "ice"], caps: 2, tr: [[0], [1], [0, 1], [1], [1, 1, L1], [1, 0, R1], [1], [0]],
     txt: "Una ventisca increíble: las luces de la pista apenas se ven bajo la nieve. Lleva tu atención al extremo." },
   { id: "pbh2", col: "k", code: "PBH", name: "Paro", mods: ["kero", "rt"], caps: 2, tr: [[0], [1, 0, L2], [1, 1, L1], [1, 0, R1], [1, 0, R2], [1, 0, R1], [0]],
-    txt: "Solo 8 pilotos en el mundo tienen licencia para aterrizar aquí. Ha llegado el momento de añadir tu nombre a la lista." }
+    txt: "Solo 8 pilotos en el mundo tienen licencia para aterrizar aquí. Ha llegado el momento de añadir tu nombre a la lista." },
+  /* «Listo para jugar»: aproximaciones de la caja con otros módulos (cara roja/negra de la altitud) */
+  { id: "yul2", grp: "rtp", col: "r", code: "YUL", name: "Montréal-Trudeau", mods: ["ice", "trainee"], caps: 1, base: "yul",
+    txt: "De vuelta a Montreal en pleno invierno. Al piloto en prácticas le preocupa aterrizar sobre una pista helada... ¿y a vosotros?" },
+  { id: "lhr3", grp: "rtp", col: "r", code: "LHR", name: "Heathrow", mods: [], caps: 1, base: "lhr1", add: [[0, 1]], alt0: 1,
+    txt: "Os acercáis a Londres y ya estáis a 5000 pies. ¿Mantendréis la calma con los reflejos a prueba?" },
+  { id: "prg3", grp: "rtp", col: "r", code: "PRG", name: "Václav Havel", mods: ["kero", "wind"], caps: 1, base: "prg1", add: [[0, 1], [1, 1]],
+    txt: "Tráfico denso y fuertes corrientes de viento sobre Praga: hará falta mucha precisión en la maniobra." },
+  { id: "atl3", grp: "rtp", col: "k", code: "ATL", name: "Hartsfield-Jackson", mods: ["kero"], caps: 1, base: "atl1",
+    txt: "El aeropuerto más concurrido del mundo y un atasco aéreo como nunca habéis visto. ¿En qué pensarán los controladores?" },
+  /* Escenarios promocionales (imprimir y jugar), con sus aproximaciones exactas */
+  { id: "blq1", grp: "promo", col: "g", code: "BLQ", name: "Guglielmo Marconi", mods: ["leak"], caps: 0, tr: [[1, 3], [1, 0, L1], [1, 1], [1, 0, R1], [2], [2]],
+    txt: "Dejas atrás los Dolomitas y el lago de Garda y te lanzas sobre Emilia-Romaña. Bolonia aparece en el horizonte." },
+  { id: "blq2", grp: "promo", col: "r", code: "BLQ", name: "Guglielmo Marconi", mods: ["kero"], caps: 1, tr: [[1, 3], [1, 0, Z0], [2], [1, 0, Z0], [1], [2]],
+    txt: "Cielo despejado sobre Bolonia, pero el corredor es estrecho: hay que mantener el avión perfectamente nivelado." },
+  { id: "bud1", grp: "promo", col: "y", code: "BUD", name: "Budapest Ferenc Liszt", mods: ["wind"], caps: 0, tr: [[0, 3], [1], [1, 0, R1], [2, 1], [1, 0, L2], [2]],
+    txt: "Sobrevuelas el lago Balaton hacia la capital húngara. El viento sopla fuerte en tu cola: alinéate con la pista." },
+  { id: "bud2", grp: "promo", col: "r", code: "BUD", name: "Budapest Ferenc Liszt", mods: ["wind"], caps: 2, alt0: 1, tr: [[1, 4], [1], [1, 1, R1], [1, 1, R2], [1, 0, L2], [1]],
+    txt: "Con viento de cola sobre Budapest y empezando ya a 5000 pies (sin ficha de volver a tirar)." },
+  { id: "cdg1", grp: "promo", col: "y", code: "CDG", name: "Paris-Charles de Gaulle", mods: ["wind", "trainee"], caps: 0, tr: [[0, 3], [1], [0], [0, 1], [2, 1], [2, 1], [1], [2]],
+    txt: "Vientos potentes sobre París y un tráfico muy denso: un bautismo de fuego para el piloto en prácticas." },
+  { id: "cdg2", grp: "promo", col: "r", code: "CDG", name: "Paris-Charles de Gaulle", mods: ["kero", "wind", "trainee"], caps: 0, tr: [[1, 2], [0], [0], [0, 1, L2], [1], [1, 1, R2], [2], [1]],
+    txt: "París con viento, tráfico, poco combustible y un piloto en prácticas a tu lado. ¿Estás listo?" },
+  { id: "dus1", grp: "promo", col: "y", code: "DUS", name: "Düsseldorf", mods: ["leak"], caps: 2, tr: [[0, 3], [1], [1], [2, 0, M1], [1], [2, 2, M1], [1], [1]],
+    txt: "Un fallo informático ha cerrado Ámsterdam y te desvían a Düsseldorf. Ya hay atasco entre las nubes." },
+  { id: "dus2", grp: "promo", col: "k", code: "DUS", name: "Düsseldorf", mods: ["rt", "leak"], caps: 1, tr: [[1, 2], [0, 0, Z0], [0, 1], [1, 2, L2], [2], [1, 1, R2], [3], [2]],
+    txt: "Desvío a Düsseldorf con una fuga de combustible y el reloj en contra. ¿Qué más puede pasar?" },
+  { id: "lga1", grp: "promo", col: "y", code: "LGA", name: "LaGuardia", mods: ["ice"], caps: 2, tr: [[0, 1], [0, 0, R3], [0, 1], [1, 0, L3], [2, 1], [1], [1]],
+    txt: "Un frente frío ha congelado la costa este. Brooklyn y Manhattan relucen de escarcha y la pista está helada." },
+  { id: "lga2", grp: "promo", col: "k", code: "LGA", name: "LaGuardia", mods: ["kero", "ice"], caps: 1, tr: [[0, 0, R3], [0], [0, 1, R2], [0], [1, 1, L2], [1], [0]],
+    txt: "Pista congelada en Nueva York y combustible justo. Ahora todo depende de ti." },
+  { id: "nzir1", grp: "promo", col: "r", code: "NZIR", name: "Ice Runway (Antártida)", mods: ["wind", "ice"], caps: 1, wind: "front", tr: [[0, 3], [0, 0, L2], [0], [1], [1, 0, R1], [1], [0], [0]],
+    txt: "Un fuerte viento frontal del polo sacude el avión. Aterrizar un avión de pasajeros en una pista sobre el hielo parece surrealista." },
+  { id: "nzir2", grp: "promo", col: "k", code: "NZIR", name: "Ice Runway (Antártida)", mods: ["wind", "ice", "kero", "trainee"], caps: 0, wind: "front", tr: [[0, 2], [1], [0, 0, L1], [0], [0, 0, R2], [0], [0, 0, L1], [0]],
+    txt: "Viento frontal, pista helada, poco combustible y un piloto en prácticas, en el fin del mundo." },
+  { id: "ter1", grp: "promo", col: "y", code: "TER", name: "Lajes, Azores", mods: ["ice"], caps: 2, noEng: 1, tr: [[0, 3, L2], [0, 0, R3], [0, 0, L2], [0, 0, R2], [1, 0, L2], [1, 0, R2], [1]],
+    txt: "24 de agosto de 2001, vuelo TS-236: el A330 se ha quedado sin queroseno y los dos motores se han parado. Hay que planear hasta Lajes." },
+  { id: "ter2", grp: "promo", col: "k", code: "TER", name: "Lajes, Azores", mods: ["ice"], caps: 1, noEng: 1, tr: [[0, 3, L2], [0, 0, R2], [0, 0, L2], [1, 0, R2], [1, 0, L2], [1, 0, R2], [1]],
+    txt: "Sin motores, demasiado rápido y demasiado alto. Después de un 360º, giros para frenar el avión. «Vamos a tener que hacer lo imposible»." }
 ];
+/* Los escenarios «Listo para jugar» usan la aproximación de otro escenario */
+for (const x of SC) if (x.base) { const b = SC.find(y => y.id === x.base); x.tr = b.tr.map(c => c.slice()); for (const [i, n] of x.add || []) x.tr[i][0] += n; }
 const SC_BY = Object.fromEntries(SC.map(x => [x.id, x]));
 const COLOR_NAME = { g: "Aterrizaje rutinario", y: "Condiciones excepcionales", r: "Solo pilotos de élite", k: "Aterrizaje heroico" };
+const GROUPS = { libro: "Libro de vuelo", rtp: "Listo para jugar", promo: "Escenarios promocionales" };
 const MODS = {
   kero: { n: "Queroseno", i: "⛽", t: "Empezáis con 20 de queroseno. Cualquiera puede poner un dado en el depósito: gasta tanto como su valor. Si en una ronda no se pone, se gastan 6. Si llega a 0, os quedáis secos y perdéis." },
   leak: { n: "Fuga de queroseno", i: "💧", t: "Empezáis con 20 de queroseno y el depósito no se puede usar. Cada ronda perdéis la diferencia entre los dos dados de motores, +1. Si llega a 0, perdéis." },
@@ -123,8 +164,12 @@ const hasCap = (s, c) => (s.caps || []).includes(c);
 const rerollAt = s => scen(s).col === "g" || scen(s).col === "y" ? [0, 4] : [0];
 const traffic = (s, i) => (scen(s).tr[i] || [])[1] || 0;
 const turnAt = (s, i) => (scen(s).tr[i] || [])[2] || null;
-const windVal = s => has(s, "wind") ? WIND[((s.wind || 0) % 20 + 20) % 20] : 0;
-const slotOn = (s, id) => { const S = SLOTS[id]; if (!S) return false; if (S.m && !has(s, S.m)) return false; if (S.k === "brake" && has(s, "ice")) return false; if (S.k === "kero" && has(s, "leak")) return false; return true; };
+const windVal = s => has(s, "wind") ? (scen(s).wind === "front" ? -1 : 1) * WIND[((s.wind || 0) % 20 + 20) % 20] : 0;
+const noEng = s => !!scen(s).noEng;
+const mandOf = (s, p) => noEng(s) ? [MAND[p][0]] : MAND[p];
+const playN = s => noEng(s) ? 3 : 4;                          // Lajes: se tiran 4 dados pero solo se juegan 3
+const playsLeft = (s, p) => Math.min(s.dice[p].length, playN(s) - ((s.pl && s.pl[p]) || 0));
+const slotOn = (s, id) => { const S = SLOTS[id]; if (!S) return false; if (S.k === "eng" && noEng(s)) return false; if (S.m && !has(s, S.m)) return false; if (S.k === "brake" && has(s, "ice")) return false; if (S.k === "kero" && has(s, "leak")) return false; return true; };
 /* Fichas de volver a tirar que quedan para Maestría (3 en total: las que tenéis y las que aún esperan en la altitud no cuentan) */
 const rrPool = s => Math.max(0, MAX_RR - s.rr - rerollAt(s).filter(i => i > s.round - 1).length);
 
@@ -134,7 +179,7 @@ function newGame(seed, wins, opt) {
   const caps = (opt.caps || []).filter(c => CAPS[c]).slice(0, def.caps);
   const s = {
     v: 2, seed: seed >>> 0, r: seed >>> 0, sc, caps, route: def.code,
-    round: 1, pos: 0, planes: def.tr.map(x => x[0]), axis: 0, gear: [0, 0, 0], flaps: 0, brakes: 0,
+    round: 1 + (def.alt0 || 0), pos: 0, planes: def.tr.map(x => x[0]), axis: 0, gear: [0, 0, 0], flaps: 0, brakes: 0,
     coffee: 0, rr: 0, dice: [[], []], sl: {}, turn: P, first: P, speed: null, adv: null,
     rrPend: null, n: 0, last: null, hist: [], over: null, wins: wins || [0, 0], played: 0,
     fuel: def.mods.includes("kero") || def.mods.includes("leak") ? FUEL0 : null,
@@ -181,7 +226,7 @@ const orange = s => ORANGE0 + s.flaps;
 const brakeVal = s => has(s, "ice") ? ICE[s.ice || 0] : BRAKE[s.brakes];
 function advFor(s, speed) { return speed < blue(s) ? 0 : speed > orange(s) ? 2 : 1; }
 const placed = s => Object.keys(s.sl).length;
-function mandLeft(s, p, except) { return MAND[p].filter(id => !s.sl[id] && id !== except).length; }
+function mandLeft(s, p, except) { return mandOf(s, p).filter(id => !s.sl[id] && id !== except).length; }
 /* Quién tiene que actuar ahora */
 function actor(s) {
   if (s.over) return null;
@@ -275,10 +320,10 @@ function check(s, p, a) {
     if (!a.tt) return "Elige dónde va la ficha del piloto en prácticas.";
     const tv = nextTrainee(s, p), w2 = slotWhy(s, p, a.tt, tv, { tok: 1 });
     if (w2) return "Ficha " + tv + ": " + w2.charAt(0).toLowerCase() + w2.slice(1);
-    if (s.dice[p].length - 1 < mandLeft(s, p, a.tt)) return "Te quedan justo los dados para el eje y los motores.";
+    if (playsLeft(s, p) - 1 < mandLeft(s, p, a.tt)) return "Te quedan justo los dados para el eje y los motores.";
     return "";
   }
-  if (!MAND[p].includes(a.s) && s.dice[p].length - 1 < mandLeft(s, p)) return "Te quedan justo los dados para el eje y los motores: ponlos ahí.";
+  if (!mandOf(s, p).includes(a.s) && playsLeft(s, p) - 1 < mandLeft(s, p)) return noEng(s) ? "Te queda justo una jugada y falta tu dado del eje: ponlo ahí." : "Te quedan justo los dados para el eje y los motores: ponlos ahí.";
   return "";
 }
 /* ¿Tiene p alguna jugada de colocar? (para no quedarse atascado) */
@@ -352,6 +397,7 @@ function syncCheck(s) {
 function afterPlace(s, p) {
   if (s.over) return;
   syncCheck(s);
+  for (const x of [P, C]) if (s.dice[x].length && playsLeft(s, x) <= 0) { s.dice[x] = []; }
   const q = 1 - p;
   if (s.dice[q].length) s.turn = q; else s.turn = p;
   maybeEnd(s);
@@ -369,7 +415,7 @@ function apply(s0, p, a) {
     const L = { n: s.n, t: "timeout", p: -1, lost: s.dice[0].length + s.dice[1].length };
     s.hist.push(L); s.last = L;
     s.dice = [[], []]; s.rrPend = null; s.syncPend = null; s.wtPend = null;
-    if (!(s.sl.axP && s.sl.axC) || !(s.sl.enP && s.sl.enC)) { lose(s, "time", "Se acabó el tiempo sin completar el eje y los motores."); return s; }
+    if (!(s.sl.axP && s.sl.axC) || (!noEng(s) && !(s.sl.enP && s.sl.enC))) { lose(s, "time", "Se acabó el tiempo sin completar el eje y los motores."); return s; }
     endRound(s);
     return s;
   }
@@ -450,11 +496,19 @@ function endRound(s) {
     if (s.axis !== 0) bad.push("el avión no está recto");
     if (has(s, "ice") && s.ice < 4) bad.push("faltan frenos para el hielo");
     if (s.tr && s.tr.length) bad.push("el piloto en prácticas no ha terminado su instrucción");
-    if (!(s.sl.enP && s.sl.enC)) bad.push("faltan los motores");
+    if (!noEng(s) && !(s.sl.enP && s.sl.enC)) bad.push("faltan los motores");
     if (bad.length) { lose(s, "land", "Aterrizaje fallido: " + bad.join(", ") + "."); return; }
     s.over = { win: true, why: "land", txt: "¡Aterrizaje perfecto!" };
     s.wins[0] = (s.wins[0] || 0) + 1; s.played = (s.played || 0) + 1;
     return;
+  }
+  if (noEng(s)) {
+    /* Lajes: sin motores, el avión planea 1 casilla al final de cada ronda */
+    const tn = turnAt(s, s.pos), L = { n: ++s.n, t: "glide", p: -1 };
+    if (s.pos === airport(s)) { lose(s, "overshoot", "Habéis pasado de largo el aeropuerto."); return; }
+    if (s.planes[s.pos] > 0) { lose(s, "crash", "Habéis chocado con un avión que seguía en vuestra posición."); return; }
+    if (tn && !tn.includes(s.axis)) { lose(s, "turn", "No habéis tomado bien el giro: el avión no tenía la inclinación que pedía la aproximación."); return; }
+    s.pos++; L.pos = s.pos; s.hist.push(L); s.last = L;
   }
   s.round++;
   if (final(s) && s.pos !== airport(s)) { lose(s, "late", "Habéis llegado al suelo sin tener la pista delante."); return; }
@@ -484,6 +538,7 @@ function describe(L, who, you) {
   if (L.t === "pick") return L.c ? `${who} ${you ? "vuelves" : "vuelve"} a tirar ${L.c === 1 ? "1 dado" : L.c + " dados"}` : `${who} ${you ? "te quedas" : "se queda"} con sus dados`;
   if (L.t === "round") return `Empieza la ronda ${L.r} (${ALT[L.r - 1]} pies)`;
   if (L.t === "traffic") return `Dado de tráfico: ${L.rolls.join(" y ")}. ${L.none >= L.rolls.length ? "No quedan aviones en la reserva" : L.rolls.length - (L.none || 0) > 1 ? "Entran aviones en la aproximación" : "Entra un avión en la aproximación"}`;
+  if (L.t === "glide") return `Sin motores, el avión planea 1 casilla`;
   if (L.t === "kero") return `Nadie ha usado el depósito: se gastan ${KERO_MISS} de queroseno (quedan ${L.fuel})`;
   if (L.t === "timeout") return `¡Se acabó el tiempo!${L.lost ? ` ${L.lost === 1 ? "Se pierde 1 dado" : `Se pierden ${L.lost} dados`}` : ""}`;
   if (L.t === "flip") return `${who} ${you ? "das" : "da"} la vuelta a un ${L.a}: ahora es un ${L.b} (Adaptación)`;
@@ -582,7 +637,7 @@ function bestOfK(u, k, coffee) {
 }
 function assignVal(s, p, asg) {
   const q = 1 - p, AP = airport(s);
-  const t = { round: s.round, pos: s.pos, planes: s.planes.slice(), gear: s.gear.slice(), flaps: s.flaps, brakes: s.brakes, ice: s.ice || 0, coffee: s.coffee, fuel: s.fuel, ke: !!s.sl.ke, tr: s.tr };
+  const t = { sc: s.sc, round: s.round, pos: s.pos, planes: s.planes.slice(), gear: s.gear.slice(), flaps: s.flaps, brakes: s.brakes, ice: s.ice || 0, coffee: s.coffee, fuel: s.fuel, ke: !!s.sl.ke, tr: s.tr };
   let v = 0, myAx = null, myEn = null;
   const ord = asg.slice().sort((a, b) => SLOT_IDS.indexOf(a.s) - SLOT_IDS.indexOf(b.s));
   for (const x of asg) { t.coffee -= Math.abs(x.k); v -= COFFEE_COST * Math.abs(x.k); }
@@ -601,12 +656,13 @@ function assignVal(s, p, asg) {
     }
     else if (S.k === "conc") { if (t.coffee < MAX_COFFEE) t.coffee++; else v -= 1; }
     else if (S.k === "kero") { if (t.ke) return -1e9; t.ke = true; t.fuel -= x.v; if (t.fuel <= 0) return -1e9; v -= 0.4 * x.v; }
-    else if (S.k === "radio") { const tg = t.pos + x.v - 1; if (tg <= AP && t.planes[tg] > 0) { t.planes[tg]--; v += 6 + (tg === t.pos ? 4 : 0); } else v -= 2; }
+    else if (S.k === "radio") { const tg = t.pos + x.v - 1; if (tg <= AP && t.planes[tg] > 0) { t.planes[tg]--; v += 6 + (tg === t.pos ? 10 : tg === t.pos + 1 ? 4 : 0); } else v -= 2; }
     else if (S.k === "axis") myAx = x.v;
     else if (S.k === "eng") myEn = x.v;
   }
   const cof = Math.max(0, t.coffee);
-  const enDone = !!(s.sl.enP && s.sl.enC);
+  const enDone = noEng(s) ? false : !!(s.sl.enP && s.sl.enC);
+  if (noEng(s) && !final(s) && t.planes[t.pos] > 0) v -= 800;   // al planear chocaríamos
   /* eje */
   const axMine = p === P ? "axP" : "axC", axTheirs = p === P ? "axC" : "axP";
   const axRes = (vp, vc) => axisPen(s.axis + (vc - vp), t, enDone);
@@ -621,7 +677,9 @@ function assignVal(s, p, asg) {
   /* motores */
   const enMine = p === P ? "enP" : "enC", enTheirs = p === P ? "enC" : "enP";
   const axNow = s.sl.axP && s.sl.axC ? s.axis : axKnown != null && (s.sl.axP || s.sl.axC) ? axKnown : s.axis;
-  const wNow = has(s, "wind") ? WIND[(((s.wind || 0) + (s.sl.axP && s.sl.axC ? 0 : axNow)) % 20 + 20) % 20] : 0;
+  const wNow = has(s, "wind") ? (scen(s).wind === "front" ? -1 : 1) * WIND[(((s.wind || 0) + (s.sl.axP && s.sl.axC ? 0 : axNow)) % 20 + 20) % 20] : 0;
+  /* el compañero aún puede despejar con la radio un avión que nos cerraría el paso */
+  const help = kq > 0 && (p === P ? !s.sl.raC1 || !s.sl.raC2 : !s.sl.raP);
   const engRes = (a, b) => {
     const sp = a + b + (s.sl.axP && s.sl.axC ? windVal(s) : wNow);
     let r = 0;
@@ -630,7 +688,8 @@ function assignVal(s, p, asg) {
     const adv = sp < BLUE0 + t.gear[0] + t.gear[1] + t.gear[2] ? 0 : sp > ORANGE0 + t.flaps ? 2 : 1;
     let pos = t.pos;
     for (let i = 0; i < adv; i++) {
-      if (pos === AP || t.planes[pos] > 0) return -1000;
+      if (pos === AP) return -1000;
+      if (t.planes[pos] > 0) { if (help) r -= 260 * t.planes[pos]; else return -1000; }
       const tn = turnAt(s, pos); if (tn && !tn.includes(axNow)) return -1000;
       pos++;
     }
@@ -644,7 +703,8 @@ function assignVal(s, p, asg) {
     for (let i = pos; i <= AP; i++) if (t.planes[i]) r -= (i === pos ? 6 : 2) * t.planes[i] / Math.max(1, i - pos + 1);
     return r;
   };
-  if (enDone) v += posVal(t, s.pos);
+  if (noEng(s)) v += 0;
+  else if (enDone) v += posVal(t, s.pos);
   else {
     const mine = myEn != null ? myEn : s.sl[enMine] ? s.sl[enMine].v : null, theirs = s.sl[enTheirs] ? s.sl[enTheirs].v : null;
     if (mine != null && theirs != null) v += engRes(mine, theirs);
@@ -657,13 +717,15 @@ function assignVal(s, p, asg) {
 function bestAssign(s, p, fixed) {
   const D = s.dice[p].map((v, i) => ({ v, i })).sort((a, b) => a.v - b.v);
   const free = SLOT_IDS.filter(id => slotOn(s, id) && SLOTS[id].k !== "train" && !s.sl[id] && (SLOTS[id].who === p || SLOTS[id].who === -1));
-  const mand = MAND[p].filter(id => !s.sl[id]);
+  const mand = mandOf(s, p).filter(id => !s.sl[id]);
   const maxK = Math.min(2, s.coffee);
+  let skips = s.dice[p].length - playsLeft(s, p);              // dados que no se van a jugar (Lajes)
   let best = null, bestV = -Infinity;
   const used = new Set(), cur = [];
   if (!D.length) return { asg: [], v: assignVal(s, p, []) };
   function dfs(j, budget) {
     if (j === D.length) {
+      if (skips > 0) return;
       if (mand.some(id => !used.has(id))) return;
       const v = assignVal(s, p, cur);
       if (v > bestV) { bestV = v; best = cur.slice(); }
@@ -688,7 +750,8 @@ function bestAssign(s, p, fixed) {
     }
     // sin casilla posible para este dado: se descartaría
     const anyFree = free.some(id => !used.has(id) && (!SLOTS[id].ok || SLOTS[id].ok.some(w => Math.abs(w - D[j].v) <= Math.min(budget, maxK))));
-    if (!anyFree) { cur.push({ d: D[j].i, s: null, v: D[j].v, k: 0, skip: 1 }); dfs(j + 1, budget); cur.pop(); }
+    if (skips > 0) { skips--; cur.push({ d: D[j].i, s: null, v: D[j].v, k: 0, skip: 1 }); dfs(j + 1, budget); cur.pop(); skips++; }
+    else if (!anyFree) { cur.push({ d: D[j].i, s: null, v: D[j].v, k: 0, skip: 1 }); dfs(j + 1, budget); cur.pop(); }
   }
   dfs(0, s.coffee);
   if (best) best = best.filter(x => !x.skip);
@@ -704,7 +767,7 @@ function stateVal(s, p) {
 function trainOption(s, p, asg) {
   const id = p === P ? "trP" : "trC";
   if (!asg || !s.tr || !s.tr.length || s.sl[id]) return null;
-  const tv = nextTrainee(s, p), mand = MAND[p].filter(m => !s.sl[m]);
+  const tv = nextTrainee(s, p), mand = mandOf(s, p).filter(m => !s.sl[m]);
   let best = null, bestV = -Infinity;
   for (const x of asg) {
     if (s.dice[p][x.d] === tv) continue;
@@ -790,7 +853,7 @@ function hint(s, p) {
   return a;
 }
 
-const API = { PLANES, P, C, ROLE, ROUNDS, ALT, ROUTE, AIRPORT, REROLL_AT, BLUE0, ORANGE0, BRAKE, ICE, WIND, MAX_COFFEE, FUEL0, KERO_MISS, SLOTS, SLOT_IDS, MAND,
+const API = { GROUPS, noEng, mandOf, playN, playsLeft, PLANES, P, C, ROLE, ROUNDS, ALT, ROUTE, AIRPORT, REROLL_AT, BLUE0, ORANGE0, BRAKE, ICE, WIND, MAX_COFFEE, FUEL0, KERO_MISS, SLOTS, SLOT_IDS, MAND,
   SC, SC_BY, COLOR_NAME, MODS, CAPS, CAP_IDS,
   newGame, rematch, check, apply, slotWhy, describe, plan, hint, bestAssign, advFor, blue, orange, brakeVal, gearCount, mandLeft, final, placed,
   scen, airport, has, hasCap, rerollAt, traffic, turnAt, windVal, slotOn, actor, nextTrainee, canPlace, syncTargets, rrPool };
