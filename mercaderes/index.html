@@ -85,22 +85,30 @@ label.lbl,.lbl{display:grid;gap:6px;font-size:12px;font-weight:800;letter-spacin
 .wait{display:grid;place-items:center;gap:6px;text-align:center;padding:14px;background:var(--panel);border-radius:16px}
 
 /* ---------- cartas ---------- */
-.cardx{position:relative;aspect-ratio:5/7;border-radius:10px;display:grid;place-items:center;background:var(--g);color:#fff;
-  box-shadow:inset 0 0 0 2px rgba(255,255,255,.18),inset 0 0 0 5px rgba(0,0,0,.18),0 3px 0 rgba(0,0,0,.4);overflow:hidden;user-select:none;-webkit-user-select:none}
-.cardx::before{content:"";position:absolute;inset:4px;border-radius:7px;border:1.5px solid rgba(255,230,170,.55);pointer-events:none}
-.cardx::after{content:"";position:absolute;inset:0;background:linear-gradient(160deg,rgba(255,255,255,.28),transparent 40%,rgba(0,0,0,.22));pointer-events:none}
-.cardx svg.ic{width:74%;height:auto;filter:drop-shadow(0 2px 2px rgba(0,0,0,.35))}
-.cardx .nm{position:absolute;bottom:7%;left:0;right:0;text-align:center;font-weight:800;font-size:clamp(8px,2.1vw,11px);letter-spacing:.06em;text-transform:uppercase;opacity:.92}
-.cardx.K{color:#4A2E0A}
-.cardx.back{background:radial-gradient(circle at 50% 50%,#E8B04A 0 9%,transparent 10%),repeating-linear-gradient(45deg,#7A1328 0 6px,#8E1A31 6px 12px);}
-.cardx.back::before{border-color:rgba(242,181,68,.7)}
-.g-D{--g:linear-gradient(160deg,#E2405A,var(--D) 55%,#7E0F22)}
-.g-O{--g:linear-gradient(160deg,#F7C64A,var(--O) 55%,#8F5E05)}
-.g-P{--g:linear-gradient(160deg,#C9D2DB,var(--P) 55%,#57626E)}
-.g-T{--g:linear-gradient(160deg,#A566CC,var(--T) 55%,#4C2068)}
-.g-E{--g:linear-gradient(160deg,#55B568,var(--E) 55%,#185226)}
-.g-C{--g:linear-gradient(160deg,#BC7D47,var(--C) 55%,#5B3414)}
-.g-K{--g:linear-gradient(160deg,#F5DEAE,var(--K) 55%,#B48D4E)}
+.cardx{position:relative;aspect-ratio:5/7;border-radius:10px;display:block;color:#fff;--c:#7A1328;
+  background:radial-gradient(120% 90% at 50% 30%,#FFF8E6,#F3DFB4 70%,#E2C68E);
+  box-shadow:inset 0 0 0 3px var(--c),inset 0 0 0 4.5px #F2C96A,inset 0 0 0 6px var(--c),0 3px 0 rgba(0,0,0,.4);overflow:hidden;user-select:none;-webkit-user-select:none}
+/* ventana en arco (jharokha) con el dibujo */
+.cardx .arch{position:absolute;left:13%;right:13%;top:10%;bottom:25%;border-radius:50% 50% 6px 6px/34% 34% 6px 6px;display:grid;place-items:center;
+  background:radial-gradient(circle at 50% 38%,rgba(255,255,255,.35),transparent 60%),repeating-radial-gradient(circle at 50% 120%,rgba(255,255,255,.07) 0 4px,transparent 4px 9px),var(--g);
+  box-shadow:inset 0 0 0 1.5px #F2C96A,inset 0 0 0 3px rgba(0,0,0,.25),0 0 0 1.5px var(--c)}
+.cardx .arch::before{content:"";position:absolute;left:50%;top:-9%;width:16%;aspect-ratio:1;transform:translateX(-50%) rotate(45deg);background:#F2C96A;box-shadow:0 0 0 1.5px var(--c)}
+.cardx svg.ic{width:94%;height:auto;filter:drop-shadow(0 2px 2px rgba(0,0,0,.35))}
+.cardx::before{content:"";position:absolute;inset:auto 0 0;height:8%;background:radial-gradient(circle,var(--c) 0 1.5px,transparent 2px) 50% 0/10px 100% repeat-x;opacity:.35;pointer-events:none}
+.cardx::after{content:"";position:absolute;inset:0;background:linear-gradient(160deg,rgba(255,255,255,.3),transparent 38%,rgba(0,0,0,.12));pointer-events:none}
+.cardx .nm{position:absolute;bottom:8%;left:9%;right:9%;padding:2px 0;text-align:center;font-weight:800;font-size:clamp(6.5px,1.85vw,10px);letter-spacing:.02em;text-transform:uppercase;
+  background:var(--c);color:#FFF3D6;border-radius:3px;box-shadow:0 0 0 1px #F2C96A;clip-path:polygon(6% 0,94% 0,100% 50%,94% 100%,6% 100%,0 50%);white-space:nowrap;overflow:hidden}
+.cardx.back{background:radial-gradient(circle at 50% 50%,#F2C96A 0 7%,#7A1328 7.5% 12%,#F2C96A 12.5% 14%,transparent 14.5%),
+  repeating-conic-gradient(from 0deg at 50% 50%,#8E1A31 0 15deg,#6E1125 15deg 30deg),#7A1328;
+  box-shadow:inset 0 0 0 3px #4E0A18,inset 0 0 0 4.5px #F2C96A,inset 0 0 0 6px #4E0A18,0 3px 0 rgba(0,0,0,.4)}
+.cardx.back::before{content:none}
+.g-D{--g:linear-gradient(160deg,#E2405A,var(--D) 55%,#7E0F22);--c:#8E0F25}
+.g-O{--g:linear-gradient(160deg,#F7C64A,var(--O) 55%,#8F5E05);--c:#9A6305}
+.g-P{--g:linear-gradient(160deg,#C9D2DB,var(--P) 55%,#57626E);--c:#4F5A66}
+.g-T{--g:linear-gradient(160deg,#A566CC,var(--T) 55%,#4C2068);--c:#55237A}
+.g-E{--g:linear-gradient(160deg,#55B568,var(--E) 55%,#185226);--c:#1B5E2D}
+.g-C{--g:linear-gradient(160deg,#BC7D47,var(--C) 55%,#5B3414);--c:#6B3A15}
+.g-K{--g:linear-gradient(160deg,#F5DEAE,var(--K) 55%,#B48D4E);--c:#8A6430}
 button.cardx{appearance:none;border:0;padding:0;cursor:pointer;transition:transform .15s,box-shadow .15s}
 button.cardx.sel{transform:translateY(-10px);box-shadow:inset 0 0 0 2px rgba(255,255,255,.18),0 0 0 3px var(--gold),0 0 18px rgba(242,181,68,.75),0 8px 14px rgba(0,0,0,.5)}
 button.cardx:disabled{cursor:default}
@@ -115,8 +123,7 @@ button.cardx:disabled{cursor:default}
 .pl .who b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pl .who span{font-size:12.5px;color:var(--muted)}
 .mini{display:flex;align-items:center}
-.mini .cardx{width:20px;margin-left:-11px;border-radius:4px;box-shadow:0 1px 0 rgba(0,0,0,.5)}
-.mini .cardx::before{inset:2px;border-radius:2px;border-width:1px}
+.mini .cardx{width:20px;margin-left:-11px;border-radius:4px;box-shadow:inset 0 0 0 1.5px #4E0A18,inset 0 0 0 2.5px #F2C96A,0 1px 0 rgba(0,0,0,.5)}
 .mini .cardx:first-child{margin-left:0}
 .stat{display:flex;align-items:center;gap:4px;font-weight:800;font-size:14px;white-space:nowrap}
 .stat svg{width:22px;height:22px}
@@ -140,8 +147,7 @@ button.cardx:disabled{cursor:default}
 .zone-h{display:flex;align-items:center;justify-content:space-between;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
 .market{display:grid;grid-template-columns:repeat(5,1fr);gap:clamp(5px,1.6vw,10px);padding-top:10px}
 .deck{display:flex;align-items:center;gap:6px;text-transform:none;letter-spacing:0}
-.deck .cardx{width:22px;border-radius:4px}
-.deck .cardx::before{inset:2px;border-radius:2px;border-width:1px}
+.deck .cardx{width:22px;border-radius:4px;box-shadow:inset 0 0 0 1.5px #4E0A18,inset 0 0 0 2.5px #F2C96A,0 1px 0 rgba(0,0,0,.5)}
 .last{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:rgba(242,181,68,.1);border-radius:12px;padding:8px 12px;font-size:14px;font-weight:700;box-shadow:inset 0 0 0 1px rgba(242,181,68,.35)}
 .last.fresh{animation:glow 1.6s ease-out}
 @keyframes glow{0%{background:rgba(242,181,68,.45)}}
@@ -200,8 +206,9 @@ button.cardx:disabled{cursor:default}
 .rules b{color:var(--gold)}
 .rules .ex{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .rules .ex .cardx{width:44px;border-radius:6px}
-.rules .ex .cardx::before{inset:3px;border-radius:4px;border-width:1px}
 .rules .ex .cardx .nm{display:none}
+.rules .ex .cardx{box-shadow:inset 0 0 0 2px var(--c),inset 0 0 0 3px #F2C96A,0 2px 0 rgba(0,0,0,.4)}
+.rules .ex .cardx .arch{bottom:9%;left:10%;right:10%}
 .tbl{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center;font-size:14px}
 .tbl .coin{width:30px;font-size:14px}
 #tour{position:fixed;inset:0;z-index:70;display:none}
@@ -254,7 +261,7 @@ const ICON = {
   rupee: `<circle cx="50" cy="50" r="40" fill="#F2B544" stroke="#8A5A0A" stroke-width="5"/><path d="M36 32h28M36 44h28M44 32c14 0 14 24 0 24h-6l22 18" fill="none" stroke="#6B3F08" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>`
 };
 const icon = (t, cls) => `<svg class="${cls || "ic"}" viewBox="0 0 100 100" aria-hidden="true">${ICON[t]}</svg>`;
-const cardHTML = (t, extra = "", tag = "div", attrs = "") => `<${tag} class="cardx g-${t} ${t} ${extra}" ${attrs}>${icon(t)}<span class="nm">${t === "K" ? "Camello" : N1[t] === "oro" || N1[t] === "plata" || N1[t] === "cuero" ? N1[t] : N[t]}</span></${tag}>`;
+const cardHTML = (t, extra = "", tag = "div", attrs = "") => `<${tag} class="cardx g-${t} ${t} ${extra}" ${attrs}><span class="arch">${icon(t)}</span><span class="nm">${t === "K" ? "Camello" : N1[t] === "oro" || N1[t] === "plata" || N1[t] === "cuero" ? N1[t] : N[t]}</span></${tag}>`;
 const backHTML = (extra = "", style = "") => `<div class="cardx back ${extra}"${style ? ` style="${style}"` : ""} aria-hidden="true"></div>`;
 
 /* ================= sonido sintetizado ================= */
