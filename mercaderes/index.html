@@ -707,9 +707,12 @@ function updateGame() {
   /* rival */
   const seals = q => `<span class="seals" aria-label="${st.seals[q]} sellos">${[0, 1].map(i => `<i class="${i < st.seals[q] ? "on" : ""}"></i>`).join("")}</span>`;
   const oppTok = st.won[o].length;
+  /* como en la mesa: las fichas de mercancía se ven por delante; las de bonificación solo por detrás */
+  const oppScore = w => { const g = w.filter(x => B.GOODS.includes(x.k)), b = w.length - g.length;
+    return `${sum(g.map(x => x.v))} rupias en fichas` + (b ? ` + ${b} bonif. (valor oculto)` : ""); };
   const oppName = m.mode === "local" ? m.names[o] : m.names[o];
   document.getElementById("opp").innerHTML = `
-    <div class="who"><b>${esc(oppName)}</b><span>${oppTok ? `${oppTok} ${oppTok === 1 ? "ficha" : "fichas"} (puntos ocultos)` : "Aún sin fichas"}</span></div>
+    <div class="who"><b>${esc(oppName)}</b><span>${oppTok ? oppScore(st.won[o]) : "Aún sin fichas"}</span></div>
     <div class="mini" aria-label="${st.hands[o].length} cartas en la mano">${st.hands[o].map(() => backHTML()).join("")}</div>
     <span class="stat" title="Camellos">${icon("K", "")}${st.herd[o]}</span>${seals(o)}`;
   document.getElementById("opp").classList.toggle("turn", !st.over && st.turn === o);
@@ -869,7 +872,7 @@ function showRules() {
     <section><h3>Fin de la ronda</h3><ul>
       <li>Acaba cuando se agotan <b>3 montones</b> de fichas de mercancía o cuando el <b>mazo</b> no puede rellenar el mercado.</li>
       <li>Quien tenga <b>más camellos</b> gana 5 rupias extra.</li>
-      <li>Gana la ronda quien sume más rupias. Las fichas del rival están ocultas hasta el final: ¡a ver si llevas la cuenta!</li>
+      <li>Gana la ronda quien sume más rupias. Las fichas de mercancía del rival se ven, pero el valor de sus bonificaciones queda oculto hasta el final: ¡a ver si llevas la cuenta!</li>
       <li>Si hay empate, gana quien tenga más fichas de bonificación y, si sigue, más fichas de mercancía.</li>
       <li>La siguiente ronda la empieza quien ha perdido.</li></ul></section>
     <section><h3>Las fichas</h3><div class="tbl">${B.GOODS.map(tokRow).join("")}</div><p class="muted small">Y 11 camellos.</p></section>
