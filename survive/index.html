@@ -180,42 +180,37 @@ const VBW = HW * (COLS + 0.5) + 8, VBH = SZ * 1.5 * (ROWS - 1) + SZ * 2 + 8;
 const cube = k => { const [c, r] = P(k); const x = c - (r - (r & 1)) / 2; return [x, -x - r, r]; };
 const dist = (a, b) => { const A = cube(a), B = cube(b); return Math.max(Math.abs(A[0] - B[0]), Math.abs(A[1] - B[1]), Math.abs(A[2] - B[2])); };
 const CENTER = K(6, 6);
-const ISLAND = ALL.filter(k => dist(k, CENTER) <= 3).concat(["2,6", "10,6", "6,10"]);
+/* 40 losetas alrededor de un hueco de agua central (donde empieza una serpiente marina) */
+const ISLAND = ALL.filter(k => { const d = dist(k, CENTER); return d >= 1 && d <= 3; }).concat(["2,6", "10,6", "6,2", "6,10"]);
 const SAFE_GROUPS = [["0,0", "1,0", "0,1"], ["12,0", "11,0", "12,1"], ["0,12", "1,12", "0,11"], ["12,12", "11,12", "12,11"]];
 const SAFE = new Set(SAFE_GROUPS.flat());
-const SERP_START = (() => {
-  const ring = ALL.filter(k => dist(k, CENTER) === 5 && !SAFE.has(k)), [cx, cy] = XY[CENTER];
-  ring.sort((a, b) => Math.atan2(XY[a][1] - cy, XY[a][0] - cx) - Math.atan2(XY[b][1] - cy, XY[b][0] - cx));
-  return [0, 1, 2, 3, 4].map(i => ring[Math.floor((i + .5) * ring.length / 5)]);
-})();
+const SERP_START = [CENTER, "2,2", "10,2", "2,10", "10,10"];
 const HEXPTS = {};
 ALL.forEach(k => { const [x, y] = XY[k]; HEXPTS[k] = [0, 1, 2, 3, 4, 5].map(i => { const a = Math.PI / 180 * (60 * i - 30); return (x + SZ * Math.cos(a)).toFixed(1) + "," + (y + SZ * Math.sin(a)).toFixed(1); }).join(" "); });
 
-/* ================= reglas fijas ================= */
-const VALS = [6, 5, 4, 3, 3, 2, 2, 1, 1, 1];
-const PCOL = ["#FF6B6B", "#5AA9FF", "#FFD84D", "#5BE38F"];
-const PCOLN = ["rojo", "azul", "amarillo", "verde"];
-const TERR = { b: { n: "playa", c: "var(--beach)" }, f: { n: "bosque", c: "var(--forest)" }, m: { n: "montaña", c: "var(--mount)" } };
-const CRE = { shark: { n: "tiburón", e: "🦈", r: 2, max: 6 }, whale: { n: "ballena", e: "🐋", r: 3, max: 5 }, serp: { n: "serpiente marina", e: "🐉", r: 1, max: 5 } };
-const FACES = ["shark", "shark", "whale", "whale", "serp", "serp"];
+/* ================= reglas fijas (Survive the Island, edición 2024) ================= */
+const VALS = [5, 4, 4, 3, 3, 2, 2, 1, 1, 1];
+const PCOL = ["#FF6B6B", "#5AA9FF", "#FFD84D", "#5BE38F", "#C08BFF"];
+const MAXP = 5;
+const TERR = { b: { n: "playa", c: "var(--beach)" }, f: { n: "jungla", c: "var(--forest)" }, m: { n: "montaña", c: "var(--mount)" } };
+const CRE = { serp: { n: "serpiente marina", e: "🐉", r: 1, max: 5 }, shark: { n: "tiburón", e: "🦈", r: 2, max: 6 }, kaiju: { n: "kaiju", e: "🦖", r: 2, max: 2 } };
+const FACES = ["serp", "serp", "shark", "shark", "kaiju", "kaiju"];
 const TILES = {
-  shark: { n: "Tiburón", e: "🦈", kind: "now", d: "Aparece un tiburón en esa casilla y se come a los nadadores que haya." },
-  whale: { n: "Ballena", e: "🐋", kind: "now", d: "Aparece una ballena en esa casilla." },
-  boat: { n: "Bote", e: "⛵", kind: "now", d: "Aparece un bote y los nadadores de esa casilla suben gratis (hasta 3)." },
-  whirl: { n: "Remolino", e: "🌀", kind: "now", d: "Se traga todo lo que hay en esa casilla y en el mar de alrededor." },
-  volcano: { n: "Volcán", e: "🌋", kind: "now", d: "¡Erupción! La partida termina al instante." },
-  dolphin: { n: "Delfín", e: "🐬", kind: "turn", d: "Al empezar tu turno: lleva a uno de tus nadadores hasta 3 casillas." },
-  wind: { n: "Viento a favor", e: "💨", kind: "turn", d: "Al empezar tu turno: mueve hasta 3 casillas un bote que controles." },
-  mvshark: { n: "Tiburón al acecho", e: "🦈", kind: "turn", cre: "shark", d: "Al empezar tu turno: lleva un tiburón a cualquier casilla de mar libre." },
-  mvwhale: { n: "Ballena furiosa", e: "🐋", kind: "turn", cre: "whale", d: "Al empezar tu turno: lleva una ballena a cualquier casilla de mar libre." },
-  mvserp: { n: "Serpiente despierta", e: "🐉", kind: "turn", cre: "serp", d: "Al empezar tu turno: lleva una serpiente marina a cualquier casilla de mar libre." },
-  rshark: { n: "Repelente de tiburones", e: "🛡️", kind: "def", cre: "shark", d: "Cuando un tiburón ataque a tus nadadores: lo espantas y desaparece." },
-  rwhale: { n: "Arpón", e: "🔱", kind: "def", cre: "whale", d: "Cuando una ballena ataque un bote con tus exploradores: la ahuyentas y desaparece." }
+  gcre: { n: "Criatura verde", e: "🦈", kind: "now", d: "Aparece un tiburón en esa casilla (si no quedan, se mueve uno del tablero)." },
+  bcre: { n: "Criatura azul", e: "🦖", kind: "now", d: "Aparece un kaiju en esa casilla (si no quedan, se mueve uno del tablero)." },
+  raft: { n: "Balsa", e: "🛶", kind: "now", d: "Aparece una balsa en esa casilla." },
+  whirl: { n: "Remolino", e: "🌀", kind: "now", d: "Se traga supervivientes, criaturas y balsas de esa casilla y del agua de alrededor." },
+  volcano: { n: "Volcán", e: "🌋", kind: "now", d: "Arrasa esa casilla y la bloquea. Al tercer volcán se acaba la partida." },
+  oars: { n: "Remos", e: "🚣", kind: "act", d: "Mueve 1 o 2 casillas una balsa vacía o que controles." },
+  dolphin: { n: "Delfín", e: "🐬", kind: "act", d: "Mueve a un nadador tuyo 1 o 2 casillas. Puede acabar en una balsa, en tierra firme o en una loseta." },
+  dive: { n: "Inmersión", e: "🌊", kind: "act", d: "Lleva cualquier criatura a una casilla de agua vacía." },
+  cdie: { n: "Dado de criatura", e: "🎲", kind: "act", d: "Tira el dado de criaturas y mueve la que salga." },
+  repel: { n: "Repelente", e: "🧴", kind: "def", d: "Cuando un tiburón o un kaiju esté en la casilla de un superviviente tuyo: lo retiras del tablero." }
 };
 const BACKS = {
-  b: { shark: 4, whale: 3, boat: 4, whirl: 2, dolphin: 1, wind: 1, mvserp: 1 },
-  f: { shark: 2, whale: 2, boat: 3, whirl: 2, dolphin: 1, wind: 1, mvshark: 1, mvwhale: 1, rshark: 2, rwhale: 1 },
-  m: { volcano: 1, whirl: 1, boat: 1, dolphin: 1, wind: 1, mvserp: 1, rshark: 1, rwhale: 1 }
+  b: { gcre: 3, bcre: 3, raft: 1, oars: 2, dolphin: 3, cdie: 2, repel: 2 },
+  f: { gcre: 3, bcre: 2, raft: 3, whirl: 2, dolphin: 1, dive: 2, cdie: 2, repel: 1 },
+  m: { whirl: 4, volcano: 4 }
 };
 
 const pick = a => a[Math.floor(Math.random() * a.length)];
@@ -299,7 +294,7 @@ async function joinSeat(code) {
   const cur = await ref.get();
   if (cur.exists) { await ref.update({ name: S.name }); return true; }
   const all = await S.db.collection(`games/${code}/players`).get();
-  if (all.docs.length >= 4) { toast("La partida ya tiene 4 jugadores: entras como público."); return false; }
+  if (all.docs.length >= MAXP) { toast("La partida ya tiene 5 jugadores: entras como público."); return false; }
   await ref.set({ name: S.name, joinedAt: Date.now() });
   return true;
 }
@@ -326,71 +321,93 @@ const nameOf = id => (S.players.find(p => p.id === id) || {}).name || "Alguien";
 const seatOf = (g, id) => g.order ? g.order.indexOf(id) : -1;
 const colorOf = (g, id) => PCOL[Math.max(0, seatOf(g, id))];
 const cur = g => g.order[g.turn];
-const isSea = (g, k) => !g.tiles[k] && !SAFE.has(k);
-const creAt = (g, k) => Object.keys(g.cre).find(id => g.cre[id].at === k) || null;
+const isVol = (g, k) => (g.volc || []).includes(k);
+const isWater = (g, k) => !g.tiles[k] && !SAFE.has(k) && !isVol(g, k);
+const crAt = (g, k) => Object.keys(g.cre).filter(id => g.cre[id].at === k);
+const creAt = (g, k) => crAt(g, k)[0] || null;
+const kindAt = (g, k, kind) => crAt(g, k).filter(id => g.cre[id].k === kind);
+const hasKaiju = (g, k) => kindAt(g, k, "kaiju").length > 0;
+const deadlySwim = (g, k) => crAt(g, k).some(id => g.cre[id].k !== "kaiju") || hasKaiju(g, k);
 const boatAt = (g, k) => Object.keys(g.boats).find(id => g.boats[id].at === k) || null;
 const posOf = (g, e) => e.st === "boat" ? g.boats[e.b].at : e.at;
 const passengers = (g, bid) => Object.keys(g.exps).filter(id => g.exps[id].st === "boat" && g.exps[id].b === bid);
 const swimmersAt = (g, k) => Object.keys(g.exps).filter(id => g.exps[id].st === "sea" && g.exps[id].at === k);
 const landAt = (g, k) => Object.keys(g.exps).filter(id => g.exps[id].st === "land" && g.exps[id].at === k);
+const survAt = (g, k) => Object.keys(g.exps).filter(id => ["land", "sea", "boat"].includes(g.exps[id].st) && posOf(g, g.exps[id]) === k);
 const roomBoat = (g, k, except) => { const b = boatAt(g, k); return b && b !== except && passengers(g, b).length < 3 ? b : null; };
 const myVal = id => (S.sec.vals || {})[id];
 const handOf = (g, id) => (g.hand && g.hand[id]) || [];
+const inPlay = e => ["land", "sea", "boat", "hand"].includes(e.st);
+const hasLeft = (g, uid) => Object.values(g.exps).some(e => e.o === uid && inPlay(e));
+const valsFor = g => g.order && g.order.length === 2 ? VALS.concat(VALS) : VALS;
+/* controlas una balsa si está vacía o tienes a bordo más supervivientes que cada rival */
 function controls(g, bid, uid) {
   const ps = passengers(g, bid); if (!ps.length) return true;
   const cnt = {}; ps.forEach(id => { const o = g.exps[id].o; cnt[o] = (cnt[o] || 0) + 1; });
-  return (cnt[uid] || 0) > 0 && cnt[uid] >= Math.max(...Object.values(cnt));
+  return (cnt[uid] || 0) > 0 && Object.entries(cnt).every(([o, n]) => o === uid || n < cnt[uid]);
 }
+/* se retira cualquier loseta del tipo más fino que quede: playas, luego junglas y al final montañas */
 function sinkable(g) {
-  for (const t of ["b", "f", "m"]) {
-    const all = Object.keys(g.tiles).filter(k => g.tiles[k].t === t); if (!all.length) continue;
-    const c = all.filter(k => NB[k].some(n => isSea(g, n)));
-    if (c.length) return c;
-  }
+  for (const t of ["b", "f", "m"]) { const all = Object.keys(g.tiles).filter(k => g.tiles[k].t === t); if (all.length) return all; }
   return [];
 }
+/* a pie: empieza y acaba en loseta, balsa o tierra firme. A nado: empieza o acaba en el agua (una vez por turno). */
 function expDests(g, id) {
-  const e = g.exps[id], out = [];
-  const seaStep = n => { if (!isSea(g, n) || creAt(g, n)) return; const b = roomBoat(g, n, e.b); out.push(b ? { k: n, how: "board", b } : { k: n, how: "swim" }); };
-  if (e.st === "land") NB[e.at].forEach(n => { if (g.tiles[n]) out.push({ k: n, how: "walk" }); else if (SAFE.has(n)) out.push({ k: n, how: "safe" }); else seaStep(n); });
-  else if ((e.st === "sea" || e.st === "boat") && !g.swam.includes(id)) {
-    const at = posOf(g, e);
-    if (e.st === "sea") { const b = roomBoat(g, at); if (b) out.push({ k: at, how: "board", b }); }
-    NB[at].forEach(n => { if (SAFE.has(n)) out.push({ k: n, how: "safe" }); else seaStep(n); });
-  }
+  const e = g.exps[id], at = posOf(g, e), solid = e.st !== "sea", canSwim = !(g.swam || []).includes(id), out = [];
+  NB[at].forEach(n => {
+    if (isVol(g, n) || hasKaiju(g, n)) return;
+    if (g.tiles[n]) { if (solid || canSwim) out.push({ k: n, how: "walk", swim: !solid }); return; }
+    if (SAFE.has(n)) { if (solid || canSwim) out.push({ k: n, how: "safe", swim: !solid }); return; }
+    const b = roomBoat(g, n, e.b);
+    if (b) { if (solid || canSwim) out.push({ k: n, how: "board", b, swim: !solid }); return; }
+    if (!canSwim || deadlySwim(g, n)) return;
+    out.push({ k: n, how: "swim", swim: true });
+  });
   return out;
 }
-const boatDests = (g, bid) => NB[g.boats[bid].at].filter(n => isSea(g, n) && !creAt(g, n) && !boatAt(g, n)).map(k => ({ k, how: "boat" }));
-function prey(g, k, kind) { const sw = swimmersAt(g, k).length > 0, b = !!boatAt(g, k); return kind === "shark" ? sw : kind === "whale" ? b : sw || b; }
-function creDests(g, cid) {
-  const c = g.cre[cid], seen = new Set([c.at]), out = []; let front = [c.at];
-  for (let s = 0; s < CRE[c.k].r; s++) {
+const raftOk = (g, n, bid) => isWater(g, n) && !hasKaiju(g, n) && !kindAt(g, n, "serp").length && (!boatAt(g, n) || boatAt(g, n) === bid);
+function boatDests(g, bid, r = 1) {
+  const st = g.boats[bid].at, seen = new Set([st]), out = []; let front = [st];
+  for (let s = 0; s < r; s++) {
     const nx = [];
-    front.forEach(f => NB[f].forEach(n => { if (seen.has(n) || !isSea(g, n) || creAt(g, n)) return; seen.add(n); out.push({ k: n }); if (!prey(g, n, c.k)) nx.push(n); }));
+    front.forEach(f => NB[f].forEach(n => { if (seen.has(n) || !raftOk(g, n, bid)) return; seen.add(n); out.push({ k: n, how: "boat" }); nx.push(n); }));
     front = nx;
   }
   return out;
 }
-const anySea = (g, from) => ALL.filter(n => n !== from && isSea(g, n) && !creAt(g, n)).map(k => ({ k }));
+function prey(g, k, kind, self) {
+  if (kind === "shark") return swimmersAt(g, k).length > 0;
+  if (kind === "serp") return swimmersAt(g, k).length > 0 || !!boatAt(g, k);
+  return survAt(g, k).length > 0 || !!boatAt(g, k) || crAt(g, k).some(c => c !== self);
+}
+const creCanEnter = (g, n, kind) => kind === "kaiju" ? (isWater(g, n) || !!g.tiles[n]) : isWater(g, n) && !hasKaiju(g, n);
+/* las criaturas se paran en cuanto entran en una casilla con algo con lo que interactúan */
+function creDests(g, cid, r) {
+  const c = g.cre[cid], seen = new Set([c.at]), out = []; let front = [c.at];
+  for (let s = 0; s < (r || CRE[c.k].r); s++) {
+    const nx = [];
+    front.forEach(f => NB[f].forEach(n => { if (seen.has(n) || !creCanEnter(g, n, c.k)) return; seen.add(n); out.push({ k: n }); if (!prey(g, n, c.k, cid)) nx.push(n); }));
+    front = nx;
+  }
+  return out;
+}
+const diveDests = (g, cid) => ALL.filter(n => n !== g.cre[cid].at && isWater(g, n) && !crAt(g, n).length && !boatAt(g, n) && !swimmersAt(g, n).length).map(k => ({ k }));
 function dolphinDests(g, id) {
   const e = g.exps[id], seen = new Set([e.at]), out = new Map(); let front = [e.at];
-  const addSafe = f => NB[f].forEach(n => { if (SAFE.has(n) && !out.has(n)) out.set(n, { k: n, how: "safe" }); });
-  addSafe(e.at);
-  for (let s = 0; s < 3; s++) {
+  for (let s = 0; s < 2; s++) {
     const nx = [];
-    front.forEach(f => NB[f].forEach(n => { if (seen.has(n) || !isSea(g, n) || creAt(g, n)) return; seen.add(n); const b = roomBoat(g, n); out.set(n, b ? { k: n, how: "board", b } : { k: n, how: "swim" }); addSafe(n); nx.push(n); }));
+    front.forEach(f => NB[f].forEach(n => {
+      if (seen.has(n) || isVol(g, n) || hasKaiju(g, n)) return; seen.add(n);
+      if (g.tiles[n]) return void out.set(n, { k: n, how: "walk" });
+      if (SAFE.has(n)) return void out.set(n, { k: n, how: "safe" });
+      const b = roomBoat(g, n);
+      if (b) return void out.set(n, { k: n, how: "board", b });
+      if (deadlySwim(g, n)) return;
+      out.set(n, { k: n, how: "swim" }); nx.push(n);
+    }));
     front = nx;
   }
   return [...out.values()];
-}
-function windDests(g, bid) {
-  const st = g.boats[bid].at, seen = new Set([st]), out = []; let front = [st];
-  for (let s = 0; s < 3; s++) {
-    const nx = [];
-    front.forEach(f => NB[f].forEach(n => { if (seen.has(n) || !isSea(g, n) || creAt(g, n) || boatAt(g, n)) return; seen.add(n); out.push({ k: n, how: "boat" }); nx.push(n); }));
-    front = nx;
-  }
-  return out;
 }
 function myUnits(g, uid) {
   const out = [];
@@ -398,109 +415,130 @@ function myUnits(g, uid) {
   Object.keys(g.boats).forEach(id => { if (controls(g, id, uid) && boatDests(g, id).length) out.push({ kind: "b", id, k: g.boats[id].at }); });
   return out;
 }
-function playableTiles(g, uid) {
-  const h = handOf(g, uid), out = [];
-  [...new Set(h)].forEach(code => {
-    const T = TILES[code]; if (T.kind !== "turn") return;
-    let ok = false;
-    if (code === "dolphin") ok = Object.keys(g.exps).some(id => g.exps[id].o === uid && g.exps[id].st === "sea" && dolphinDests(g, id).length);
-    else if (code === "wind") ok = Object.keys(g.boats).some(b => controls(g, b, uid) && passengers(g, b).length && windDests(g, b).length);
-    else ok = Object.keys(g.cre).some(c => g.cre[c].k === T.cre);
-    if (ok) out.push(code);
-  });
-  return out;
+/* piezas que puede mover cada capacidad */
+function abilityUnits(g, uid, code) {
+  if (code === "oars") return Object.keys(g.boats).filter(b => controls(g, b, uid) && boatDests(g, b, 2).length).map(id => ({ kind: "b", id, k: g.boats[id].at }));
+  if (code === "dolphin") return Object.keys(g.exps).filter(id => g.exps[id].o === uid && g.exps[id].st === "sea" && dolphinDests(g, id).length).map(id => ({ kind: "e", id, k: g.exps[id].at }));
+  if (code === "dive") return Object.keys(g.cre).filter(c => diveDests(g, c).length).map(id => ({ kind: "c", id, k: g.cre[id].at }));
+  if (code === "cdie") return [{ kind: "x" }];
+  return [];
 }
+const abilityDests = (g, code, u) => code === "oars" ? boatDests(g, u.id, 2) : code === "dolphin" ? dolphinDests(g, u.id) : code === "dive" ? diveDests(g, u.id) : [];
+const usableAbilities = (g, uid) => [...new Set(handOf(g, uid))].filter(c => TILES[c].kind === "act" && abilityUnits(g, uid, c).length);
 
 /* ================= cambios de estado (solo quien tiene el turno) ================= */
 function logp(g, txt) { g.log = [txt, ...(g.log || [])].slice(0, 30); }
+const plural = (n, a, b) => n + " " + (n === 1 ? a : b);
+function countBy(g, ids) { const c = {}; ids.forEach(id => { const o = g.exps[id].o; c[o] = (c[o] || 0) + 1; }); return Object.entries(c).map(([o, n]) => `${plural(n, "superviviente", "supervivientes")} de ${nameOf(o)}`).join(" y "); }
 function makeTiles() {
-  const order = ISLAND.map(k => ({ k, d: dist(k, CENTER) + Math.random() * 1.4 })).sort((a, b) => a.d - b.d).map(o => o.k);
+  const types = shuffle([...Array(16).fill("b"), ...Array(16).fill("f"), ...Array(8).fill("m")]);
   const bags = {}; Object.keys(BACKS).forEach(t => { bags[t] = shuffle(Object.entries(BACKS[t]).flatMap(([b, n]) => Array(n).fill(b))); });
-  const t = {}; order.forEach((k, i) => { const ty = i < 8 ? "m" : i < 24 ? "f" : "b"; t[k] = { t: ty, b: bags[ty].pop() }; });
+  const t = {}; ISLAND.forEach((k, i) => { const ty = types[i]; t[k] = { t: ty, b: bags[ty].pop() }; });
   return t;
 }
 async function hostStart() {
-  const ids = S.players.slice(0, 4).map(p => p.id); if (!ids.length) return;
-  const order = shuffle(ids), exps = {}, cre = {}, hand = {};
-  order.forEach((uid, s) => { hand[uid] = []; for (let i = 0; i < 10; i++) exps[`p${s}e${i}`] = { o: uid, st: "hand", at: null, b: null }; });
-  SERP_START.forEach((k, i) => { cre["c" + i] = { k: "serp", at: k }; });
+  const ids = S.players.slice(0, MAXP).map(p => p.id); if (!ids.length) return;
+  const order = shuffle(ids), exps = {}, cre = {}, hand = {}, per = order.length === 2 ? 20 : 10;
+  order.forEach((uid, s) => { hand[uid] = []; for (let i = 0; i < per; i++) exps[`p${s}e${i}`] = { o: uid, st: "hand", at: null, b: null }; });
+  SERP_START.forEach((k, i) => { cre["c" + i] = { k: "serp", at: k, z: 0 }; });
   const g = {
-    ...S.g, status: "play", gid: Date.now(), order, turn: 0, actor: order[0], phase: "placeExp",
-    tiles: makeTiles(), exps, boats: {}, cre, hand, nb: 0, nc: 5, moves: 3, swam: [], die: null, dieN: 0,
-    log: [], rev: null, pend: null, score: null, vals: null, boatQ: [], why: null, played: false
+    ...S.g, status: "play", gid: Date.now(), order, turn: 0, actor: order[0], phase: "placeExp", ed: 2024,
+    tiles: makeTiles(), exps, boats: {}, cre, hand, nb: 0, nc: 5, z: 0, moves: 3, swam: [], die: null, dieN: 0, volc: [],
+    log: [], rev: null, pend: null, push: null, q: [], then: null, sinkLeft: 1, score: null, vals: null, boatQ: [], why: null
   };
-  logp(g, "La isla empieza a temblar. Colocad a vuestros exploradores.");
+  logp(g, "La isla empieza a temblar. Colocad a vuestros supervivientes, uno por loseta.");
   await commit(g, true);
 }
 function nextTurn(g) {
-  g.turn = (g.turn + 1) % g.order.length; g.moves = 3; g.swam = []; g.played = false; g.pend = null;
+  g.turn = (g.turn + 1) % g.order.length; g.moves = 3; g.swam = []; g.pend = null; g.push = null; g.q = []; g.then = null; g.dieRet = null;
   g.actor = cur(g); S.dieSeen = g.dieN;
-  g.phase = playableTiles(g, g.actor).length ? "start" : "move";
   g.tn = (g.tn || 0) + 1; g.arrow = null; g.last = null;
   logp(g, `▶ Turno de ${nameOf(g.actor)}`);
+  if (hasLeft(g, g.actor)) { g.sinkLeft = 1; g.phase = "move"; }
+  else { g.sinkLeft = 2; logp(g, `${nameOf(g.actor)} ya no tiene a nadie que salvar: retira 2 losetas.`); toSink(g); }
 }
-function toSink(g) { g.sel = null; g.phase = sinkable(g).length ? "sink" : "roll"; g.actor = cur(g); }
+function toSink(g) { g.phase = g.sinkLeft > 0 && sinkable(g).length ? "sink" : "roll"; g.actor = cur(g); }
 function checkEnd(g) {
-  if (Object.values(g.exps).some(e => ["land", "sea", "boat"].includes(e.st))) return false;
-  endGame(g, "all"); return true;
+  if (g.status === "end") return true;
+  if (Object.values(g.exps).some(inPlay)) return false;
+  logp(g, "Ya no queda nadie por rescatar."); endGame(g, "all"); return true;
 }
-function endGame(g, why) { g.status = "end"; g.phase = "end"; g.why = why; g.actor = me(); g.pend = null; }
-function cont(g, then) {
-  if (checkEnd(g)) return;
-  g.pend = null;
-  if (then === "roll") { g.phase = "roll"; g.actor = cur(g); }
-  else if (then === "move") { g.phase = "move"; g.actor = cur(g); }
-  else nextTurn(g);
-}
-const plural = (n, a, b) => n + " " + (n === 1 ? a : b);
-function countBy(g, ids) { const c = {}; ids.forEach(id => { const o = g.exps[id].o; c[o] = (c[o] || 0) + 1; }); return Object.entries(c).map(([o, n]) => `${plural(n, "explorador", "exploradores")} de ${nameOf(o)}`).join(" y "); }
-function attackInfo(g, cid) {
-  const c = g.cre[cid], k = c.at;
-  if (c.k === "shark") { const v = swimmersAt(g, k); return v.length ? { victims: v, def: "rshark" } : null; }
-  const b = boatAt(g, k);
-  if (c.k === "whale") return b ? { boat: b, victims: passengers(g, b), def: "rwhale" } : null;
-  const v = swimmersAt(g, k).concat(b ? passengers(g, b) : []);
-  return v.length || b ? { boat: b, victims: v, def: null } : null;
-}
-function resolveAttack(g, cid, then) {
-  const a = attackInfo(g, cid);
-  if (!a) return cont(g, then);
-  if (a.def && a.victims.length) {
-    const owners = [...new Set(a.victims.map(id => g.exps[id].o))], n = g.order.length;
-    const defs = [];
-    for (let i = 0; i < n; i++) { const u = g.order[(g.turn + i) % n]; if (owners.includes(u) && handOf(g, u).includes(a.def)) defs.push(u); }
-    if (defs.length) { g.phase = "defense"; g.pend = { cid, then, defs }; g.actor = defs[0]; return; }
-  }
-  applyAttack(g, cid); cont(g, then);
-}
-function applyAttack(g, cid) {
-  const c = g.cre[cid], a = attackInfo(g, cid); if (!a) return;
-  const e = CRE[c.k].e;
-  if (c.k === "shark") { logp(g, `${e} El tiburón se come a ${countBy(g, a.victims)}.`); a.victims.forEach(id => { g.exps[id].st = "dead"; }); }
-  else if (c.k === "whale") {
-    const ps = passengers(g, a.boat);
-    logp(g, ps.length ? `${e} La ballena vuelca un bote: ${countBy(g, ps)} caen al agua.` : `${e} La ballena hunde un bote vacío.`);
-    ps.forEach(id => { Object.assign(g.exps[id], { st: "sea", at: c.at, b: null }); }); delete g.boats[a.boat];
-  } else {
-    logp(g, a.victims.length ? `${e} La serpiente marina arrasa con ${countBy(g, a.victims)}${a.boat ? " y su bote" : ""}.` : `${e} La serpiente marina parte un bote vacío.`);
-    a.victims.forEach(id => { Object.assign(g.exps[id], { st: "dead", b: null }); }); if (a.boat) delete g.boats[a.boat];
-  }
-  g.last = [c.at];
-}
-function addCre(g, kind, k) {
-  if (Object.values(g.cre).filter(c => c.k === kind).length >= CRE[kind].max) return null;
-  const id = "c" + (g.nc++); g.cre[id] = { k: kind, at: k }; return id;
-}
-function whirlpool(g, k) {
-  const area = [k, ...NB[k].filter(n => isSea(g, n))], lost = [];
-  area.forEach(n => {
-    const b = boatAt(g, n); if (b) { passengers(g, b).forEach(id => lost.push(id)); delete g.boats[b]; }
-    swimmersAt(g, n).forEach(id => lost.push(id));
-    Object.keys(g.cre).forEach(c => { if (g.cre[c].at === n) delete g.cre[c]; });
+function endGame(g, why) { g.status = "end"; g.phase = "end"; g.why = why; g.actor = me(); g.pend = null; g.push = null; }
+function kill(g, ids) { ids.forEach(id => Object.assign(g.exps[id], { st: "dead", b: null })); }
+/* subir a una balsa es obligatorio si hay sitio (primero los de quien juega) */
+function settle(g) {
+  Object.keys(g.boats).forEach(b => {
+    const k = g.boats[b].at, room = 3 - passengers(g, b).length; if (room <= 0) return;
+    swimmersAt(g, k).sort((x, y) => (g.exps[y].o === cur(g)) - (g.exps[x].o === cur(g))).slice(0, room).forEach(id => Object.assign(g.exps[id], { st: "boat", b }));
   });
-  lost.forEach(id => { Object.assign(g.exps[id], { st: "dead", b: null }); });
-  logp(g, `🌀 El remolino se lo traga todo${lost.length ? ": " + countBy(g, lost) : ""}.`);
-  g.last = area;
+}
+const hit = (g, k) => { g.q = [...(g.q || []), k]; };
+function askRepel(g, cid, victims) {
+  if (g.noRep === cid) return false;
+  const owners = [...new Set(victims.map(id => g.exps[id].o))], n = g.order.length, defs = [];
+  for (let i = 0; i < n; i++) { const u = g.order[(g.turn + i) % n]; if (owners.includes(u) && handOf(g, u).includes("repel")) defs.push(u); }
+  if (!defs.length) return false;
+  g.phase = "defense"; g.pend = { cid, defs }; g.actor = defs[0]; return true;
+}
+/* resuelve las interacciones de las casillas pendientes; puede pararse para preguntar (repelente) o empujar (kaiju) */
+function resolve(g, then) {
+  if (then) g.then = then;
+  g.q = g.q || [];
+  while (g.q.length) {
+    settle(g);
+    const k = g.q[0], cs = crAt(g, k);
+    const kj = cs.filter(c => g.cre[c].k === "kaiju").sort((a, b) => (g.cre[b].z || 0) - (g.cre[a].z || 0))[0];
+    if (kj) {
+      const sv = survAt(g, k), b = boatAt(g, k), others = cs.filter(c => c !== kj);
+      if (sv.length && askRepel(g, kj, sv)) return;
+      if (b) { passengers(g, b).forEach(id => Object.assign(g.exps[id], { st: "sea", at: k, b: null })); delete g.boats[b]; logp(g, "🦖 El kaiju destroza una balsa."); }
+      g.q.shift(); g.noRep = null;
+      if (sv.length || others.length) {
+        g.push = { k, items: [...sv.map(id => ({ t: "e", id })), ...others.map(id => ({ t: "c", id }))] };
+        logp(g, `🦖 El kaiju aparta ${[sv.length ? countBy(g, sv) : "", others.length ? plural(others.length, "criatura", "criaturas") : ""].filter(Boolean).join(" y ")}.`);
+        if (nextPush(g)) return;
+      }
+      continue;
+    }
+    if (kindAt(g, k, "serp").length) {
+      const b = boatAt(g, k), v = swimmersAt(g, k).concat(b ? passengers(g, b) : []);
+      if (v.length || b) { logp(g, `🐉 La serpiente marina arrasa ${b ? "una balsa" : ""}${b && v.length ? " y " : ""}${v.length ? "con " + countBy(g, v) : ""}.`); kill(g, v); if (b) delete g.boats[b]; g.last = [k]; }
+    }
+    const sh = kindAt(g, k, "shark")[0], sw = swimmersAt(g, k);
+    if (sh && sw.length) {
+      if (askRepel(g, sh, sw)) return;
+      logp(g, `🦈 El tiburón se come a ${countBy(g, sw)}.`); kill(g, sw); g.last = [k];
+    }
+    g.q.shift(); g.noRep = null;
+  }
+  settle(g);
+  contin(g);
+}
+/* destinos para lo que empuja el kaiju */
+function pushDests(g, it) {
+  const k = g.push.k;
+  if (it.t === "e") return NB[k].filter(n => !isVol(g, n) && !hasKaiju(g, n)).map(n => ({ k: n }));
+  const kind = g.cre[it.id].k;
+  return NB[k].filter(n => creCanEnter(g, n, kind) && !hasKaiju(g, n)).map(n => ({ k: n }));
+}
+function nextPush(g) {
+  while (g.push && g.push.items.length) {
+    const it = g.push.items[0];
+    if ((it.t === "e" && !g.exps[it.id]) || (it.t === "c" && !g.cre[it.id])) { g.push.items.shift(); continue; }
+    const ds = pushDests(g, it);
+    if (ds.length) { g.phase = "push"; g.actor = cur(g); return true; }
+    g.push.items.shift();
+    if (it.t === "e") kill(g, [it.id]); else delete g.cre[it.id];
+  }
+  g.push = null; return false;
+}
+function contin(g) {
+  if (checkEnd(g)) return;
+  const t = g.then; g.then = null; g.pend = null;
+  if (t === "move") { g.phase = "move"; g.actor = cur(g); }
+  else if (t === "sink") toSink(g);
+  else if (t === "roll") { g.phase = "roll"; g.actor = cur(g); }
+  else nextTurn(g);
 }
 
 /* ================= acciones del jugador ================= */
@@ -508,15 +546,20 @@ const myAct = () => S.g && S.g.actor === me() && S.g.status === "play";
 async function commit(g, force) {
   if (!force && !myAct()) return;
   g.seq = (S.g.seq || 0) + 1; g.ts = Date.now();
-  S.g = g; S.sel = null; S.pick = null; S.info = null; if (g.phase !== "start") S.tp = null;
+  S.g = g; S.sel = null; S.pick = null; S.info = null; S.tp = null;
   render();
   try { await S.db.doc("games/" + S.code).set(g); }
   catch { toast("No se pudo guardar. Reintentando…"); setTimeout(() => S.db.doc("games/" + S.code).set(S.g).catch(() => toast("Sin conexión.")), 1500); }
 }
 function remainingVals() {
-  const used = Object.values(S.sec.vals || {}), left = [...VALS];
+  const used = Object.values(S.sec.vals || {}), left = [...valsFor(S.g)];
   used.forEach(v => { const i = left.indexOf(v); if (i >= 0) left.splice(i, 1); });
   return left;
+}
+/* una persona por loseta; con 5 jugadores, cuando están todas ocupadas se completa hasta 2 */
+function placeSpots(g) {
+  const ks = Object.keys(g.tiles), free = ks.filter(k => !landAt(g, k).length);
+  return free.length ? free : ks.filter(k => landAt(g, k).length === 1);
 }
 async function placeExp(k) {
   if (!myAct() || S.g.phase !== "placeExp") return;
@@ -524,22 +567,22 @@ async function placeExp(k) {
   const left = remainingVals(); if (!id || !left.length) return;
   const v = left.includes(S.pv) ? S.pv : left[0];
   const sec = { vals: { ...(S.sec.vals || {}), [id]: v } };
-  try { await S.db.doc(secPath(me())).set(sec); S.sec = sec; } catch { toast("No se pudo guardar tu explorador."); return; }
+  try { await S.db.doc(secPath(me())).set(sec); S.sec = sec; } catch { toast("No se pudo guardar tu superviviente."); return; }
   Object.assign(g.exps[id], { st: "land", at: k });
   if (!remainingVals().includes(S.pv)) S.pv = null;
-  const hasLeft = u => Object.values(g.exps).some(e => e.o === u && e.st === "hand");
-  if (!g.order.some(hasLeft)) {
-    const per = g.order.length === 2 ? 2 : 1, rev = [...g.order].reverse(), q = [];
-    for (let i = 0; i < per; i++) q.push(...rev);
+  const inHand = u => Object.values(g.exps).some(e => e.o === u && e.st === "hand");
+  if (!g.order.some(inHand)) {
+    const per = g.order.length === 2 ? 4 : 2, q = [];
+    for (let i = 0; i < per; i++) q.push(...g.order);
     g.boatQ = q; g.phase = "placeBoat"; g.actor = q[0];
-    logp(g, "Todos los exploradores en la isla. Ahora, los botes.");
+    logp(g, `Todos en la isla. Ahora cada uno pone ${per} balsas junto a la costa.`);
   } else {
-    do { g.turn = (g.turn + 1) % g.order.length; } while (!hasLeft(cur(g)));
+    do { g.turn = (g.turn + 1) % g.order.length; } while (!inHand(cur(g)));
     g.actor = cur(g);
   }
   commit(g);
 }
-const boatSpots = g => ALL.filter(k => isSea(g, k) && NB[k].some(n => g.tiles[n]) && !boatAt(g, k) && !creAt(g, k));
+const boatSpots = g => ALL.filter(k => isWater(g, k) && NB[k].some(n => g.tiles[n]) && !boatAt(g, k) && !crAt(g, k).length);
 function placeBoat(k) {
   if (!myAct() || S.g.phase !== "placeBoat") return;
   const g = clone(S.g); g.boats["b" + (g.nb++)] = { at: k }; g.boatQ.shift();
@@ -547,87 +590,118 @@ function placeBoat(k) {
   else { g.turn = g.order.length - 1; nextTurn(g); logp(g, `¡Empieza la huida! Turno de ${nameOf(cur(g))}.`); }
   commit(g);
 }
+function moveBoat(g, bid, k) { g.boats[bid].at = k; passengers(g, bid).forEach(id => { g.exps[id].at = k; }); }
+function placeSurv(g, id, d) {
+  const e = g.exps[id];
+  if (d.how === "safe") Object.assign(e, { st: "safe", at: d.k, b: null });
+  else if (d.how === "board") Object.assign(e, { st: "boat", at: d.k, b: d.b });
+  else if (d.how === "walk") Object.assign(e, { st: "land", at: d.k, b: null });
+  else Object.assign(e, { st: "sea", at: d.k, b: null });
+}
 function doMove(u, d) {
   if (!myAct() || S.g.phase !== "move" || S.g.moves < 1) return;
   const g = clone(S.g), nm = nameOf(me());
   let fromK;
-  if (u.kind === "b") { fromK = g.boats[u.id].at; const n = passengers(g, u.id).length; g.boats[u.id].at = d.k; passengers(g, u.id).forEach(id => { g.exps[id].at = d.k; }); logp(g, `⛵ ${nm} mueve un bote ${n ? `con ${n} a bordo` : "vacío"}.`); }
+  if (u.kind === "b") { fromK = g.boats[u.id].at; const n = passengers(g, u.id).length; moveBoat(g, u.id, d.k); logp(g, `🛶 ${nm} mueve una balsa ${n ? `con ${n} a bordo` : "vacía"}.`); }
   else {
     const e = g.exps[u.id], from = e.st; fromK = posOf(g, e);
-    if (d.how === "walk") { e.at = d.k; logp(g, `🚶 ${nm} avanza un explorador por la isla.`); }
-    else if (d.how === "safe") { Object.assign(e, { st: "safe", at: d.k, b: null }); logp(g, `🏝️ ${nm} pone a salvo a un explorador.`); }
-    else if (d.how === "board") { Object.assign(e, { st: "boat", at: d.k, b: d.b }); logp(g, `⛵ ${nm} sube un explorador a un bote.`); }
-    else { Object.assign(e, { st: "sea", at: d.k, b: null }); logp(g, from === "land" ? `🌊 ${nm} lanza un explorador al agua: ahora es nadador.` : from === "boat" ? `🌊 ${nm} baja un explorador del bote al agua.` : `🏊 ${nm} nada una casilla.`); }
-    if (from === "sea" || from === "boat" || d.how === "swim") g.swam.push(u.id);
+    placeSurv(g, u.id, d);
+    if (d.swim) g.swam = [...(g.swam || []), u.id];
+    logp(g, d.how === "safe" ? `🏝️ ${nm} pone a salvo a un superviviente.` : d.how === "board" ? `🛶 ${nm} sube un superviviente a una balsa.` : d.how === "walk" ? (from === "sea" ? `🏊 ${nm} saca a un nadador a tierra.` : `🚶 ${nm} mueve un superviviente a pie.`) : from === "sea" ? `🏊 ${nm} nada una casilla.` : `🌊 ${nm} echa al agua a un superviviente.`);
   }
   g.moves--; g.last = [d.k]; g.arrow = fromK !== d.k ? [fromK, d.k] : null;
-  if (checkEnd(g)) return commit(g);
-  if (g.moves < 1) toSink(g);
+  hit(g, d.k);
+  g.sinkLeft = Math.max(1, g.sinkLeft || 1);
+  resolve(g, g.moves < 1 ? "sink" : "move");
   commit(g);
 }
 function endMoves() { if (!myAct() || S.g.phase !== "move") return; const g = clone(S.g); toSink(g); commit(g); }
+function placeCre(g, kind, k) {
+  if (kind !== "kaiju" && hasKaiju(g, k)) return null;
+  const mine = Object.keys(g.cre).filter(c => g.cre[c].k === kind);
+  let id;
+  if (mine.length < CRE[kind].max) { id = "c" + (g.nc++); g.cre[id] = { k: kind, at: k }; }
+  else { id = mine.find(c => g.cre[c].at !== k) || mine[0]; g.cre[id].at = k; logp(g, `No quedan más en la reserva: se mueve uno del tablero.`); }
+  g.cre[id].z = ++g.z; return id;
+}
 function doSink(k) {
-  if (!myAct() || S.g.phase !== "sink") return;
+  if (!myAct() || S.g.phase !== "sink" || !sinkable(S.g).includes(k)) return;
   const g = clone(S.g), tile = g.tiles[k], T = TILES[tile.b], who = nameOf(me());
-  delete g.tiles[k];
+  delete g.tiles[k]; g.sinkLeft--;
   const fellIds = landAt(g, k); fellIds.forEach(id => { g.exps[id].st = "sea"; });
   g.rev = { k, t: tile.t, b: tile.b, by: me(), now: T.kind === "now", n: (g.rev ? g.rev.n : 0) + 1 }; g.arrow = null;
   const fellTxt = fellIds.length ? ` ${countBy(g, fellIds)} ${fellIds.length === 1 ? "cae" : "caen"} al agua.` : "";
   g.last = [k];
-  if (T.kind !== "now") { g.hand[me()] = [...handOf(g, me()), tile.b]; logp(g, `🌊 ${who} hunde una ${TERR[tile.t].n} y se guarda una loseta en secreto.${fellTxt}`); cont(g, "roll"); return commit(g); }
-  logp(g, `🌊 ${who} hunde una ${TERR[tile.t].n}. Debajo había: ${T.e} ${T.n}.${fellTxt}`);
-  if (tile.b === "volcano") { logp(g, "🌋 ¡El volcán entra en erupción! Se acabó."); endGame(g, "volcano"); return commit(g); }
-  if (tile.b === "whirl") { whirlpool(g, k); cont(g, "roll"); return commit(g); }
-  if (tile.b === "boat") {
-    if (Object.keys(g.boats).length < 12) {
-      const bid = "b" + (g.nb++); g.boats[bid] = { at: k };
-      swimmersAt(g, k).sort((a, b) => (g.exps[a].o === me() ? -1 : 0) - (g.exps[b].o === me() ? -1 : 0)).slice(0, 3).forEach(id => Object.assign(g.exps[id], { st: "boat", b: bid }));
-    }
-    cont(g, "roll"); return commit(g);
+  if (T.kind !== "now") { g.hand[me()] = [...handOf(g, me()), tile.b]; logp(g, `🌊 ${who} retira una ${TERR[tile.t].n} y se guarda una capacidad en secreto.${fellTxt}`); }
+  else {
+    logp(g, `🌊 ${who} retira una ${TERR[tile.t].n}. Debajo había: ${T.e} ${T.n}.${fellTxt}`);
+    if (tile.b === "volcano") {
+      const v = survAt(g, k); kill(g, v); crAt(g, k).forEach(c => delete g.cre[c]);
+      g.volc = [...(g.volc || []), k];
+      logp(g, `🌋 ¡Erupción! (${g.volc.length}/3)${v.length ? " Se lleva a " + countBy(g, v) + "." : ""}`);
+      if (g.volc.length >= 3) { logp(g, "🌋 ¡Tercer volcán! Se acabó la partida."); endGame(g, "volcano"); return commit(g); }
+    } else if (tile.b === "whirl") {
+      const area = [k, ...NB[k].filter(n => isWater(g, n))], lost = [];
+      area.forEach(n => { const b = boatAt(g, n); if (b) { lost.push(...passengers(g, b)); delete g.boats[b]; } lost.push(...swimmersAt(g, n)); crAt(g, n).forEach(c => delete g.cre[c]); });
+      kill(g, lost); g.last = area;
+      logp(g, `🌀 El remolino se lo traga todo${lost.length ? ": " + countBy(g, lost) : ""}.`);
+    } else if (tile.b === "raft") {
+      if (!hasKaiju(g, k) && !boatAt(g, k)) {
+        if (Object.keys(g.boats).length < 12) g.boats["b" + (g.nb++)] = { at: k };
+        else { const b = Object.keys(g.boats).find(x => !passengers(g, x).length); if (b) g.boats[b].at = k; }
+      }
+    } else placeCre(g, tile.b === "gcre" ? "shark" : "kaiju", k);
   }
-  const cid = addCre(g, tile.b, k);
-  if (cid) resolveAttack(g, cid, "roll"); else cont(g, "roll");
-  commit(g);
+  hit(g, k);
+  resolve(g, "sink"); commit(g);
 }
-function doRoll() {
-  if (!myAct() || S.g.phase !== "roll") return;
-  const g = clone(S.g), f = pick(FACES); g.die = f; g.dieN = (g.dieN || 0) + 1;
+function rollInto(g, ret) {
+  const f = pick(FACES); g.die = f; g.dieN = (g.dieN || 0) + 1; g.dieRet = ret;
   const movable = Object.keys(g.cre).filter(c => g.cre[c].k === f && creDests(g, c).length);
-  if (!movable.length) { logp(g, `🎲 Sale ${CRE[f].e} ${CRE[f].n}, pero ninguno puede moverse.`); nextTurn(g); }
-  else { g.phase = "creature"; logp(g, `🎲 Sale ${CRE[f].e} ${CRE[f].n}.`); }
-  commit(g);
+  if (!movable.length) { logp(g, `🎲 Sale ${CRE[f].e} ${CRE[f].n}, pero no hay ninguno que pueda moverse.`); g.then = ret; contin(g); }
+  else { g.phase = "creature"; g.actor = cur(g); logp(g, `🎲 Sale ${CRE[f].e} ${CRE[f].n}.`); }
 }
+function doRoll() { if (!myAct() || S.g.phase !== "roll") return; const g = clone(S.g); rollInto(g, "next"); commit(g); }
 function doCreature(cid, k) {
   if (!myAct() || S.g.phase !== "creature") return;
-  const g = clone(S.g), C = CRE[g.cre[cid].k]; g.arrow = [g.cre[cid].at, k]; g.cre[cid].at = k; g.last = [k];
-  logp(g, `${C.e} ${nameOf(me())} mueve ${C.n === "ballena" ? "la ballena" : C.n === "serpiente marina" ? "la serpiente marina" : "el tiburón"}${prey(g, k, g.cre[cid].k) ? " y ataca" : ""}.`);
-  resolveAttack(g, cid, "next"); commit(g);
+  const g = clone(S.g), C = CRE[g.cre[cid].k]; g.arrow = [g.cre[cid].at, k]; g.cre[cid].at = k; g.cre[cid].z = ++g.z; g.last = [k];
+  logp(g, `${C.e} ${nameOf(me())} mueve ${C.n === "kaiju" ? "un kaiju" : C.n === "serpiente marina" ? "una serpiente marina" : "un tiburón"}.`);
+  hit(g, k); const ret = g.dieRet || "next"; g.dieRet = null; resolve(g, ret); commit(g);
+}
+function doPush(k) {
+  if (!myAct() || S.g.phase !== "push") return;
+  const g = clone(S.g), it = g.push.items.shift();
+  if (it.t === "e") { const e = g.exps[it.id]; if (e.st === "boat") e.b = null; placeSurv(g, it.id, { k, how: g.tiles[k] ? "walk" : SAFE.has(k) ? "safe" : "swim" }); if (SAFE.has(k)) logp(g, `🏝️ El empujón deja a un superviviente en tierra firme.`); }
+  else { g.cre[it.id].at = k; g.cre[it.id].z = ++g.z; }
+  hit(g, k); g.last = [g.push.k, k];
+  if (!nextPush(g)) resolve(g);
+  commit(g);
 }
 function doDefense(use) {
   if (!myAct() || S.g.phase !== "defense") return;
-  const g = clone(S.g), p = g.pend, c = g.cre[p.cid], tile = c.k === "shark" ? "rshark" : "rwhale";
+  const g = clone(S.g), p = g.pend, c = g.cre[p.cid];
   if (use) {
-    const h = g.hand[me()]; h.splice(h.indexOf(tile), 1);
-    logp(g, `${TILES[tile].e} ${nameOf(me())} usa ${TILES[tile].n}: ${c.k === "shark" ? "el tiburón huye" : "la ballena se aleja"}.`);
-    delete g.cre[p.cid]; cont(g, p.then);
+    const h = g.hand[me()]; h.splice(h.indexOf("repel"), 1);
+    logp(g, `🧴 ${nameOf(me())} usa el Repelente: ${c.k === "shark" ? "el tiburón" : "el kaiju"} desaparece.`);
+    delete g.cre[p.cid]; g.pend = null; resolve(g);
   } else {
     p.defs.shift();
     if (p.defs.length) g.actor = p.defs[0];
-    else { applyAttack(g, p.cid); cont(g, p.then); }
+    else { g.noRep = p.cid; g.pend = null; resolve(g); }
   }
   commit(g);
 }
-function skipStart() { if (!myAct() || S.g.phase !== "start") return; const g = clone(S.g); g.phase = "move"; S.tp = null; commit(g); }
-function playTile(code, u, d) {
-  if (!myAct() || S.g.phase !== "start") return;
-  const g = clone(S.g), h = g.hand[me()], T = TILES[code];
-  h.splice(h.indexOf(code), 1); g.played = true; g.last = [d.k]; S.tp = null;
-  g.arrow = [u.kind === "b" ? g.boats[u.id].at : u.kind === "c" ? g.cre[u.id].at : g.exps[u.id].at, d.k];
-  logp(g, `${T.e} ${nameOf(me())} juega ${T.n}.`);
-  if (code === "dolphin") { const e = g.exps[u.id]; if (d.how === "safe") { Object.assign(e, { st: "safe", at: d.k }); logp(g, `🏝️ ${nameOf(me())} pone a salvo a un explorador.`); } else if (d.how === "board") Object.assign(e, { st: "boat", at: d.k, b: d.b }); else e.at = d.k; if (checkEnd(g)) return commit(g); g.phase = "move"; }
-  else if (code === "wind") { g.boats[u.id].at = d.k; passengers(g, u.id).forEach(id => { g.exps[id].at = d.k; }); g.phase = "move"; }
-  else { g.cre[u.id].at = d.k; resolveAttack(g, u.id, "move"); }
-  commit(g);
+/* capacidades en la fase de acción (no gastan movimientos) */
+function useAbility(code, u, d) {
+  if (!myAct() || S.g.phase !== "move" || !handOf(S.g, me()).includes(code)) return;
+  const g = clone(S.g), h = g.hand[me()], T = TILES[code], nm = nameOf(me());
+  h.splice(h.indexOf(code), 1);
+  logp(g, `${T.e} ${nm} usa ${T.n}.`);
+  if (code === "cdie") { rollInto(g, "move"); return commit(g); }
+  if (code === "oars") { g.arrow = [g.boats[u.id].at, d.k]; moveBoat(g, u.id, d.k); }
+  else if (code === "dolphin") { g.arrow = [g.exps[u.id].at, d.k]; placeSurv(g, u.id, d); if (d.how === "safe") logp(g, `🏝️ ${nm} pone a salvo a un superviviente.`); }
+  else if (code === "dive") { g.arrow = [g.cre[u.id].at, d.k]; g.cre[u.id].at = d.k; g.cre[u.id].z = ++g.z; }
+  g.last = [d.k]; hit(g, d.k); resolve(g, "move"); commit(g);
 }
 async function finalize() {
   const g0 = S.g; if (S.finGid === g0.gid) return; S.finGid = g0.gid;
@@ -659,7 +733,7 @@ function onGame(prev) {
     const fresh = g.log.slice(0, g.log.indexOf(prev.log[0]) < 0 ? 1 : g.log.indexOf(prev.log[0])).filter(l => !l.startsWith("▶"));
     if (fresh.length) toast(fresh[fresh.length - 1]);
   }
-  if (!prev || prev.phase !== g.phase || prev.actor !== g.actor) { S.sel = null; S.pick = null; if (g.phase !== "start") S.tp = null; }
+  if (!prev || prev.phase !== g.phase || prev.actor !== g.actor) { S.sel = null; S.pick = null; S.tp = null; }
 }
 
 /* ================= vistas ================= */
@@ -670,6 +744,10 @@ function render() {
   if (!S.code) return renderHome();
   if (!S.g) return view(`<div class="hero"><div class="logo">¡Escapa<small>de la Isla!</small></div><p class="muted">Remando hacia la partida…</p></div>`, "load");
   if (S.g.status === "lobby") return renderLobby();
+  if (S.g.status === "play" && S.g.ed !== 2024) {
+    if (view(`<div class="hero"><div class="logo">¡Escapa<small>de la Isla!</small></div><p class="muted">Esta partida se empezó con las reglas antiguas. El juego ya usa las reglas de Survive the Island (2024): empezad una nueva.</p>${isHost() ? `<button class="btn gold" id="again">Volver a la sala</button>` : ""}<button class="btn ghost" id="home">Salir</button></div>`, "old")) { on("#again", "click", again); on("#home", "click", () => leave("")); }
+    return;
+  }
   renderGame();
 }
 function view(html, key) { if (key && key === S.lastKey) return false; S.lastKey = key; $app.innerHTML = html; return true; }
@@ -678,7 +756,7 @@ const ISLE_SVG = `<svg class="isle" viewBox="0 0 120 104" aria-hidden="true"><pa
 function renderHome() {
   const html = `
   <div class="hero">${ISLE_SVG}<div class="logo">¡Escapa<small>de la Isla!</small></div>
-    <p class="muted">La isla se hunde. Lleva a tus exploradores a tierra firme antes de que se los coman.</p></div>
+    <p class="muted">La isla se hunde. Lleva a tus supervivientes a tierra firme antes de que se los coman.</p></div>
   <label class="lbl" for="nm">Tu nombre<input id="nm" class="text" maxlength="16" autocomplete="nickname" value="${esc(S.name)}" placeholder="Tu nombre"></label>
   <div class="card"><h2>Nueva partida</h2><button class="btn gold wide" id="create"${S.busy ? " disabled" : ""}>Crear partida</button></div>
   <div class="card"><h2>Unirse</h2>
@@ -694,20 +772,20 @@ function renderHome() {
 }
 function rulesHTML() {
   return `<details class="card"><summary><b>Cómo se juega</b></summary><div class="how">
-    <p>De 2 a 4 jugadores, cada uno con su móvil. Tienes <b>10 exploradores</b> con un valor oculto (6, 5, 4, 3, 3, 2, 2, 1, 1, 1) que solo ves tú. Gana quien sume más puntos con los que lleguen a las <b>islas a salvo</b> de las esquinas.</p>
-    <p><b>Preparación:</b> por turnos, cada uno coloca un explorador en una casilla de tierra libre eligiendo cuál. Luego se colocan los botes junto a la isla.</p>
-    <p><b>Tu turno:</b> 1) Si tienes losetas de inicio de turno, puedes jugar una. 2) Tienes <b>3 movimientos</b> para tus exploradores o para botes que controles (vacíos o donde tengas mayoría). En tierra se anda casilla a casilla; un <b>nadador</b> solo avanza 1 casilla por turno; un bote lleva hasta 3. 3) <b>Hundes</b> una loseta junto al mar: primero playas, luego bosques y al final montañas. Si es roja se aplica ya; si no, te la guardas en secreto. 4) Tiras el <b>dado de criaturas</b> y mueves una: serpiente 1 casilla, tiburón 2, ballena 3.</p>
-    <p>🦈 se come a los nadadores. 🐋 vuelca botes. 🐉 destruye botes y se come a todos. 🌀 arrasa la casilla y el mar de alrededor. 🌋 termina la partida al momento.</p></div></details>`;
+    <p>Reglas de <b>Survive the Island</b> (edición 2024). De 2 a 5 jugadores, cada uno con su móvil. Tienes <b>10 supervivientes</b> con un tesoro oculto (5, 4, 4, 3, 3, 2, 2, 1, 1, 1) que solo ves tú; a 2 jugadores, 20 cada uno. Gana quien sume más tesoro con los que lleguen a <b>tierra firme</b> (las esquinas).</p>
+    <p><b>Preparación:</b> la isla se forma al azar con 16 playas, 16 junglas y 8 montañas, y hay 5 serpientes marinas (una en el centro). Por turnos, cada uno pone un superviviente en una loseta libre. Después cada uno pone 2 balsas en el agua junto a la isla (4 a 2 jugadores).</p>
+    <p><b>Tu turno:</b> 1) <b>Acción</b>: hasta 3 movimientos de una casilla entre tus supervivientes y las balsas vacías o que controles (tienes más a bordo que cada rival). Cada superviviente solo puede <b>nadar</b> una vez por turno. Si en una casilla hay una balsa con sitio, los nadadores suben sí o sí. También puedes usar tus <b>capacidades</b>. 2) <b>Sube el mar</b>: retiras cualquier loseta del tipo más fino que quede (playas, luego junglas, luego montañas). Si es un efecto se aplica ya; si es una capacidad te la guardas. Si ya no te queda nadie que salvar, retiras 2. 3) <b>Criaturas</b>: tiras el dado y mueves la criatura que salga.</p>
+    <p>🐉 Serpiente (1 casilla de agua): destroza balsas y nadadores. 🦈 Tiburón (1-2 de agua): se come a los nadadores. 🦖 Kaiju (1-2 de cualquier tipo): rompe balsas y aparta a supervivientes y criaturas a casillas vecinas; nada puede entrar en su casilla. 🌀 Remolino: se traga todo en la casilla y el agua de alrededor. 🌋 Volcán: arrasa la casilla y la bloquea; <b>al tercer volcán se acaba la partida</b>.</p></div></details>`;
 }
 function renderLobby() {
   const g = S.g, host = isHost(), inList = S.players.some(p => p.id === me());
-  const list = S.players.map((p, i) => `<li><span class="av" style="--c:${PCOL[i % 4]}">${esc(p.name.charAt(0).toUpperCase())}</span><span>${esc(p.name)}${p.id === g.host ? " ⚓" : ""}${p.id === me() ? " (tú)" : ""}</span></li>`).join("");
+  const list = S.players.map((p, i) => `<li><span class="av" style="--c:${PCOL[i % 5]}">${esc(p.name.charAt(0).toUpperCase())}</span><span>${esc(p.name)}${p.id === g.host ? " ⚓" : ""}${p.id === me() ? " (tú)" : ""}</span></li>`).join("");
   const html = `
   <div class="top"><button class="btn ghost sm" id="out">Salir</button><span class="sp"></span><span class="chip">SALA ${esc(S.code)}</span></div>
   <div class="card" style="text-align:center"><p class="muted small">Código de la partida</p><div class="big-code">${esc(S.code)}</div>
     <button class="btn ghost" id="share">Invitar</button></div>
-  <div class="card"><h2>Exploradores (${S.players.length}/4)</h2><ul class="plist">${list || "<li>Esperando…</li>"}</ul>
-    ${!inList && S.players.length < 4 ? `<button class="btn" id="sit">Sentarme</button>` : ""}</div>
+  <div class="card"><h2>Supervivientes (${S.players.length}/5)</h2><ul class="plist">${list || "<li>Esperando…</li>"}</ul>
+    ${!inList && S.players.length < 5 ? `<button class="btn" id="sit">Sentarme</button>` : ""}</div>
   ${host ? `<div class="card"><button class="btn gold wide" id="start"${S.players.length < 1 ? " disabled" : ""}>${S.players.length < 2 ? "Empezar (solo para probar)" : "¡A la isla!"}</button>
     <p class="muted small" style="text-align:center">El orden y los colores se sortean al empezar.</p></div>`
   : `<div class="wait"><p>Esperando a que ${esc(nameOf(g.host))} empiece la partida.</p></div>`}
@@ -730,36 +808,26 @@ function computeTaps() {
   S.taps = taps; S.marks = marks;
   if (!myAct()) return;
   const dest = (list, fn) => list.forEach(d => { taps.set(d.k, () => fn(d)); marks.set(d.k, "dest"); });
-  if (g.phase === "placeExp") dest(Object.keys(g.tiles).filter(k => !landAt(g, k).length).map(k => ({ k })), d => placeExp(d.k));
+  const pickUnits = (units, ds, fn) => {
+    if (S.sel) { marks.set(S.sel.k, "sel"); dest(ds(S.sel), d => fn(S.sel, d)); }
+    units.forEach(u => { if (!marks.has(u.k)) marks.set(u.k, "unit"); if (!taps.has(u.k)) taps.set(u.k, () => chooseAt(u.k, units)); });
+  };
+  if (g.phase === "placeExp") dest(placeSpots(g).map(k => ({ k })), d => placeExp(d.k));
   else if (g.phase === "placeBoat") dest(boatSpots(g).map(k => ({ k })), d => placeBoat(d.k));
   else if (g.phase === "sink") dest(sinkable(g).map(k => ({ k })), d => doSink(d.k));
+  else if (g.phase === "push" && g.push && g.push.items.length) { marks.set(g.push.k, "sel"); dest(pushDests(g, g.push.items[0]), d => doPush(d.k)); }
   else if (g.phase === "creature") {
-    if (S.sel && S.sel.kind === "c") { marks.set(g.cre[S.sel.id].at, "sel"); dest(creDests(g, S.sel.id), d => doCreature(S.sel.id, d.k)); }
-    Object.keys(g.cre).filter(c => g.cre[c].k === g.die && creDests(g, c).length).forEach(c => {
-      const k = g.cre[c].at; if (!marks.has(k)) marks.set(k, "unit"); if (!taps.has(k)) taps.set(k, () => { S.sel = { kind: "c", id: c }; render(); });
-    });
+    const units = Object.keys(g.cre).filter(c => g.cre[c].k === g.die && creDests(g, c).length).map(id => ({ kind: "c", id, k: g.cre[id].at }));
+    pickUnits(units, u => creDests(g, u.id), (u, d) => doCreature(u.id, d.k));
+  } else if (g.phase === "move" && S.tp) {
+    pickUnits(abilityUnits(g, me(), S.tp), u => abilityDests(g, S.tp, u), (u, d) => useAbility(S.tp, u, d));
   } else if (g.phase === "move") {
-    const units = myUnits(g, me());
-    if (S.sel) {
-      const u = S.sel, ds = u.kind === "b" ? boatDests(g, u.id) : expDests(g, u.id);
-      marks.set(u.k, "sel"); dest(ds, d => doMove(u, d));
-    }
-    units.forEach(u => { if (!marks.has(u.k)) marks.set(u.k, "unit"); if (!taps.has(u.k)) taps.set(u.k, () => chooseAt(u.k, units)); });
-  } else if (g.phase === "start" && S.tp) {
-    const T = TILES[S.tp]; let units = [];
-    if (S.tp === "dolphin") units = Object.keys(g.exps).filter(id => g.exps[id].o === me() && g.exps[id].st === "sea" && dolphinDests(g, id).length).map(id => ({ kind: "e", id, k: g.exps[id].at }));
-    else if (S.tp === "wind") units = Object.keys(g.boats).filter(b => controls(g, b, me()) && passengers(g, b).length && windDests(g, b).length).map(id => ({ kind: "b", id, k: g.boats[id].at }));
-    else units = Object.keys(g.cre).filter(c => g.cre[c].k === T.cre).map(id => ({ kind: "c", id, k: g.cre[id].at }));
-    if (S.sel) {
-      const u = S.sel, ds = S.tp === "dolphin" ? dolphinDests(g, u.id) : S.tp === "wind" ? windDests(g, u.id) : anySea(g, g.cre[u.id].at);
-      marks.set(u.k, "sel"); dest(ds, d => playTile(S.tp, u, d));
-    }
-    units.forEach(u => { if (!marks.has(u.k)) marks.set(u.k, "unit"); if (!taps.has(u.k)) taps.set(u.k, () => chooseAt(u.k, units)); });
+    pickUnits(myUnits(g, me()), u => u.kind === "b" ? boatDests(g, u.id) : expDests(g, u.id), doMove);
   }
 }
 function chooseAt(k, units) {
   const here = units.filter(u => u.k === k);
-  if (here.length === 1) { S.sel = here[0]; S.pick = null; }
+  if (here.length === 1 || S.tp || S.g.phase !== "move") { S.sel = here[0]; S.pick = null; }
   else { S.pick = k; S.sel = null; }
   render();
 }
@@ -785,11 +853,12 @@ function boardSVG() {
   const g = S.g, marks = S.marks, parts = [], toks = [];
   ALL.forEach(k => {
     const t = g.tiles[k], safe = SAFE.has(k);
-    const fill = t ? TERR[t.t].c : safe ? "var(--safe)" : ISLAND.includes(k) ? "#0F6BA0" : "var(--sea)";
+    const vol = isVol(g, k), fill = t ? TERR[t.t].c : safe ? "var(--safe)" : vol ? "#5A1E1E" : ISLAND.includes(k) ? "#0F6BA0" : "var(--sea)";
     parts.push(`<polygon class="hx" data-k="${k}" points="${HEXPTS[k]}" fill="${fill}" stroke="${t ? "rgba(0,0,0,.25)" : "rgba(255,255,255,.12)"}" stroke-width="1"/>`);
     const [x, y] = XY[k];
     if (t && t.t === "m") toks.push(`<path d="M${x - 9} ${y + 6}l9-13 9 13z" fill="rgba(255,255,255,.22)"/>`);
     if (t && t.t === "f") toks.push(`<circle cx="${x - 7}" cy="${y + 7}" r="4" fill="rgba(0,0,0,.14)"/><circle cx="${x + 7}" cy="${y - 7}" r="4" fill="rgba(0,0,0,.14)"/>`);
+    if (vol) toks.push(`<text x="${x}" y="${y + 6}" text-anchor="middle" font-size="17">🌋</text>`);
     if (safe && SAFE_GROUPS.some(gr => gr[0] === k)) toks.push(`<text x="${x}" y="${y + 6}" text-anchor="middle" font-size="16">🌴</text>`);
   });
   if (g.last) g.last.forEach(k => { if (XY[k]) parts.push(`<polygon class="lastfx" points="${HEXPTS[k]}" fill="rgba(255,255,255,.55)" pointer-events="none"/>`); });
@@ -802,9 +871,9 @@ function boardSVG() {
   // fichas
   const byHex = {};
   Object.keys(g.exps).forEach(id => { const e = g.exps[id]; if (["land", "sea", "safe"].includes(e.st) && e.at) (byHex[e.at] = byHex[e.at] || []).push(id); });
-  const hexes = new Set([...Object.keys(byHex), ...Object.values(g.boats).map(b => b.at), ...Object.values(g.cre).map(c => c.at)]);
+  const hexes = new Set([...Object.keys(byHex), ...Object.values(g.boats).map(b => b.at), ...Object.values(g.cre).map(c => c.at)].filter(k => XY[k]));
   hexes.forEach(k => {
-    const [x, y] = XY[k], ids = (byHex[k] || []).sort((a, b) => seatOf(g, g.exps[a].o) - seatOf(g, g.exps[b].o)), cid = creAt(g, k), bid = boatAt(g, k);
+    const [x, y] = XY[k], ids = (byHex[k] || []).sort((a, b) => seatOf(g, g.exps[a].o) - seatOf(g, g.exps[b].o)), cs = crAt(g, k), cid = cs.length > 0, bid = boatAt(g, k);
     if (SAFE.has(k)) {
       const cnt = {}; ids.forEach(id => { const o = g.exps[id].o; cnt[o] = (cnt[o] || 0) + 1; });
       Object.keys(cnt).forEach((o, i, arr) => { const dx = (i - (arr.length - 1) / 2) * 11, yy = y - 4; toks.push(`<circle cx="${x + dx}" cy="${yy}" r="5.4" fill="${colorOf(g, o)}" stroke="#10202E"/><text x="${x + dx}" y="${yy + 2.4}" text-anchor="middle" font-size="7" font-weight="900" fill="#10202E">${cnt[o]}</text>`); });
@@ -817,7 +886,7 @@ function boardSVG() {
       toks.push(`<path d="M${x - 14} ${by - 3}h28l-5 8h-18z" fill="#8B5A2B" stroke="#3A2210" stroke-width="1"/>`);
       ps.forEach((id, i) => toks.push(expDot(g, id, x + (i - 1) * 8.5, by - 6, 4)));
     }
-    if (cid) toks.push(`<text x="${x}" y="${y + (bid ? 2 : 7)}" text-anchor="middle" font-size="${bid ? 14 : 20}">${CRE[g.cre[cid].k].e}</text>`);
+    cs.forEach((c, i) => { const fs = bid || cs.length > 1 ? 14 : 20, dx = (i - (cs.length - 1) / 2) * 13; toks.push(`<text x="${x + dx}" y="${y + (bid ? 2 : 7)}" text-anchor="middle" font-size="${fs}">${CRE[g.cre[c].k].e}</text>`); });
   });
   // marcas de interacción
   const hl = [];
@@ -834,47 +903,47 @@ function boardSVG() {
 const who = id => `<span class="who">${esc(id === me() ? "Tú" : nameOf(id))}</span>`;
 const dotV = (g, uid, v, cls = "") => `<span class="mv ${cls}" style="--c:${colorOf(g, uid)}">${v ?? ""}</span>`;
 function unitLabel(g, u) {
-  if (u.kind === "b") { const n = passengers(g, u.id).length; return `<span class="dot" style="--c:#8B5A2B">⛵</span>Bote (${n ? plural(n, "a bordo", "a bordo") : "vacío"})`; }
+  if (u.kind === "b") { const n = passengers(g, u.id).length; return `<span class="dot" style="--c:#8B5A2B">🛶</span>Balsa (${n ? plural(n, "a bordo", "a bordo") : "vacía"})`; }
   if (u.kind === "c") return `<span class="dot" style="--c:#fff">${CRE[g.cre[u.id].k].e}</span>${esc(CRE[g.cre[u.id].k].n)}`;
-  const e = g.exps[u.id], st = e.st === "land" ? "en tierra" : e.st === "sea" ? "nadando" : "en un bote";
-  return `<span class="dot" style="--c:${colorOf(g, e.o)}">${myVal(u.id) ?? ""}</span>Explorador ${st}`;
+  const e = g.exps[u.id], st = e.st === "land" ? "en la isla" : e.st === "sea" ? "nadando" : "en una balsa";
+  return `<span class="dot" style="--c:${colorOf(g, e.o)}">${myVal(u.id) ?? ""}</span>Superviviente ${st}`;
 }
 function hexInfo(g, k) {
   const t = g.tiles[k], bits = [];
-  bits.push(t ? `Loseta de ${TERR[t.t].n}` : SAFE.has(k) ? "Isla a salvo" : "Mar");
-  const c = creAt(g, k); if (c) bits.push(CRE[g.cre[c].k].e + " " + CRE[g.cre[c].k].n);
-  const b = boatAt(g, k); if (b) bits.push(`bote con ${passengers(g, b).length}`);
+  bits.push(t ? `Loseta de ${TERR[t.t].n}` : SAFE.has(k) ? "Tierra firme" : isVol(g, k) ? "Volcán: no se puede entrar" : "Agua");
+  crAt(g, k).forEach(c => bits.push(CRE[g.cre[c].k].e + " " + CRE[g.cre[c].k].n));
+  const b = boatAt(g, k); if (b) bits.push(`balsa con ${passengers(g, b).length}`);
   const ex = Object.keys(g.exps).filter(id => posOf(g, g.exps[id]) === k && g.exps[id].st !== "dead" && g.exps[id].st !== "hand");
   if (ex.length) bits.push(countBy(g, ex));
   return bits.join(" · ");
 }
-const STEPS = [["start", "Loseta"], ["move", "Mover"], ["sink", "Hundir"], ["roll", "Dado"]];
+const STEPS = [["move", "Acción"], ["sink", "Sube el mar"], ["roll", "Criaturas"]];
 function turnHead(g) {
-  if (!["start", "move", "sink", "roll", "creature", "defense"].includes(g.phase)) return `<div class="thead"><b>Preparación</b><span class="muted small">· ${g.phase === "placeExp" ? "colocando exploradores" : "colocando botes"}</span></div>`;
-  const idx = { start: 0, move: 1, sink: 2, roll: 3, creature: 3, defense: 3 }[g.phase];
+  if (!["move", "sink", "roll", "creature", "defense", "push"].includes(g.phase)) return `<div class="thead"><b>Preparación</b><span class="muted small">· ${g.phase === "placeExp" ? "colocando supervivientes" : "colocando balsas"}</span></div>`;
+  const idx = g.phase === "move" ? 0 : g.phase === "sink" ? 1 : 2;
   return `<ol class="steps">${STEPS.map(([, t], i) => `<li class="${i < idx ? "done" : i === idx ? "now" : ""}">${i + 1}. ${t}</li>`).join("")}</ol>`;
 }
 /* indicador de turno común (shared/turno.js): quién tiene que actuar ahora y qué */
 function turnoInfo(g) {
   const A = g.actor, mine = A === me();
   const accion = {
-    placeExp: mine ? "Coloca un explorador en la isla" : "Coloca un explorador",
-    placeBoat: mine ? "Coloca un bote junto a la isla" : "Coloca un bote",
-    start: mine ? "Puedes jugar una loseta antes de mover" : "Empieza su turno",
-    move: mine ? `Mueve: ${plural(g.moves, "movimiento", "movimientos")}` : "Está moviendo",
-    sink: mine ? "Hunde una loseta" : "Va a hundir una loseta",
+    placeExp: mine ? "Coloca un superviviente en la isla" : "Coloca un superviviente",
+    placeBoat: mine ? "Coloca una balsa junto a la isla" : "Coloca una balsa",
+    move: mine ? `Acción: ${plural(g.moves, "movimiento", "movimientos")}` : "Está moviendo",
+    sink: mine ? (g.sinkLeft > 1 ? "Retira 2 losetas" : "Retira una loseta") : "Va a retirar una loseta",
     roll: mine ? "Tira el dado de criaturas" : "Va a tirar el dado",
     creature: mine ? "Mueve la criatura del dado" : "Mueve una criatura",
-    defense: mine ? "¡Te atacan! Decide si te defiendes" : "Decide si se defiende del ataque"
+    push: mine ? "El kaiju empuja: elige a dónde" : "Decide a dónde empuja el kaiju",
+    defense: mine ? "¡Te atacan! ¿Usas el Repelente?" : "Decide si usa el Repelente"
   }[g.phase] || "";
   return { quien: nameOf(A), color: colorOf(g, A), tuyo: mine, accion, clave: g.phase === "defense" ? "def" : (g.phase === "placeExp" || g.phase === "placeBoat" ? g.phase : "t" + (g.tn || 0)) };
 }
 function legendHTML() {
   return `<details class="legend"><summary>¿Qué es cada cosa del tablero?</summary><ul>
-    <li><span class="lg" style="background:var(--beach)"></span>Playa · <span class="lg" style="background:var(--forest)"></span>Bosque · <span class="lg" style="background:var(--mount)"></span>Montaña · <span class="lg" style="background:var(--safe)"></span>Isla a salvo (las esquinas, con 🌴)</li>
-    <li><span class="mv" style="--c:${PCOL[0]}">5</span> Explorador en tierra. El número solo lo ves en los tuyos.</li>
-    <li><svg width="26" height="26" viewBox="0 0 26 26"><circle cx="13" cy="13" r="10" fill="${PCOL[1]}" stroke="#E6F7FF" stroke-width="2.4" stroke-dasharray="3 2"/></svg> Nadador (borde a rayas): solo avanza 1 casilla por turno.</li>
-    <li>⛵ Bote: lleva hasta 3 · 🦈 come nadadores · 🐋 vuelca botes · 🐉 acaba con botes y nadadores</li>
+    <li><span class="lg" style="background:var(--beach)"></span>Playa · <span class="lg" style="background:var(--forest)"></span>Jungla · <span class="lg" style="background:var(--mount)"></span>Montaña · <span class="lg" style="background:var(--safe)"></span>Tierra firme (las esquinas, con 🌴) · 🌋 Volcán: no se puede entrar</li>
+    <li><span class="mv" style="--c:${PCOL[0]}">5</span> Superviviente en tierra. El número solo lo ves en los tuyos.</li>
+    <li><svg width="26" height="26" viewBox="0 0 26 26"><circle cx="13" cy="13" r="10" fill="${PCOL[1]}" stroke="#E6F7FF" stroke-width="2.4" stroke-dasharray="3 2"/></svg> Nadador (borde a rayas): cada superviviente solo nada una vez por turno.</li>
+    <li>🛶 Balsa: lleva hasta 3 · 🐉 serpiente: destroza balsas y nadadores · 🦈 tiburón: se come a los nadadores · 🦖 kaiju: rompe balsas y aparta todo lo que hay en su casilla</li>
     <li><span class="lg" style="box-shadow:inset 0 0 0 2px #fff;border-radius:4px"></span>Borde punteado: piezas que puedes mover · <span class="lg" style="background:rgba(255,216,77,.6)"></span>Amarillo: dónde puedes ir</li>
     <li><span class="lg" style="box-shadow:inset 0 0 0 2px #FF9F43"></span>Naranja y flecha: lo último que ha pasado. Toca cualquier casilla para ver qué hay.</li></ul></details>`;
 }
@@ -882,52 +951,52 @@ function panelHTML() {
   const g = S.g, mine = myAct(), A = g.actor, out = [];
   const movesDots = `<span class="moves" aria-label="${g.moves} movimientos">${[0, 1, 2].map(i => `<i class="${i < g.moves ? "" : "u"}"></i>`).join("")}</span>`;
   out.push(turnHead(g));
-  if (g.rev && g.rev.n && ["roll", "creature", "defense"].includes(g.phase)) {
+  if (g.rev && g.rev.n && ["roll", "creature", "defense", "push", "sink"].includes(g.phase) && g.rev.by === cur(g)) {
     const T = TILES[g.rev.b], show = g.rev.now || g.rev.by === me();
-    out.push(`<div class="reveal"><span class="e">${show ? T.e : "🂠"}</span><span>${show ? `${esc(g.rev.by === me() ? "Has" : nameOf(g.rev.by) + " ha")} hundido una ${TERR[g.rev.t].n}: <b>${T.n}</b>${g.rev.now ? "" : ". Te la guardas en secreto."}` : `${esc(nameOf(g.rev.by))} ha hundido una ${TERR[g.rev.t].n} y se guarda una loseta.`}</span></div>`);
+    out.push(`<div class="reveal"><span class="e">${show ? T.e : "🂠"}</span><span>${show ? `${esc(g.rev.by === me() ? "Has" : nameOf(g.rev.by) + " ha")} retirado una ${TERR[g.rev.t].n}: <b>${T.n}</b>${g.rev.now ? "" : ". Te la guardas en secreto."}` : `${esc(nameOf(g.rev.by))} ha retirado una ${TERR[g.rev.t].n} y se guarda una capacidad.`}</span></div>`);
   }
   switch (g.phase) {
     case "placeExp": {
-      out.push(`<p class="phase">${mine ? "Coloca un explorador" : `${who(A)} coloca un explorador`}</p>`);
+      out.push(`<p class="phase">${mine ? "Coloca un superviviente" : `${who(A)} coloca un superviviente`}</p>`);
       if (mine) {
         const left = remainingVals(); if (!left.includes(S.pv)) S.pv = left[0];
-        out.push(`<p class="small muted">Elige cuál (solo tú ves el número) y toca una casilla de tierra libre.</p><div class="vals">${[...new Set(left)].map(v => `<button class="vchip" data-v="${v}" aria-pressed="${v === S.pv}" style="--c:${colorOf(g, me())}">${v}</button>`).join("")}</div>`);
+        out.push(`<p class="small muted">Elige cuál (solo tú ves el número) y toca una loseta libre. Intenta acordarte de dónde pones los buenos.</p><div class="vals">${[...new Set(left)].map(v => `<button class="vchip" data-v="${v}" aria-pressed="${v === S.pv}" style="--c:${colorOf(g, me())}">${v}</button>`).join("")}</div>`);
       }
       break;
     }
-    case "placeBoat": out.push(`<p class="phase">${mine ? "Coloca un bote" : `${who(A)} coloca un bote`}</p><p class="small muted">${mine ? "Toca una casilla de mar pegada a la isla (marcadas en amarillo)." : "Los botes empiezan vacíos junto a la isla. Cualquiera puede usar un bote vacío."}</p>`); break;
-    case "start": {
-      out.push(`<p class="phase">${mine ? "Empieza tu turno" : `Turno de ${who(A)}`}</p>`);
-      if (mine) {
-        if (S.tp) { const T = TILES[S.tp]; out.push(`<p class="small">${T.e} <b>${T.n}</b>: ${S.sel ? "toca la casilla de destino." : "toca qué quieres mover."}</p><button class="btn ghost sm" id="cancelTp">Cancelar</button>`); }
-        else out.push(`<p class="small muted">Puedes jugar una de tus losetas antes de mover.</p><div class="opts">${playableTiles(g, me()).map(c => `<button class="opt" data-tp="${c}"><span class="dot" style="--c:#fff">${TILES[c].e}</span><span><b>${TILES[c].n}</b><br><span class="small muted">${TILES[c].d}</span></span></button>`).join("")}</div><button class="btn wide" id="skipStart">Seguir sin jugar</button>`);
-      }
-      break;
-    }
+    case "placeBoat": out.push(`<p class="phase">${mine ? "Coloca una balsa" : `${who(A)} coloca una balsa`}</p><p class="small muted">${mine ? "Toca una casilla de agua vacía pegada a la isla (marcadas en amarillo)." : "Las balsas empiezan vacías junto a la isla. Cualquiera puede mover una balsa vacía."}</p>`); break;
     case "move": {
-      out.push(`<div class="dierow" style="justify-content:space-between"><p class="phase">${mine ? "Mueve" : `${who(A)} está moviendo`}</p>${movesDots}</div>`);
+      out.push(`<div class="dierow" style="justify-content:space-between"><p class="phase">${mine ? "Tu acción" : `${who(A)} está moviendo`}</p>${movesDots}</div>`);
       if (mine) {
-        if (S.pick) out.push(`<p class="small muted">¿Qué quieres mover de aquí?</p><div class="opts">${myUnits(g, me()).filter(u => u.k === S.pick).map((u, i) => `<button class="opt" data-pk="${i}">${unitLabel(g, u)}</button>`).join("")}</div>`);
-        else if (S.sel) out.push(`<p class="small">Moviendo: ${unitLabel(g, S.sel).replace(/<span class="dot"[^>]*>.*?<\/span>/, "")}. Toca una casilla amarilla.</p>`);
-        else out.push(`<p class="small muted">${g.moves === 1 ? "Te queda 1 movimiento" : `Te quedan ${g.moves} movimientos`}. Toca una pieza tuya (borde punteado) y luego una casilla amarilla. Un nadador solo avanza 1 casilla por turno.</p>`);
-      }
-      else out.push(`<p class="small muted">Puede gastar 3 movimientos entre sus exploradores y los botes que controle. La flecha naranja marca el último movimiento.</p>`);
-      if (mine) {
-        out.push(`<button class="btn wide" id="endMoves">${g.moves === 3 ? "No mover y hundir loseta" : "Terminar y hundir loseta"}</button>`);
-      }
+        if (S.tp) { const T = TILES[S.tp]; out.push(`<p class="small">${T.e} <b>${T.n}</b>: ${S.sel ? "toca la casilla de destino." : "toca qué quieres mover (borde punteado)."}</p><button class="btn ghost sm" id="cancelTp">Cancelar</button>`); }
+        else {
+          if (S.pick) out.push(`<p class="small muted">¿Qué quieres mover de aquí?</p><div class="opts">${myUnits(g, me()).filter(u => u.k === S.pick).map((u, i) => `<button class="opt" data-pk="${i}">${unitLabel(g, u)}</button>`).join("")}</div>`);
+          else if (S.sel) out.push(`<p class="small">Moviendo: ${unitLabel(g, S.sel).replace(/<span class="dot"[^>]*>.*?<\/span>/, "")}. Toca una casilla amarilla.</p>`);
+          else out.push(`<p class="small muted">${g.moves === 1 ? "Te queda 1 movimiento" : `Te quedan ${g.moves} movimientos`} de una casilla, para tus supervivientes o para balsas vacías o que controles. Toca una pieza tuya (borde punteado) y luego una casilla amarilla.</p>`);
+          const ab = usableAbilities(g, me());
+          if (ab.length) out.push(`<p class="small muted">Capacidades (no gastan movimientos):</p><div class="opts">${ab.map(c => `<button class="opt" data-tp="${c}"><span class="dot" style="--c:#fff">${TILES[c].e}</span><span><b>${TILES[c].n}</b><br><span class="small muted">${TILES[c].d}</span></span></button>`).join("")}</div>`);
+          out.push(`<button class="btn wide" id="endMoves">${g.moves === 3 ? "No mover y retirar loseta" : "Terminar y retirar loseta"}</button>`);
+        }
+      } else out.push(`<p class="small muted">Tiene 3 movimientos para sus supervivientes y las balsas que controle. La flecha naranja marca el último movimiento.</p>`);
       break;
     }
-    case "sink": { const tn = TERR[g.tiles[sinkable(g)[0]].t].n; out.push(`<p class="phase">${mine ? "Hunde una loseta" : `${who(A)} va a hundir una loseta`}</p><p class="small muted">${mine ? `Toca una ${tn} de las marcadas (tienen que tocar el mar).` : `Elegirá una ${tn} junto al mar.`} Se hunden primero las playas, luego los bosques y al final las montañas. Quien esté encima cae al agua y debajo puede salir una criatura, un bote, un remolino… o el volcán.</p>`); break; }
-    case "roll": out.push(`<p class="phase">${mine ? "Tira el dado de criaturas" : `${who(A)} va a tirar el dado`}</p><p class="small muted">El dado dice qué criatura se mueve: 🐉 serpiente (1 casilla), 🦈 tiburón (2) o 🐋 ballena (3).</p>${mine ? `<button class="btn gold wide" id="roll">🎲 Tirar el dado</button>` : ""}`); break;
+    case "sink": { const tn = TERR[g.tiles[sinkable(g)[0]].t].n; out.push(`<p class="phase">${mine ? (g.sinkLeft > 1 ? "Retira 2 losetas" : "Retira una loseta") : `${who(A)} va a retirar una loseta`}</p><p class="small muted">${mine ? `Toca cualquier ${tn} (marcadas).` : `Elegirá una ${tn}.`} Primero salen las playas, luego las junglas y al final las montañas. Quien esté encima cae al agua. Debajo puede haber un efecto (se aplica ya) o una capacidad (se guarda en secreto).</p>`); break; }
+    case "roll": out.push(`<p class="phase">${mine ? "Tira el dado de criaturas" : `${who(A)} va a tirar el dado`}</p><p class="small muted">🐉 serpiente: 1 casilla de agua · 🦈 tiburón: 1 o 2 de agua · 🦖 kaiju: 1 o 2 de cualquier tipo.</p>${mine ? `<button class="btn gold wide" id="roll">🎲 Tirar el dado</button>` : ""}`); break;
     case "creature": {
       const C = CRE[g.die], anim = S.dieSeen !== g.dieN; S.dieSeen = g.dieN;
-      out.push(`<div class="dierow"><div class="die${anim ? " anim" : ""}">${C.e}</div><div><p class="phase">${mine ? "Mueve" : `${who(A)} mueve`} ${C.n === "ballena" ? "una ballena" : C.n === "serpiente marina" ? "una serpiente marina" : "un tiburón"}</p><p class="small muted">Hasta ${plural(C.r, "casilla", "casillas")}.${mine ? (S.sel ? " Toca el destino en amarillo." : " Toca cuál (borde punteado).") : ""} ${{ shark: "Si llega a nadadores, se los come.", whale: "Si llega a un bote, lo vuelca y sus ocupantes caen al agua.", serp: "Si llega a un bote o a nadadores, acaba con todos." }[g.die]}</p></div></div>`);
+      out.push(`<div class="dierow"><div class="die${anim ? " anim" : ""}">${C.e}</div><div><p class="phase">${mine ? "Mueve" : `${who(A)} mueve`} ${C.n === "kaiju" ? "un kaiju" : C.n === "serpiente marina" ? "una serpiente marina" : "un tiburón"}</p><p class="small muted">${g.die === "serp" ? "1 casilla de agua." : g.die === "shark" ? "1 o 2 casillas de agua." : "1 o 2 casillas, también por la isla."} Se para al llegar a algo con lo que choca.${mine ? (S.sel ? " Toca el destino en amarillo." : " Toca cuál (borde punteado).") : ""} ${{ shark: "Se come a los nadadores.", kaiju: "Rompe balsas y aparta supervivientes y criaturas a casillas vecinas.", serp: "Destroza balsas y nadadores." }[g.die]}</p></div></div>`);
+      break;
+    }
+    case "push": {
+      const it = g.push && g.push.items[0];
+      const what = !it ? "" : it.t === "e" ? `a ${g.exps[it.id].o === me() ? "uno de tus supervivientes" : "un superviviente de " + esc(nameOf(g.exps[it.id].o))}${myVal(it.id) ? ` (${myVal(it.id)})` : ""}` : `a ${CRE[g.cre[it.id].k].e} ${CRE[g.cre[it.id].k].n}`;
+      out.push(`<p class="phase">🦖 ${mine ? "El kaiju empuja" : `${who(A)} decide el empujón`}</p><p class="small muted">${mine ? `Toca a qué casilla vecina mandas ${what}.` : `Está apartando ${what}.`} Quedan ${plural(g.push ? g.push.items.length : 0, "pieza", "piezas")}.</p>`);
       break;
     }
     case "defense": {
-      const p = g.pend, c = g.cre[p.cid], tile = c.k === "shark" ? "rshark" : "rwhale";
-      if (mine) out.push(`<p class="phase">${c.k === "shark" ? "¡Un tiburón va a por tus nadadores!" : "¡Una ballena embiste tu bote!"}</p><p class="small">¿Usas <b>${TILES[tile].e} ${TILES[tile].n}</b>?</p><div class="row"><button class="btn gold" id="defYes">Usarla</button><button class="btn ghost" id="defNo">No</button></div>`);
-      else out.push(`<p class="phase">${c.k === "shark" ? "🦈 Un tiburón ataca" : "🐋 Una ballena ataca"}: ${who(A)} decide si usa una loseta para defenderse…</p>`);
+      const c = g.cre[g.pend.cid];
+      if (mine) out.push(`<p class="phase">${c.k === "shark" ? "¡Un tiburón va a por tus nadadores!" : "¡Un kaiju está en tu casilla!"}</p><p class="small">¿Usas <b>🧴 Repelente</b>? La criatura desaparece y tus supervivientes se quedan donde están.</p><div class="row"><button class="btn gold" id="defYes">Usarlo</button><button class="btn ghost" id="defNo">No</button></div>`);
+      else out.push(`<p class="phase">${c.k === "shark" ? "🦈 Un tiburón ataca" : "🦖 Un kaiju ataca"}: ${who(A)} decide si usa un Repelente…</p>`);
       break;
     }
   }
@@ -951,12 +1020,12 @@ function playersHTML() {
 }
 function endHTML() {
   const g = S.g, sc = g.score;
-  if (!sc) return `<div class="panel"><p class="phase">${g.why === "volcano" ? "🌋 ¡Erupción!" : "Fin de la partida"}</p><p class="muted">Contando los exploradores rescatados…</p></div>`;
+  if (!sc) return `<div class="panel"><p class="phase">${g.why === "volcano" ? "🌋 ¡Erupción!" : "Fin de la partida"}</p><p class="muted">Contando los supervivientes rescatados…</p></div>`;
   const ids = [...g.order].sort((a, b) => sc[b].pts - sc[a].pts || sc[b].saved.length - sc[a].saved.length), best = ids[0];
   const rows = ids.map(uid => `<li class="${uid === best ? "win" : ""}"><span class="av" style="--c:${colorOf(g, uid)}">${esc(nameOf(uid).charAt(0).toUpperCase())}</span><b>${esc(nameOf(uid))}${uid === best ? " 🏆" : ""}</b><span class="pts">${sc[uid].pts}</span>
     <span class="det">${sc[uid].saved.map(v => dotV(g, uid, v)).join("") || '<span class="small muted">Nadie a salvo</span>'}${sc[uid].lost.map(v => dotV(g, uid, v, "x")).join("")}</span></li>`).join("");
-  return `<div class="panel"><p class="phase">${g.why === "volcano" ? "🌋 ¡El volcán ha estallado!" : "¡Ya no queda nadie en la isla!"}</p><p>Gana <b>${esc(nameOf(best))}</b> con ${sc[best].pts} puntos.</p><ul class="res">${rows}</ul>
-    <p class="small muted">Se suman los valores de los exploradores a salvo. Los tachados se quedaron por el camino.</p>
+  return `<div class="panel"><p class="phase">${g.why === "volcano" ? "🌋 ¡Ha estallado el tercer volcán!" : "¡Ya no queda nadie en la isla!"}</p><p>Gana <b>${esc(nameOf(best))}</b> con ${sc[best].pts} puntos.</p><ul class="res">${rows}</ul>
+    <p class="small muted">Se suma el tesoro de los supervivientes en tierra firme. Los tachados se quedaron por el camino.</p>
     <div class="row">${isHost() ? `<button class="btn gold" id="again">Otra partida</button>` : ""}<button class="btn ghost" id="home">Salir</button></div></div>`;
 }
 function renderGame() {
@@ -988,10 +1057,9 @@ function renderGame() {
     + (lg.length > recent.length ? `<li><details><summary class="small">Ver más</summary>${lg.slice(recent.length).map(l => `<div class="${l.startsWith("▶") ? "sep" : ""}">${esc(l)}</div>`).join("")}</details></li>` : "");
   document.getElementById("legend").innerHTML = legendHTML();
   $app.querySelectorAll("[data-v]").forEach(b => b.addEventListener("click", () => { S.pv = +b.dataset.v; render(); }));
-  $app.querySelectorAll("[data-tp]").forEach(b => b.addEventListener("click", () => { S.tp = b.dataset.tp; S.sel = null; S.pick = null; render(); }));
+  $app.querySelectorAll("[data-tp]").forEach(b => b.addEventListener("click", () => { if (b.dataset.tp === "cdie") return useAbility("cdie"); S.tp = b.dataset.tp; S.sel = null; S.pick = null; render(); }));
   $app.querySelectorAll("[data-pk]").forEach(b => b.addEventListener("click", () => { S.sel = myUnits(S.g, me()).filter(u => u.k === S.pick)[+b.dataset.pk]; S.pick = null; render(); }));
   on("#cancelTp", "click", () => { S.tp = null; S.sel = null; render(); });
-  on("#skipStart", "click", skipStart);
   on("#endMoves", "click", endMoves);
   on("#roll", "click", doRoll);
   on("#defYes", "click", () => doDefense(true));
@@ -1002,7 +1070,7 @@ function renderGame() {
 document.addEventListener("visibilitychange", () => { if (!document.hidden && S.g) { S.lastKey = ""; render(); } });
 
 /* acceso para pruebas */
-window.__sv = { S, ALL, NB, SAFE, dist, sinkable, myUnits, expDests, boatDests, creDests, onHex, doRoll, endMoves, doDefense, skipStart };
+window.__sv = { S, ALL, NB, SAFE, dist, sinkable, myUnits, expDests, boatDests, creDests, pushDests, abilityUnits, abilityDests, usableAbilities, onHex, doRoll, endMoves, doDefense, doPush, useAbility, placeSpots, boatSpots };
 boot();
 })();
 </script>
