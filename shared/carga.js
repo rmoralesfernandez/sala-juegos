@@ -59,6 +59,7 @@
     if (el.disabled || el.getAttribute("aria-disabled") === "true") return null;
     return el;
   }
+  const enSVG = el => el instanceof SVGElement && !(el instanceof SVGSVGElement);
   const firma = el => [el.tagName, el.id, String(el.className && el.className.baseVal !== undefined ? el.className.baseVal : el.className || "").split(/\s+/).filter(k => k && !k.startsWith("sala-")).join(" "), (el.textContent || "").trim().slice(0, 40), JSON.stringify(el.dataset || {})].join("|");
 
   /* ---------- hundirse al pulsar ---------- */
@@ -76,7 +77,9 @@
     if (r.width * r.height > innerWidth * innerHeight * 0.3) return;  // un tablero entero no se hunde
     pulsado = el; pulsadoT = performance.now();
     el.classList.add("sala-pulsado");
-    if (r.width < 420 && r.height < 200) el.classList.add("sala-hunde");
+    // Las casillas de un tablero SVG no se encogen: en SVG el escalado parte de la esquina del tablero
+    // y la casilla se iría de debajo del dedo (el toque no llegaría a contar).
+    if (r.width < 420 && r.height < 200 && !enSVG(el)) el.classList.add("sala-hunde");
   }, { capture: true, passive: true });
   ["pointerup", "pointercancel", "dragstart"].forEach(t => document.addEventListener(t, soltar, { capture: true, passive: true }));
   addEventListener("blur", soltar);
@@ -89,6 +92,7 @@
   function poner(c) {
     const el = c.el;
     if (!el || !el.isConnected || el.classList.contains("sala-cargando")) return;
+    if (enSVG(el)) return;  // dentro de un SVG no cabe el círculo; basta con la barra de arriba
     const cs = getComputedStyle(el);
     el.style.setProperty("--sala-c", cs.color);
     if (cs.position === "static") { c.pos = el.style.position; el.style.position = "relative"; }

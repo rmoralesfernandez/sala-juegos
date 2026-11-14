@@ -765,7 +765,7 @@ function chooseAt(k, units) {
 }
 function onHex(k) {
   const t = S.taps.get(k);
-  if (t) t(); else { S.info = S.info === k ? null : k; S.sel = null; S.pick = null; render(); }
+  if (t) t(); else { S.info = S.info === k ? null : k; S.pick = null; render(); }  // un toque fallido no quita la ficha elegida
 }
 
 /* ---------- dibujo del tablero ---------- */
