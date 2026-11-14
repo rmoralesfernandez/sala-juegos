@@ -360,17 +360,17 @@ function expDests(g, id) {
     if (SAFE.has(n)) { if (solid || canSwim) out.push({ k: n, how: "safe", swim: !solid }); return; }
     const b = roomBoat(g, n, e.b);
     if (b) { if (solid || canSwim) out.push({ k: n, how: "board", b, swim: !solid }); return; }
-    if (!canSwim || deadlySwim(g, n)) return;
-    out.push({ k: n, how: "swim", swim: true });
+    if (!canSwim) return;
+    out.push({ k: n, how: "swim", swim: true, risk: deadlySwim(g, n) });
   });
   return out;
 }
-const raftOk = (g, n, bid) => isWater(g, n) && !hasKaiju(g, n) && !kindAt(g, n, "serp").length && (!boatAt(g, n) || boatAt(g, n) === bid);
+const raftOk = (g, n, bid) => isWater(g, n) && !hasKaiju(g, n) && (!boatAt(g, n) || boatAt(g, n) === bid);
 function boatDests(g, bid, r = 1) {
   const st = g.boats[bid].at, seen = new Set([st]), out = []; let front = [st];
   for (let s = 0; s < r; s++) {
     const nx = [];
-    front.forEach(f => NB[f].forEach(n => { if (seen.has(n) || !raftOk(g, n, bid)) return; seen.add(n); out.push({ k: n, how: "boat" }); nx.push(n); }));
+    front.forEach(f => NB[f].forEach(n => { if (seen.has(n) || !raftOk(g, n, bid)) return; seen.add(n); const risk = kindAt(g, n, "serp").length > 0; out.push({ k: n, how: "boat", risk }); if (!risk) nx.push(n); }));
     front = nx;
   }
   return out;
@@ -807,7 +807,13 @@ function computeTaps() {
   const g = S.g, taps = new Map(), marks = new Map(); // marks: k -> "dest" | "unit" | "sel"
   S.taps = taps; S.marks = marks;
   if (!myAct()) return;
-  const dest = (list, fn) => list.forEach(d => { taps.set(d.k, () => fn(d)); marks.set(d.k, "dest"); });
+  const dest = (list, fn) => list.forEach(d => {
+    marks.set(d.k, d.risk ? "risk" : "dest");
+    taps.set(d.k, () => {
+      if (d.risk && S.riskK !== d.k) { S.riskK = d.k; toast("⚠️ Ahí hay una criatura que lo destrozará. Toca otra vez para ir igualmente."); return; }
+      S.riskK = null; fn(d);
+    });
+  });
   const pickUnits = (units, ds, fn) => {
     if (S.sel) { marks.set(S.sel.k, "sel"); dest(ds(S.sel), d => fn(S.sel, d)); }
     units.forEach(u => { if (!marks.has(u.k)) marks.set(u.k, "unit"); if (!taps.has(u.k)) taps.set(u.k, () => chooseAt(u.k, units)); });
@@ -891,7 +897,8 @@ function boardSVG() {
   // marcas de interacción
   const hl = [];
   marks.forEach((m, k) => {
-    if (m === "dest") hl.push(`<polygon class="hl" points="${HEXPTS[k]}" fill="rgba(255,216,77,.38)" stroke="#FFD84D" stroke-width="2.4" pointer-events="none"/>`);
+    if (m === "risk") hl.push(`<polygon class="hl" points="${HEXPTS[k]}" fill="rgba(255,90,90,.40)" stroke="#FF6B6B" stroke-width="2.4" pointer-events="none"/>`);
+    else if (m === "dest") hl.push(`<polygon class="hl" points="${HEXPTS[k]}" fill="rgba(255,216,77,.38)" stroke="#FFD84D" stroke-width="2.4" pointer-events="none"/>`);
     else if (m === "sel") hl.push(`<polygon points="${HEXPTS[k]}" fill="none" stroke="#fff" stroke-width="3" pointer-events="none"/>`);
     else hl.push(`<polygon points="${HEXPTS[k]}" fill="none" stroke="rgba(255,255,255,.85)" stroke-width="1.6" stroke-dasharray="4 3" pointer-events="none"/>`);
   });
@@ -944,7 +951,7 @@ function legendHTML() {
     <li><span class="mv" style="--c:${PCOL[0]}">5</span> Superviviente en tierra. El número solo lo ves en los tuyos.</li>
     <li><svg width="26" height="26" viewBox="0 0 26 26"><circle cx="13" cy="13" r="10" fill="${PCOL[1]}" stroke="#E6F7FF" stroke-width="2.4" stroke-dasharray="3 2"/></svg> Nadador (borde a rayas): cada superviviente solo nada una vez por turno.</li>
     <li>🛶 Balsa: lleva hasta 3 · 🐉 serpiente: destroza balsas y nadadores · 🦈 tiburón: se come a los nadadores · 🦖 kaiju: rompe balsas y aparta todo lo que hay en su casilla</li>
-    <li><span class="lg" style="box-shadow:inset 0 0 0 2px #fff;border-radius:4px"></span>Borde punteado: piezas que puedes mover · <span class="lg" style="background:rgba(255,216,77,.6)"></span>Amarillo: dónde puedes ir</li>
+    <li><span class="lg" style="box-shadow:inset 0 0 0 2px #fff;border-radius:4px"></span>Borde punteado: piezas que puedes mover · <span class="lg" style="background:rgba(255,216,77,.6)"></span>Amarillo: dónde puedes ir · <span class="lg" style="background:rgba(255,90,90,.6)"></span>Rojo: puedes ir, pero hay una criatura</li>
     <li><span class="lg" style="box-shadow:inset 0 0 0 2px #FF9F43"></span>Naranja y flecha: lo último que ha pasado. Toca cualquier casilla para ver qué hay.</li></ul></details>`;
 }
 function panelHTML() {
@@ -972,7 +979,7 @@ function panelHTML() {
         else {
           if (S.pick) out.push(`<p class="small muted">¿Qué quieres mover de aquí?</p><div class="opts">${myUnits(g, me()).filter(u => u.k === S.pick).map((u, i) => `<button class="opt" data-pk="${i}">${unitLabel(g, u)}</button>`).join("")}</div>`);
           else if (S.sel) out.push(`<p class="small">Moviendo: ${unitLabel(g, S.sel).replace(/<span class="dot"[^>]*>.*?<\/span>/, "")}. Toca una casilla amarilla.</p>`);
-          else out.push(`<p class="small muted">${g.moves === 1 ? "Te queda 1 movimiento" : `Te quedan ${g.moves} movimientos`} de una casilla, para tus supervivientes o para balsas vacías o que controles. Toca una pieza tuya (borde punteado) y luego una casilla amarilla.</p>`);
+          else out.push(`<p class="small muted">${g.moves === 1 ? "Te queda 1 movimiento" : `Te quedan ${g.moves} movimientos`} de una casilla, para tus supervivientes o para balsas vacías o que controles. Toca una pieza tuya (borde punteado) y luego una casilla amarilla. En rojo: hay una criatura y tu ficha no sobreviviría.</p>`);
           const ab = usableAbilities(g, me());
           if (ab.length) out.push(`<p class="small muted">Capacidades (no gastan movimientos):</p><div class="opts">${ab.map(c => `<button class="opt" data-tp="${c}"><span class="dot" style="--c:#fff">${TILES[c].e}</span><span><b>${TILES[c].n}</b><br><span class="small muted">${TILES[c].d}</span></span></button>`).join("")}</div>`);
           out.push(`<button class="btn wide" id="endMoves">${g.moves === 3 ? "No mover y retirar loseta" : "Terminar y retirar loseta"}</button>`);
