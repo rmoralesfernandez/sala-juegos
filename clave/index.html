@@ -24,11 +24,11 @@
 <script src="../shared/carga.js"></script>
 <script src="motor.js"></script>
 <style>
-/* Layout: una columna. Estado de la ronda arriba, código de prueba, verificadores (cada uno con su tarjeta de reglas), acciones y hoja de notas abajo */
+/* Layout: una columna. Estado de la ronda arriba, código de prueba, sensores (cada uno con su panel de reglas), acciones y hoja de notas abajo */
 :root{
   --bg:#0E1A1F; --bg2:#173039; --panel:#15262D; --panel2:#213A44; --line:#2D4A55;
   --ink:#EEF4F1; --muted:#9DB4B5; --brass:#E7B04A; --brass2:#9A6F1E; --ok:#5FD39A; --bad:#FF7B6B;
-  --sA:#4DA8F7; --sB:#F4C64A; --sC:#B87DFF;
+  --sA:#FF9A4D; --sB:#45D4F0; --sC:#FF6FB5;
   --display:"Chakra Petch",ui-monospace,monospace;
   --body:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;
   color-scheme:dark;
@@ -122,7 +122,7 @@ input.code{text-transform:uppercase;letter-spacing:.3em;font-family:var(--displa
 .locked{display:flex;align-items:center;justify-content:center;gap:12px}
 .locked .lk{font-size:12.5px;color:var(--muted);font-weight:700;max-width:12em}
 
-/* ---------- verificadores ---------- */
+/* ---------- sensores ---------- */
 .verifs{display:grid;gap:10px}
 .vc{background:var(--panel);border-radius:16px;box-shadow:0 0 0 1px var(--line);overflow:hidden}
 .vc-h{display:flex;align-items:center;gap:10px;padding:10px 10px 8px 12px}
@@ -203,7 +203,7 @@ input.code{text-transform:uppercase;letter-spacing:.3em;font-family:var(--displa
 #tour .bub .row .btn{flex:1 1 0}
 #tour .bub .btn.ghost{color:#20180A;box-shadow:inset 0 0 0 2px #D8C4A0}
 #tour .steps{font-size:12px;font-weight:800;color:#8A6A3A;letter-spacing:.08em}
-#tour .sh.b{color:#B88A0E}
+#tour .sh.a{color:#C25A10}#tour .sh.b{color:#0A8CA8}#tour .sh.c{color:#C2307A}
 .spot{position:relative;z-index:65;box-shadow:0 0 0 4px var(--brass),0 0 0 9999px rgba(0,0,0,.62)!important;border-radius:14px}
 #toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,12px);opacity:0;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:700;font-size:14px;transition:opacity .2s,transform .2s;pointer-events:none;max-width:calc(100% - 32px);z-index:80;text-align:center}
 #toast.on{opacity:1;transform:translate(-50%,0)}
@@ -232,13 +232,13 @@ function on(sel, ev, fn, root) { (root || $app).querySelectorAll(sel).forEach(el
 const buzz = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch {} };
 const AILVL = { 1: "Aprendiz", 2: "Ingeniera", 3: "Genio" };
 const LETTER = "ABCDEF";
-const SHN = ["triángulo", "cuadrado", "círculo"];
+const SHN = ["engranaje", "rayo", "estrella"];
 
 /* ================= dibujos ================= */
 const SHAPE = [
-  `<svg class="sh a" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5 22.5 21h-21z" fill="currentColor"/></svg>`,
-  `<svg class="sh b" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2.5" fill="currentColor"/></svg>`,
-  `<svg class="sh c" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="currentColor"/></svg>`
+  `<svg class="sh a" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M10.3 1.5h3.4l.6 2.7 1.8.8 2.3-1.5 2.4 2.4-1.5 2.3.8 1.8 2.7.6v3.4l-2.7.6-.8 1.8 1.5 2.3-2.4 2.4-2.3-1.5-1.8.8-.6 2.7h-3.4l-.6-2.7-1.8-.8-2.3 1.5-2.4-2.4 1.5-2.3-.8-1.8-2.7-.6v-3.4l2.7-.6.8-1.8-1.5-2.3 2.4-2.4 2.3 1.5 1.8-.8zM12 8.4a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 0 0 0-7.2z"/></svg>`,
+  `<svg class="sh b" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M14 1 3.5 13.6h6.6L8.6 23 20.5 9.4h-6.7z"/></svg>`,
+  `<svg class="sh c" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="m12 1.5 3.2 6.6 7.3.9-5.4 5 1.4 7.2L12 17.6l-6.5 3.6 1.4-7.2-5.4-5 7.3-.9z"/></svg>`
 ];
 const SHK = ["var(--sA)", "var(--sB)", "var(--sC)"];
 const rt = s => esc(s).replace(/\{A\}/g, SHAPE[0]).replace(/\{B\}/g, SHAPE[1]).replace(/\{C\}/g, SHAPE[2]);
@@ -324,7 +324,9 @@ function watch(code) {
   unwatch(); S.mode = "online"; S.code = code; ls.set("clave.last", { code, t: Date.now() });
   S.unsub = S.db.doc("games/" + code).onSnapshot(snap => {
     if (!snap.exists) { leave("Esa partida ya no existe."); return; }
-    const prev = S.g; S.g = snap.data(); onRemote(prev); render();
+    const d = snap.data();
+    if (d.cfg && d.cfg.pz && d.cfg.pz.v !== K.VER) { leave("Esa partida es de una versión anterior del juego. Cread una nueva."); return; }
+    const prev = S.g; S.g = d; onRemote(prev); render();
   }, () => leave("Se ha perdido la conexión con la partida."));
 }
 function unwatch() { if (S.unsub) try { S.unsub(); } catch {} S.unsub = null; S.g = null; closeSheet(); }
@@ -414,7 +416,7 @@ function startLocal() {
   S.mode = "local"; S.L = L; S.endShown = ""; S.seen = {}; S.lastActive = null; saveLocal(); render();
 }
 function saveLocal() { if (S.L) ls.set("clave.partida", S.L); }
-function resumeLocal() { const L = ls.get("clave.partida"); if (!L) return; S.mode = "local"; S.L = L; S.cover = L.kind === "turnos"; S.endShown = ""; S.seen = {}; S.lastActive = null; render(); }
+function resumeLocal() { const L = ls.get("clave.partida"); if (!L || !L.pz || L.pz.v !== K.VER) return; S.mode = "local"; S.L = L; S.cover = L.kind === "turnos"; S.endShown = ""; S.seen = {}; S.lastActive = null; render(); }
 function againLocal() {
   const L = S.L, seed = newSeed(), pz = K.generate(seed, L.pz.level);
   L.pz = pz; L.gn = (L.gn || 1) + 1; L.notes = {}; L.draft = {}; L.view = 0;
@@ -441,9 +443,9 @@ function testV(v) {
   const m = model(), P = clone(m.ps[m.me]), r = K.round(P), done = K.testsIn(P, r);
   if (!K.canPlay(m.pz, m.ps, m.me, m.solo)) return;
   const code = curCode(m, P);
-  if (!K.valid(code)) { toast("Primero elige una cifra para cada forma."); return; }
+  if (!K.valid(code)) { toast("Primero elige una cifra para cada símbolo."); return; }
   if (done.length >= 3) { toast("Ya has usado las 3 pruebas de esta ronda."); return; }
-  if (done.some(t => t.v === v)) { toast("Ese verificador ya lo has probado en esta ronda."); return; }
+  if (done.some(t => t.v === v)) { toast("Ese sensor ya lo has probado en esta ronda."); return; }
   const ok = K.check(m.pz, code, v);
   P.tests.push({ r, c: code, v, ok: ok ? 1 : 0 });
   S.flash = r + "-" + v; SFX.whirr(); setTimeout(() => ok ? SFX.yes() : SFX.no(), 0); buzz(ok ? 20 : [20, 60, 20]);
@@ -486,7 +488,7 @@ function useHint() {
   if (h.t === "solved") { toast("Con tus pruebas ya basta: solo queda un código posible. ¡A por él!", 4200); return; }
   if (h.t === "none") { toast(`Quedan ${h.sols} códigos posibles. Haz más pruebas.`); return; }
   P.hints = (P.hints || 0) + 1;
-  if (h.t === "rule") { notes["r" + h.v + "-" + h.r] = 1; S.hinted = "r" + h.v + "-" + h.r; toast(`Pista: el verificador ${LETTER[h.v]} no puede ser esa regla (tachada). Quedan ${h.sols} códigos posibles.`, 4600); }
+  if (h.t === "rule") { notes["r" + h.v + "-" + h.r] = 1; S.hinted = "r" + h.v + "-" + h.r; toast(`Pista: el sensor ${LETTER[h.v]} no puede ser esa regla (tachada). Quedan ${h.sols} códigos posibles.`, 4600); }
   else { notes["d" + h.s + "-" + h.n] = 1; S.hinted = "d" + h.s + "-" + h.n; toast(`Pista: el ${SHN[h.s]} no puede ser ${h.n} (tachado). Quedan ${h.sols} códigos posibles.`, 4600); }
   N.set(notes); commitP(m, P);
 }
@@ -540,9 +542,9 @@ function render() {
 
 function renderHome() {
   const saved = ls.get("clave.partida");
-  const savedOk = saved && saved.pz && !K.result(saved.pz, saved.kind === "ai" ? [saved.ps[0], K.aiState(saved.trace, K.isOut(saved.pz, saved.ps[0]) ? 99 : saved.ps[0].end)] : saved.ps, saved.kind === "juntos").over;
+  const savedOk = saved && saved.pz && saved.pz.v === K.VER && !K.result(saved.pz, saved.kind === "ai" ? [saved.ps[0], K.aiState(saved.trace, K.isOut(saved.pz, saved.ps[0]) ? 99 : saved.ps[0].end)] : saved.ps, saved.kind === "juntos").over;
   const lvSeg = `<div class="lbl">Dificultad<div class="seg" id="lvl">${[1, 2, 3].map(l => `<button data-l="${l}" aria-pressed="${S.level === l}">${K.LEVELS[l].name}</button>`).join("")}</div></div>
-    <p class="hint-l">${S.level === 1 ? "4 verificadores con reglas sencillas. Ideal para aprender." : S.level === 2 ? "5 verificadores; algunas tarjetas tienen reglas que se solapan." : "6 verificadores y tarjetas largas. Para cuando ya lo dominéis."}</p>`;
+    <p class="hint-l">${S.level === 1 ? "4 sensores con reglas sencillas. Ideal para aprender." : S.level === 2 ? "5 sensores; en algunos paneles las reglas se solapan." : "6 sensores y paneles largos. Para cuando ya lo dominéis."}</p>`;
   let body = "";
   if (S.homeTab === "online") {
     body = S.offline ? `<p class="muted">No hay conexión con el servidor. Puedes jugar en un solo móvil o contra la máquina.</p>` : `
@@ -562,7 +564,7 @@ function renderHome() {
   } else {
     body = `
       <div class="lbl">La máquina<div class="seg" id="ai">${[1, 2, 3].map(l => `<button data-l="${l}" aria-pressed="${S.aiLevel === l}">${AILVL[l]}</button>`).join("")}</div></div>
-      <p class="hint-l">${S.aiLevel === 1 ? "Va verificador a verificador, sin grandes trucos." : S.aiLevel === 2 ? "Elige bien sus pruebas y sabe que solo hay un código." : "Razona como un experto. Muy difícil de ganar."}</p>
+      <p class="hint-l">${S.aiLevel === 1 ? "Va sensor a sensor, sin grandes trucos." : S.aiLevel === 2 ? "Elige bien sus pruebas y sabe que solo hay un código." : "Razona como un experto. Muy difícil de ganar."}</p>
       ${lvSeg}
       <button class="btn gold wide" id="go">Empezar</button>
       <p class="hint-l">Os enfrentáis a la máquina con el mismo reto, ronda a ronda. Podéis jugar uno solo o los dos juntos.</p>`;
@@ -572,7 +574,7 @@ function renderHome() {
     <div class="hero">
       <div class="machine">${codeBig("")}</div>
       <div class="logo"><small>DESCIFRA EL CÓDIGO</small>Clave Mecánica</div>
-      <p class="muted">Un código de tres cifras, unas máquinas con reglas secretas y mucha lógica.</p>
+      <p class="muted">Un código de tres cifras, unos sensores con reglas secretas y mucha lógica.</p>
     </div>
     <div class="card">
       <label class="lbl">Tu nombre<input class="text" id="nm" maxlength="16" value="${esc(S.name)}" placeholder="Nombre" autocomplete="nickname"></label>
@@ -649,9 +651,9 @@ function coachText(m, P, can, res) {
   if (m.me === null) return "Estás viendo la partida.";
   if (!m.solo && P.g) return "Te la has jugado. Esperando a que se resuelva la ronda…";
   if (!can) return "Ronda terminada. Mientras esperas puedes repasar tus notas.";
-  if (!K.valid(code)) return P.tests.length ? "Monta otro código de prueba: elige una cifra para cada forma." : "Paso 1: monta un código de prueba eligiendo una cifra para cada forma.";
-  if (!done.length) return "Paso 2: pásalo por un verificador. Te dirá ✓ si cumple su regla secreta o ✗ si no.";
-  if (done.length < 3) return `Tacha en las tarjetas las reglas que ya no pueden ser. Te ${3 - done.length === 1 ? "queda 1 prueba" : `quedan ${3 - done.length} pruebas`} en esta ronda.`;
+  if (!K.valid(code)) return P.tests.length ? "Monta otro código de prueba: elige una cifra para cada símbolo." : "Paso 1: monta un código de prueba eligiendo una cifra para cada símbolo.";
+  if (!done.length) return "Paso 2: pásalo por un sensor. Te dirá ✓ si cumple su regla secreta o ✗ si no.";
+  if (done.length < 3) return `Tacha en los paneles las reglas que ya no pueden ser. Te ${3 - done.length === 1 ? "queda 1 prueba" : `quedan ${3 - done.length} pruebas`} en esta ronda.`;
   return "Ya no quedan pruebas. Termina la ronda o, si lo tienes claro, juégatela.";
 }
 
@@ -677,7 +679,7 @@ function renderGame(m) {
     const hist = P.tests.filter(x => x.v === v && x.r !== r);
     return `<div class="vc" id="vc${v}">
       <div class="vc-h"><span class="vl">${LETTER[v]}</span><span class="tt">${rt(F.title)}</span>${action}</div>
-      <div class="rules">${F.rules.map((txt, i) => { const k = "r" + v + "-" + i, n = notes[k]; return `<button class="rl${n === 1 ? " x" : n === 2 ? " m" : ""}${S.hinted === k ? " hinted" : ""}" data-k="${k}" aria-label="Regla: ${esc(txt.replace(/\{A\}/g, "triángulo").replace(/\{B\}/g, "cuadrado").replace(/\{C\}/g, "círculo"))}">${rt(txt)}</button>`; }).join("")}</div>
+      <div class="rules">${F.rules.map((txt, i) => { const k = "r" + v + "-" + i, n = notes[k]; return `<button class="rl${n === 1 ? " x" : n === 2 ? " m" : ""}${S.hinted === k ? " hinted" : ""}" data-k="${k}" aria-label="Regla: ${esc(txt.replace(/\{A\}/g, "engranaje").replace(/\{B\}/g, "rayo").replace(/\{C\}/g, "estrella"))}">${rt(txt)}</button>`; }).join("")}</div>
       ${hist.length ? `<div class="vhist">${hist.map(x => `<span class="e">${codeMini(x.c)}<i class="${x.ok ? "ok" : "no"}">${x.ok ? "✓" : "✗"}</i></span>`).join("")}</div>` : ""}
     </div>`;
   }).join("");
@@ -774,7 +776,7 @@ function showEnd(m) {
     <p class="muted" style="text-align:center">El código era</p>
     ${codeBig(pz.sol)}
     ${table}
-    <div class="lbl">Lo que comprobaba cada verificador</div>
+    <div class="lbl">Lo que comprobaba cada sensor</div>
     <div class="reveal">${pz.fams.map((fid, v) => `<div><span class="vl">${LETTER[v]}</span><span>${rt(K.FAMS[fid - 1].rules[pz.rules[v]])}</span></div>`).join("")}</div>
     ${m.kind === "online" ? `<div class="lbl">Dificultad<div class="seg" id="elvl">${[1, 2, 3].map(l => `<button data-l="${l}" aria-pressed="${(S.g.level || 1) === l}">${K.LEVELS[l].name}</button>`).join("")}</div></div>` : ""}
     <div class="row"><button class="btn ghost" id="cx">Ver tablero</button><button class="btn gold" id="again">Otra partida</button></div>
@@ -789,21 +791,21 @@ function showRules() {
   openSheet(`<div class="rulesheet">
     <h2>Cómo se juega</h2>
     <section><h3>El objetivo</h3>
-      <p>Hay un <b>código secreto de tres cifras</b>, una por forma: ${SHAPE[0]} triángulo, ${SHAPE[1]} cuadrado y ${SHAPE[2]} círculo. Cada cifra va del 1 al 5 y se pueden repetir. Tenéis que descubrirlo.</p></section>
-    <section><h3>Los verificadores</h3>
-      <p>Hay entre 4 y 6 máquinas (A, B, C…). Cada una tiene una tarjeta con varias reglas posibles, pero <b>solo comprueba una de ellas</b>, y no sabes cuál. El código secreto cumple la regla de todas las máquinas.</p>
-      <div class="ex"><b>Ejemplo</b><span>La tarjeta de A dice: «${rt("{A} comparado con 3")}»: ${rt("{A} < 3")}, ${rt("{A} = 3")} o ${rt("{A} > 3")}.</span><span>Pruebas ${codeMini("245")} y A dice <b style="color:var(--ok)">✓</b>. Como el ${SHAPE[0]} de tu prueba era 2, la regla de A tiene que ser ${rt("{A} < 3")}: las otras dos se tachan. Ahora sabes que el ${SHAPE[0]} del código secreto es 1 o 2.</span></div></section>
+      <p>Hay un <b>código secreto de tres cifras</b>, una por símbolo: ${SHAPE[0]} engranaje, ${SHAPE[1]} rayo y ${SHAPE[2]} estrella. Cada cifra va del 1 al 5 y se pueden repetir. Tenéis que descubrirlo.</p></section>
+    <section><h3>Los sensores</h3>
+      <p>Hay entre 4 y 6 sensores (A, B, C…). Cada uno tiene un panel con varias reglas posibles, pero <b>solo comprueba una de ellas</b>, y no sabes cuál. El código secreto cumple la regla de todos los sensores.</p>
+      <div class="ex"><b>Ejemplo</b><span>El panel de A es «${rt("Zona del {A}")}»: ${rt("{A} es 1 o 2")}, ${rt("{A} es 3 o 4")} o ${rt("{A} es 5")}.</span><span>Pruebas ${codeMini("245")} y A dice <b style="color:var(--ok)">✓</b>. Como el ${SHAPE[0]} de tu prueba era 2, la regla de A tiene que ser ${rt("{A} es 1 o 2")}: las otras dos se tachan. Ahora sabes que el ${SHAPE[0]} del código secreto es 1 o 2.</span></div></section>
     <section><h3>Cada ronda</h3>
       <ol>
-        <li><b>Monta un código de prueba</b> eligiendo una cifra por forma. Queda fijado toda la ronda.</li>
-        <li><b>Pásalo por hasta 3 verificadores.</b> Cada uno responde ✓ si tu código cumple su regla secreta o ✗ si no.</li>
-        <li><b>Apunta lo que descubres:</b> toca las reglas de cada tarjeta para tacharlas o marcarlas, y usa la hoja de cifras de abajo.</li>
+        <li><b>Monta un código de prueba</b> eligiendo una cifra por símbolo. Queda fijado toda la ronda.</li>
+        <li><b>Pásalo por hasta 3 sensores.</b> Cada uno responde ✓ si tu código cumple su regla secreta o ✗ si no.</li>
+        <li><b>Apunta lo que descubres:</b> toca las reglas de cada panel para tacharlas o marcarlas, y usa la hoja de cifras de abajo.</li>
         <li><b>Termina la ronda</b>, o si lo tienes claro, pulsa <b>Me la juego</b> y escribe el código.</li>
       </ol></section>
     <section><h3>El truco de los expertos</h3>
       <ul>
-        <li>Las reglas de todas las máquinas juntas dejan <b>un único código posible</b>.</li>
-        <li><b>Ninguna máquina sobra:</b> si una regla no aportase nada, no estaría. Esto ayuda muchísimo a descartar reglas.</li>
+        <li>Las reglas de todos los sensores juntos dejan <b>un único código posible</b>.</li>
+        <li><b>Ningún sensor sobra:</b> si una regla no aportase nada, no estaría. Esto ayuda muchísimo a descartar reglas.</li>
         <li>No pruebes solo el código que crees que es: a veces conviene probar uno que te ayude a separar dos reglas dudosas.</li>
       </ul></section>
     <section><h3>Quién gana</h3>
@@ -821,11 +823,11 @@ function showRules() {
 
 /* ================= visita guiada ================= */
 const TOUR = [
-  { sel: "#codepanel", h: "1 · Tu código de prueba", t: "Cada ronda montas un código eligiendo una cifra del 1 al 5 para el triángulo, el cuadrado y el círculo." },
-  { sel: "#vc0", h: "2 · Los verificadores", t: "Cada máquina comprueba UNA de las reglas de su tarjeta. Pulsa Probar y te dirá ✓ si tu código la cumple o ✗ si no. Hasta 3 pruebas por ronda." },
+  { sel: "#codepanel", h: "1 · Tu código de prueba", t: "Cada ronda montas un código eligiendo una cifra del 1 al 5 para el engranaje, el rayo y la estrella." },
+  { sel: "#vc0", h: "2 · Los sensores", t: "Cada sensor comprueba UNA de las reglas de su panel. Pulsa Probar y te dirá ✓ si tu código la cumple o ✗ si no. Hasta 3 pruebas por ronda." },
   { sel: "#vc0 .rules", h: "3 · Tacha reglas", t: "Según lo que responda, toca las reglas que ya no pueden ser para tacharlas. Un segundo toque la marca como buena; el tercero la borra." },
   { sel: "#acts", h: "4 · Termina o juégatela", t: "Cuando acabes tus pruebas, termina la ronda. Si crees que ya sabes el código, pulsa Me la juego." },
-  { sel: "#notes", h: "5 · Hoja de notas", t: "Tacha aquí las cifras imposibles para cada forma. Abajo verás todas tus pruebas. Si te atascas, el botón Pista te echa una mano." }
+  { sel: "#notes", h: "5 · Hoja de notas", t: "Tacha aquí las cifras imposibles para cada símbolo. Abajo verás todas tus pruebas. Si te atascas, el botón Pista te echa una mano." }
 ];
 let tourI = -1;
 function maybeTour() { if (tourI < 0 && !ls.get("clave.tuto") && document.getElementById("verifs") && !$sheet.classList.contains("on")) startTour(); }
