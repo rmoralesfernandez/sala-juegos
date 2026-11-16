@@ -1,0 +1,43 @@
+# Compila la app Android de Clave Mecánica (tienda/clave) y deja un APK de prueba para instalar en el móvil.
+# No toca la web de la Sala. Se lanza sola al cambiar tienda/clave o a mano desde la pestaña Actions.
+name: Clave Mecánica · APK de prueba
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "tienda/clave/**"
+      - "clave/**"
+      - ".github/workflows/clave-android.yml"
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tienda/clave
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Preparar la web de la app
+        run: |
+          python3 tools/build-www.py
+          npm ci
+          npx cap sync android
+      - name: Compilar
+        working-directory: tienda/clave/android
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleDebug bundleRelease
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clave-mecanica-apk-prueba
+          path: tienda/clave/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30

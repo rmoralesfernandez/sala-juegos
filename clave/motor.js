@@ -38,7 +38,7 @@ fam("Zona del {A}", [["{A} es 1 o 2", d => d[0] <= 2], ["{A} es 3 o 4", d => d[0
 fam("Zona del {B}", [["{B} es 1", d => d[1] === 1], ["{B} es 2 o 3", d => d[1] === 2 || d[1] === 3], ["{B} es 4 o 5", d => d[1] >= 4]], 1);
 fam("Zona del {C}", [["{C} es 1, 2 o 3", d => d[2] <= 3], ["{C} es 4", d => d[2] === 4], ["{C} es 5", d => d[2] === 5]], 1);
 [0, 1, 2].forEach(i => fam(`¿El ${SH[i]} es primo?`, [[`${SH[i]} es primo (2, 3 o 5)`, d => PRIME(d[i])], [`${SH[i]} no es primo (1 o 4)`, d => !PRIME(d[i])]], 1));
-PAIRS.forEach(([i, j]) => fam(`Distancia entre ${SH[i]} y ${SH[j]}`, [[`${SH[i]} y ${SH[j]} iguales`, d => d[i] === d[j]], [`Se llevan 1`, d => Math.abs(d[i] - d[j]) === 1], [`Se llevan 2 o más`, d => Math.abs(d[i] - d[j]) >= 2]], 1));
+PAIRS.forEach(([i, j]) => fam(`Distancia entre ${SH[i]} y ${SH[j]}`, [[`${SH[i]} y ${SH[j]} iguales`, d => d[i] === d[j]], [`${SH[i]} y ${SH[j]} se llevan 1`, d => Math.abs(d[i] - d[j]) === 1], [`${SH[i]} y ${SH[j]} se llevan 2 o más`, d => Math.abs(d[i] - d[j]) >= 2]], 1));
 fam("El {B} frente a sus vecinos", [["{B} es pico: mayor que {A} y que {C}", d => d[1] > d[0] && d[1] > d[2]], ["{B} es valle: menor que {A} y que {C}", d => d[1] < d[0] && d[1] < d[2]], ["Ni pico ni valle", d => !(d[1] > d[0] && d[1] > d[2]) && !(d[1] < d[0] && d[1] < d[2])]], 1);
 fam("Peso total", [["La suma va de 3 a 6", d => sum(d) <= 6], ["La suma va de 7 a 9", d => sum(d) >= 7 && sum(d) <= 9], ["La suma es 10 o más", d => sum(d) >= 10]], 1);
 fam("La suma dividida entre 3", [["Resto 0 (múltiplo de 3)", d => sum(d) % 3 === 0], ["Resto 1", d => sum(d) % 3 === 1], ["Resto 2", d => sum(d) % 3 === 2]], 1);

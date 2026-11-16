@@ -1,0 +1,20 @@
+{
+  "appId": "com.salajuegos.clavemecanica",
+  "appName": "Clave Mecánica",
+  "webDir": "www",
+  "backgroundColor": "#0E1A1F",
+  "android": {
+    "backgroundColor": "#0E1A1F"
+  },
+  "ios": {
+    "backgroundColor": "#0E1A1F",
+    "contentInset": "never"
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "css",
+      "style": "DARK",
+      "initialViewportFitValueHint": "cover"
+    }
+  }
+}
