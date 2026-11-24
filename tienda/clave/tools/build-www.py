@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
-"""Genera tienda/clave/www/ (la app de tienda, sin conexión) a partir del juego de la Sala (clave/).
+"""Genera tienda/clave/www/ (la app de tienda, sin conexión) a partir de su copia propia del juego (tienda/clave/fuente/).
+La Sala (clave/) va por separado: cambiarla no toca la app de tienda.
 
 Uso, desde la raíz del repositorio:  python3 tienda/clave/tools/build-www.py
 Después: cd tienda/clave && npx cap sync   (copia www/ dentro del proyecto Android/iOS)
 
 La app de tienda no carga Firebase, ni claude-shim, ni nada de internet: solo juego en un móvil,
-contra la máquina y reto del día. Si el script avisa de un trozo que no encuentra, es que clave/index.html
+contra la máquina y reto del día. Si el script avisa de un trozo que no encuentra, es que fuente/index.html
 ha cambiado y hay que ajustar aquí ese reemplazo.
 """
 import pathlib, re, shutil, sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
-SRC = ROOT / "clave"
+SRC = ROOT / "tienda" / "clave" / "fuente"
 OUT = ROOT / "tienda" / "clave" / "www"
 VERSION = "1.0.0"
 

@@ -1,5 +1,5 @@
-/* Clave Mecánica: motor de reglas.
-   Código secreto de 3 cifras (engranaje, rayo y estrella) del 1 al 5. Cada sensor comprueba una regla oculta de su panel.
+/* Clave Mecánica: motor de reglas (estilo Turing Machine).
+   Código secreto de 3 cifras (▲ ■ ●) del 1 al 5. Cada verificador comprueba una regla oculta de su tarjeta.
    Las reglas elegidas dejan un único código y ninguna sobra. Sin dependencias: sirve en navegador y en node. */
 (function (root) {
 "use strict";
@@ -20,52 +20,69 @@ const str = d => d.join("");
 const parse = s => String(s).split("").map(Number);
 const valid = s => /^[1-5]{3}$/.test(String(s));
 
-/* ---------- paneles de reglas de los sensores ---------- */
+/* ---------- tarjetas de criterio ---------- */
 const SH = ["{A}", "{B}", "{C}"];
 const cnt = (d, n) => d.filter(x => x === n).length;
 const sum = d => d[0] + d[1] + d[2];
+const cmp3 = (x, y) => x < y ? 0 : x === y ? 1 : 2;
+const cmpRules = (lab, f, n) => [[`${lab} < ${n}`, d => f(d) < n], [`${lab} = ${n}`, d => f(d) === n], [`${lab} > ${n}`, d => f(d) > n]];
+const parity = (lab, f) => [[`${lab} es par`, d => f(d) % 2 === 0], [`${lab} es impar`, d => f(d) % 2 === 1]];
+const pairCmp = (i, j) => [[`${SH[i]} < ${SH[j]}`, d => d[i] < d[j]], [`${SH[i]} = ${SH[j]}`, d => d[i] === d[j]], [`${SH[i]} > ${SH[j]}`, d => d[i] > d[j]]];
+const count = (n) => [[`Ningún ${n}`, d => cnt(d, n) === 0], [`Un ${n}`, d => cnt(d, n) === 1], [`Dos ${n}`, d => cnt(d, n) === 2], [`Tres ${n}`, d => cnt(d, n) === 3]];
 const each = (fmt, f) => [0, 1, 2].map(i => [fmt(SH[i]), d => f(d[i], d, i)]);
+const run = (d, dir) => (d[1] - d[0] === dir ? 1 : 0) + (d[2] - d[1] === dir ? 1 : 0);
 
 const FAMS = [];
 const fam = (title, rules, lvl) => FAMS.push({ id: FAMS.length + 1, title, rules: rules.map(r => r[0]), fns: rules.map(r => r[1]), lvl });
-const PRIME = x => x === 2 || x === 3 || x === 5;
-const PAIRS = [[0, 1], [1, 2], [0, 2]];
-const mx = d => Math.max(...d), mn = d => Math.min(...d);
-const has = (d, n) => d.includes(n);
-// Banco de sensores propio de Clave Mecánica.
-// lvl 1: opciones excluyentes. 2: opciones que se solapan («¿cuál…?»). 3: paneles largos.
-fam("Zona del {A}", [["{A} es 1 o 2", d => d[0] <= 2], ["{A} es 3 o 4", d => d[0] === 3 || d[0] === 4], ["{A} es 5", d => d[0] === 5]], 1);
-fam("Zona del {B}", [["{B} es 1", d => d[1] === 1], ["{B} es 2 o 3", d => d[1] === 2 || d[1] === 3], ["{B} es 4 o 5", d => d[1] >= 4]], 1);
-fam("Zona del {C}", [["{C} es 1, 2 o 3", d => d[2] <= 3], ["{C} es 4", d => d[2] === 4], ["{C} es 5", d => d[2] === 5]], 1);
-[0, 1, 2].forEach(i => fam(`¿El ${SH[i]} es primo?`, [[`${SH[i]} es primo (2, 3 o 5)`, d => PRIME(d[i])], [`${SH[i]} no es primo (1 o 4)`, d => !PRIME(d[i])]], 1));
-PAIRS.forEach(([i, j]) => fam(`Distancia entre ${SH[i]} y ${SH[j]}`, [[`${SH[i]} y ${SH[j]} iguales`, d => d[i] === d[j]], [`${SH[i]} y ${SH[j]} se llevan 1`, d => Math.abs(d[i] - d[j]) === 1], [`${SH[i]} y ${SH[j]} se llevan 2 o más`, d => Math.abs(d[i] - d[j]) >= 2]], 1));
-fam("El {B} frente a sus vecinos", [["{B} es pico: mayor que {A} y que {C}", d => d[1] > d[0] && d[1] > d[2]], ["{B} es valle: menor que {A} y que {C}", d => d[1] < d[0] && d[1] < d[2]], ["Ni pico ni valle", d => !(d[1] > d[0] && d[1] > d[2]) && !(d[1] < d[0] && d[1] < d[2])]], 1);
-fam("Peso total", [["La suma va de 3 a 6", d => sum(d) <= 6], ["La suma va de 7 a 9", d => sum(d) >= 7 && sum(d) <= 9], ["La suma es 10 o más", d => sum(d) >= 10]], 1);
-fam("La suma dividida entre 3", [["Resto 0 (múltiplo de 3)", d => sum(d) % 3 === 0], ["Resto 1", d => sum(d) % 3 === 1], ["Resto 2", d => sum(d) % 3 === 2]], 1);
-fam("La cifra más alta del código", [["Ninguna pasa de 3", d => mx(d) <= 3], ["La más alta es un 4", d => mx(d) === 4], ["Hay algún 5", d => mx(d) === 5]], 1);
-fam("La cifra más baja del código", [["Hay algún 1", d => mn(d) === 1], ["La más baja es un 2", d => mn(d) === 2], ["Todas son 3 o más", d => mn(d) >= 3]], 1);
-fam("Separación: la más alta menos la más baja", [["Separación 0 o 1", d => mx(d) - mn(d) <= 1], ["Separación 2", d => mx(d) - mn(d) === 2], ["Separación 3 o 4", d => mx(d) - mn(d) >= 3]], 1);
-fam("Cuántos 2 lleva", [["Ningún 2", d => cnt(d, 2) === 0], ["Un solo 2", d => cnt(d, 2) === 1], ["Dos o tres 2", d => cnt(d, 2) >= 2]], 1);
-fam("Cuántos 5 lleva", [["Ningún 5", d => cnt(d, 5) === 0], ["Un solo 5", d => cnt(d, 5) === 1], ["Dos o tres 5", d => cnt(d, 5) >= 2]], 1);
-fam("Cuántas cifras primas", [["Como mucho una prima", d => d.filter(PRIME).length <= 1], ["Justo dos primas", d => d.filter(PRIME).length === 2], ["Las tres primas", d => d.filter(PRIME).length === 3]], 1);
-fam("Los extremos contra el centro", [["{A} + {C} es menor que {B}", d => d[0] + d[2] < d[1]], ["{A} + {C} es igual que {B}", d => d[0] + d[2] === d[1]], ["{A} + {C} es mayor que {B}", d => d[0] + d[2] > d[1]]], 1);
-fam("Multiplicando las tres", [["El producto es par", d => (d[0] * d[1] * d[2]) % 2 === 0], ["El producto es impar", d => (d[0] * d[1] * d[2]) % 2 === 1]], 1);
-fam("{A} + {B}", [["{A} + {B} es 5 o menos", d => d[0] + d[1] <= 5], ["{A} + {B} es 6 o 7", d => d[0] + d[1] === 6 || d[0] + d[1] === 7], ["{A} + {B} es 8 o más", d => d[0] + d[1] >= 8]], 1);
-fam("{B} + {C}, par o impar", [["{B} + {C} es par", d => (d[1] + d[2]) % 2 === 0], ["{B} + {C} es impar", d => (d[1] + d[2]) % 2 === 1]], 1);
-fam("¿Dónde hay un 5?", each(s => `${s} es 5`, x => x === 5), 2);
-fam("¿Dónde hay un 2?", each(s => `${s} es 2`, x => x === 2), 2);
-fam("¿Qué cifra es prima?", each(s => `${s} es primo`, x => PRIME(x)), 2);
-fam("¿Qué cifra es alta?", each(s => `${s} es 4 o 5`, x => x >= 4), 2);
-fam("¿Qué cifra está en un extremo?", each(s => `${s} es 1 o 5`, x => x === 1 || x === 5), 2);
-fam("¿Qué pareja suma 7?", PAIRS.map(([i, j]) => [`${SH[i]} + ${SH[j]} = 7`, d => d[i] + d[j] === 7]), 2);
-fam("¿Qué pareja suma 5?", PAIRS.map(([i, j]) => [`${SH[i]} + ${SH[j]} = 5`, d => d[i] + d[j] === 5]), 2);
-fam("¿Qué pareja es gemela?", PAIRS.map(([i, j]) => [`${SH[i]} = ${SH[j]}`, d => d[i] === d[j]]), 2);
-fam("¿Qué pareja va seguida?", PAIRS.map(([i, j]) => [`${SH[i]} y ${SH[j]} se llevan 1`, d => Math.abs(d[i] - d[j]) === 1]), 2);
-fam("Rasgos de la suma", [["La suma es menor que 8", d => sum(d) < 8], ["La suma es par", d => sum(d) % 2 === 0], ["La suma es mayor que 10", d => sum(d) > 10]], 2);
-fam("Rasgos del código", [["Lleva algún 1", d => has(d, 1)], ["Lleva algún 3", d => has(d, 3)], ["Lleva algún 4", d => has(d, 4)]], 2);
-fam("Zona de una cifra", [0, 1, 2].flatMap(i => [[`${SH[i]} es 1 o 2`, d => d[i] <= 2], [`${SH[i]} es 3 o 4`, d => d[i] === 3 || d[i] === 4], [`${SH[i]} es 5`, d => d[i] === 5]]), 3);
-fam("Distancia en una pareja", PAIRS.flatMap(([i, j]) => [[`${SH[i]} = ${SH[j]}`, d => d[i] === d[j]], [`${SH[i]} y ${SH[j]} se llevan 1`, d => Math.abs(d[i] - d[j]) === 1], [`${SH[i]} y ${SH[j]} se llevan 2+`, d => Math.abs(d[i] - d[j]) >= 2]]), 3);
-fam("Una cifra, prima o no", [0, 1, 2].flatMap(i => [[`${SH[i]} es primo`, d => PRIME(d[i])], [`${SH[i]} no es primo`, d => !PRIME(d[i])]]), 3);
+// lvl 1: tarjetas sencillas (opciones excluyentes). 2: opciones que se solapan. 3: tarjetas largas.
+fam("{A} comparado con 1", [["{A} = 1", d => d[0] === 1], ["{A} > 1", d => d[0] > 1]], 1);
+fam("{A} comparado con 3", cmpRules("{A}", d => d[0], 3), 1);
+fam("{B} comparado con 3", cmpRules("{B}", d => d[1], 3), 1);
+fam("{B} comparado con 4", cmpRules("{B}", d => d[1], 4), 1);
+fam("{C} comparado con 3", cmpRules("{C}", d => d[2], 3), 1);
+fam("{C} comparado con 4", cmpRules("{C}", d => d[2], 4), 1);
+fam("{A} par o impar", parity("{A}", d => d[0]), 1);
+fam("{B} par o impar", parity("{B}", d => d[1]), 1);
+fam("{C} par o impar", parity("{C}", d => d[2]), 1);
+fam("Cuántos 1 hay", count(1), 1);
+fam("Cuántos 3 hay", count(3), 1);
+fam("Cuántos 4 hay", count(4), 1);
+fam("{A} comparado con {B}", pairCmp(0, 1), 1);
+fam("{A} comparado con {C}", pairCmp(0, 2), 1);
+fam("{B} comparado con {C}", pairCmp(1, 2), 1);
+fam("Cifras pares contra impares", [["Hay más pares que impares", d => d.filter(x => x % 2 === 0).length >= 2], ["Hay más impares que pares", d => d.filter(x => x % 2 === 1).length >= 2]], 1);
+fam("Cuántas cifras pares hay", [0, 1, 2, 3].map(n => [n === 0 ? "Ninguna par" : n === 1 ? "Una par" : n === 2 ? "Dos pares" : "Tres pares", d => d.filter(x => x % 2 === 0).length === n]), 1);
+fam("La suma de las tres", parity("La suma", sum), 1);
+fam("{A} + {B} comparado con 6", cmpRules("{A} + {B}", d => d[0] + d[1], 6), 1);
+fam("La suma comparada con 6", cmpRules("La suma", sum, 6), 1);
+fam("Repeticiones", [["Una cifra sale 3 veces", d => d[0] === d[1] && d[1] === d[2]], ["Una cifra sale 2 veces", d => new Set(d).size === 2], ["Ninguna se repite", d => new Set(d).size === 3]], 1);
+fam("¿Hay pareja?", [["Hay pareja (dos iguales, no tres)", d => new Set(d).size === 2], ["No hay pareja", d => new Set(d).size !== 2]], 1);
+fam("Orden de las cifras", [["Crecientes: {A} < {B} < {C}", d => d[0] < d[1] && d[1] < d[2]], ["Decrecientes: {A} > {B} > {C}", d => d[0] > d[1] && d[1] > d[2]], ["Ni crecientes ni decrecientes", d => !(d[0] < d[1] && d[1] < d[2]) && !(d[0] > d[1] && d[1] > d[2])]], 1);
+fam("Escalera hacia arriba (como 3 4 5)", [["3 cifras seguidas subiendo", d => run(d, 1) === 2], ["2 cifras seguidas subiendo", d => run(d, 1) === 1], ["Ninguna seguida subiendo", d => run(d, 1) === 0]], 1);
+fam("Escalera en cualquier sentido", [["3 seguidas (subiendo o bajando)", d => run(d, 1) === 2 || run(d, -1) === 2], ["2 seguidas, no 3", d => run(d, 1) < 2 && run(d, -1) < 2 && (Math.abs(d[1] - d[0]) === 1 || Math.abs(d[2] - d[1]) === 1)], ["Ninguna seguida", d => Math.abs(d[1] - d[0]) !== 1 && Math.abs(d[2] - d[1]) !== 1]], 1);
+fam("La suma, ¿múltiplo de…?", [["Múltiplo de 3", d => sum(d) % 3 === 0], ["Múltiplo de 4", d => sum(d) % 4 === 0], ["Múltiplo de 5", d => sum(d) % 5 === 0]], 2);
+fam("La cifra más pequeña", each(s => `${s} es la más pequeña`, (x, d, i) => d.every((y, j) => j === i || x < y)), 2);
+fam("La cifra más grande", each(s => `${s} es la más grande`, (x, d, i) => d.every((y, j) => j === i || x > y)), 2);
+fam("Pequeña o empatada", each(s => `${s} ≤ las otras dos`, (x, d) => x === Math.min(...d)), 2);
+fam("Grande o empatada", each(s => `${s} ≥ las otras dos`, (x, d) => x === Math.max(...d)), 2);
+fam("Alguna cifra menor que 3", each(s => `${s} < 3`, x => x < 3), 2);
+fam("Alguna cifra menor que 4", each(s => `${s} < 4`, x => x < 4), 2);
+fam("Alguna cifra igual a 1", each(s => `${s} = 1`, x => x === 1), 2);
+fam("Alguna cifra igual a 3", each(s => `${s} = 3`, x => x === 3), 2);
+fam("Alguna cifra igual a 4", each(s => `${s} = 4`, x => x === 4), 2);
+fam("Alguna cifra mayor que 1", each(s => `${s} > 1`, x => x > 1), 2);
+fam("Alguna cifra mayor que 3", each(s => `${s} > 3`, x => x > 3), 2);
+fam("Dos cifras que suman 4", [[0, 1], [0, 2], [1, 2]].map(([i, j]) => [`${SH[i]} + ${SH[j]} = 4`, d => d[i] + d[j] === 4]), 2);
+fam("Dos cifras que suman 6", [[0, 1], [0, 2], [1, 2]].map(([i, j]) => [`${SH[i]} + ${SH[j]} = 6`, d => d[i] + d[j] === 6]), 2);
+fam("Una cifra, par o impar", [0, 1, 2].flatMap(i => parity(SH[i], d => d[i])), 2);
+fam("{A} comparado con las otras", [...pairCmp(0, 1), ...pairCmp(0, 2)], 2);
+fam("{B} comparado con las otras", [...pairCmp(1, 0), ...pairCmp(1, 2)], 2);
+fam("Cuántos 1 o cuántos 3", [...count(1).slice(0, 3), ...count(3).slice(0, 3)], 2);
+fam("Cuántos 3 o cuántos 4", [...count(3).slice(0, 3), ...count(4).slice(0, 3)], 2);
+fam("Cuántos 1 o cuántos 4", [...count(1).slice(0, 3), ...count(4).slice(0, 3)], 2);
+fam("Una cifra comparada con 3", [0, 1, 2].flatMap(i => cmpRules(SH[i], d => d[i], 3)), 3);
+fam("Una cifra comparada con 4", [0, 1, 2].flatMap(i => cmpRules(SH[i], d => d[i], 4)), 3);
+fam("Dos cifras comparadas", [...pairCmp(0, 1), ...pairCmp(0, 2), ...pairCmp(1, 2)], 3);
 
 /* máscaras de 125 bits (4 enteros) */
 const MASK = FAMS.map(f => f.fns.map(fn => { const m = [0, 0, 0, 0]; CODES.forEach((d, i) => { if (fn(d)) m[i >> 5] |= 1 << (i & 31); }); return m; }));
@@ -94,7 +111,6 @@ const comboCache = new Map();
 function combosOf(pz) { const k = pz.fams.join(","); if (!comboCache.has(k)) comboCache.set(k, validCombos(pz.fams)); return comboCache.get(k); }
 
 /* ---------- generador de retos ---------- */
-const VER = 2; // banco de sensores 2 (los retos de la versión 1 ya no se pueden reconstruir)
 const LEVELS = { 1: { nv: 4, lvl: 1, name: "Fácil" }, 2: { nv: 5, lvl: 2, name: "Normal" }, 3: { nv: 6, lvl: 3, name: "Difícil" } };
 function generate(seed, level) {
   const L = LEVELS[level] || LEVELS[2], r = rng(seed), pool = FAMS.filter(f => f.lvl <= L.lvl).map(f => f.id);
@@ -110,7 +126,7 @@ function generate(seed, level) {
     if (new Set(all.map(c => c.sol)).size < (L.lvl === 1 ? 4 : 6)) continue;
     comboCache.set(fams.join(","), all);
     const pick = all[Math.floor(r() * all.length)];
-    return { v: VER, seed, level: L.lvl, fams, rules: pick.rules, sol: str(CODES[pick.sol]) };
+    return { seed, level: L.lvl, fams, rules: pick.rules, sol: str(CODES[pick.sol]) };
   }
   return generate(mix(seed, 99), level);
 }
@@ -233,6 +249,6 @@ function aiState(trace, humanEnd) {
   return { end, tests: trace.tests.filter(t => t.r <= end), g: end >= trace.guessRound ? { r: trace.guessRound, c: trace.code } : null, hints: 0, miss: 0 };
 }
 
-const api = { VER, FAMS, LEVELS, CODES, rng, mix, str, parse, valid, generate, combosOf, check, consistent, hint, newPlayer, round, testsIn, isOut, isRight, result, canPlay, revealed, aiPlay, aiState };
+const api = { FAMS, LEVELS, CODES, rng, mix, str, parse, valid, generate, combosOf, check, consistent, hint, newPlayer, round, testsIn, isOut, isRight, result, canPlay, revealed, aiPlay, aiState };
 if (typeof module !== "undefined" && module.exports) module.exports = api; else root.Clave = api;
 })(typeof window !== "undefined" ? window : globalThis);

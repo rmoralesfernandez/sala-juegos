@@ -76,7 +76,7 @@ Google exige a las cuentas personales nuevas una **prueba cerrada con al menos 1
 5. Pasados los 14 días, en el **Panel** aparece **Solicitar acceso a producción**. Responde el cuestionario (qué probaron, qué cambiaste) y, cuando te lo aprueben, crea una versión en **Producción** con el mismo .aab (o uno nuevo).
 
 ## 8. Publicar actualizaciones
-1. Avísame del cambio y lo hago en el juego (`clave/`) y en la app.
+1. Avísame del cambio y lo hago en la app (`tienda/clave/fuente/`, su copia propia del juego).
 2. En `tienda/clave/android/app/build.gradle` sube `versionCode` (2, 3, 4…) y `versionName` ("1.0.1"…). Si quieres, lo hago yo.
 3. Repite los pasos 3 y 4 con **la misma clave** `.jks` (elige «Choose existing…» en vez de crear una).
 4. Play Console → la pista que toque → **Crear versión** → sube el nuevo .aab.
